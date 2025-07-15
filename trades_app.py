@@ -111,4 +111,3 @@ if os.path.exists(ARCHIVO):
     st.write("### Histórico de Trades")
     df_hist = pd.read_csv(ARCHIVO)
     st.dataframe(df_hist)
-Primera versión de la app Streamlit para registrar trades
