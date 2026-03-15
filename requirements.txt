@@ -1,0 +1,8 @@
+claude-agent-sdk
+python-binance
+tradingview-ta
+smartmoneyconcepts
+python-dotenv
+pandas
+numpy
+aiohttp
