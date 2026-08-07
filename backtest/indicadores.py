@@ -278,8 +278,21 @@ class Contexto:
         self.datos = datos
         self._campos = datos.como_dict()
         self._cache = {}
+        self._semanal = None
+
+    @property
+    def semanal(self):
+        """Contexto de marco superior, construido sólo si alguien lo pide."""
+        if self._semanal is None:
+            from .superior import ContextoSemanal
+            self._semanal = ContextoSemanal(self.datos)
+        return self._semanal
 
     def ind(self, nombre, periodo):
+        # Las características que empiezan por sem_ vienen del marco semanal y
+        # están desplazadas o acumuladas de forma causal (ver superior.py).
+        if nombre.startswith("sem_"):
+            return self.semanal.calcular(nombre, periodo)
         clave = (nombre, int(periodo))
         valor = self._cache.get(clave)
         if valor is None:

@@ -62,6 +62,29 @@ BLOQUES = {
     "macd":           {"escala": "macd", "periodos": [8, 12, 20, 30], "constantes": (0, 0, 1)},
 }
 
+# Contexto semanal. Se añade al catálogo con la misma interfaz que el resto de
+# bloques, así que la evolución puede combinar libremente señales intradía con
+# filtros de marco superior. Todas son causales (ver superior.py).
+BLOQUES_SEMANALES = {
+    "sem_ant_close":  {"escala": "precio", "periodos": [0], "constantes": None},
+    "sem_ant_high":   {"escala": "precio", "periodos": [0], "constantes": None},
+    "sem_ant_low":    {"escala": "precio", "periodos": [0], "constantes": None},
+    "sem_ant_medio":  {"escala": "precio", "periodos": [0], "constantes": None},
+    "sem_open":       {"escala": "precio", "periodos": [0], "constantes": None},
+    "sem_high_hasta": {"escala": "precio", "periodos": [0], "constantes": None},
+    "sem_low_hasta":  {"escala": "precio", "periodos": [0], "constantes": None},
+    "sem_pivote":     {"escala": "precio", "periodos": [0], "constantes": None},
+    "sem_r1":         {"escala": "precio", "periodos": [0], "constantes": None},
+    "sem_s1":         {"escala": "precio", "periodos": [0], "constantes": None},
+    "sem_sma":        {"escala": "precio", "periodos": [2, 4, 8, 13, 26], "constantes": None},
+    "sem_pos_rango":  {"escala": "osc100", "periodos": [0], "constantes": (0, 100, 10)},
+    "sem_pos_semana": {"escala": "osc100", "periodos": [0], "constantes": (0, 100, 10)},
+    "sem_var":        {"escala": "pct", "periodos": [1, 2, 4], "constantes": (-15, 15, 2.5)},
+}
+
+NOMBRES_SEMANALES = set(BLOQUES_SEMANALES)
+BLOQUES.update(BLOQUES_SEMANALES)
+
 CAMPOS_PRECIO = ["close", "high", "low"]
 OPERADORES = [">", "<", "cruza_arriba", "cruza_abajo"]
 LOGICOS = ["y", "o"]
@@ -69,6 +92,32 @@ LOGICOS = ["y", "o"]
 STOPS_ATR = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
 OBJETIVOS_ATR = [0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0]
 MAX_BARRAS = [0, 24, 48, 96, 200]
+
+
+@dataclass
+class Opciones:
+    """
+    Restricciones sobre la forma de los genomas que puede producir la evolución.
+
+    modo "bracket" fija objetivo = stop (ratio 1:1 exacto) y quita las
+    condiciones de salida, de forma que toda operación acaba en stop, en
+    objetivo o por tiempo. Es la única manera de que el win rate signifique lo
+    que se espera que signifique: con salidas por señal, ganancias y pérdidas
+    dejan de ser simétricas y el acierto ya no se puede comparar contra el
+    umbral de equilibrio del 1:1.
+    """
+    modo: str = "libre"
+    max_barras: tuple = tuple(MAX_BARRAS)
+    stops_atr: tuple = tuple(STOPS_ATR)
+
+    def aplicar(self, genoma):
+        if self.modo == "bracket":
+            genoma.objetivo_atr = genoma.stop_atr
+            genoma.salida = []
+        return genoma
+
+
+OPCIONES_POR_DEFECTO = Opciones()
 
 # Escalas que admiten operandos de precio crudo (close, high, low).
 ESCALAS_CON_PRECIO = {"precio"}
@@ -253,18 +302,20 @@ def _sanear(genoma, rng):
     return genoma
 
 
-def genoma_aleatorio(rng, max_condiciones=3):
+def genoma_aleatorio(rng, max_condiciones=3, opciones=None):
+    opciones = opciones or OPCIONES_POR_DEFECTO
     n_entrada = int(rng.integers(1, max_condiciones + 1))
     n_salida = int(rng.integers(0, 3))
-    return _sanear(Genoma(
+    genoma = Genoma(
         entrada=[_condicion_aleatoria(rng) for _ in range(n_entrada)],
         logico_entrada=LOGICOS[rng.integers(len(LOGICOS))],
         salida=[_condicion_aleatoria(rng) for _ in range(n_salida)],
         logico_salida=LOGICOS[rng.integers(len(LOGICOS))],
-        stop_atr=float(STOPS_ATR[rng.integers(len(STOPS_ATR))]),
+        stop_atr=float(opciones.stops_atr[rng.integers(len(opciones.stops_atr))]),
         objetivo_atr=float(OBJETIVOS_ATR[rng.integers(len(OBJETIVOS_ATR))]),
-        max_barras=int(MAX_BARRAS[rng.integers(len(MAX_BARRAS))]),
-    ), rng)
+        max_barras=int(opciones.max_barras[rng.integers(len(opciones.max_barras))]),
+    )
+    return _sanear(opciones.aplicar(genoma), rng)
 
 
 # ========================
@@ -348,7 +399,7 @@ def puntuar(metricas, criterio, min_operaciones):
 # OPERADORES GENÉTICOS
 # ========================
 
-def cruzar(a, b, rng):
+def cruzar(a, b, rng, opciones=None):
     """Mezcla dos genomas tomando bloques enteros de cada padre."""
     hijo = Genoma(
         entrada=list(a.entrada if rng.random() < 0.5 else b.entrada),
@@ -365,11 +416,12 @@ def cruzar(a, b, rng):
         i = int(rng.integers(len(hijo.entrada)))
         hijo.entrada = list(hijo.entrada)
         hijo.entrada[i] = dict(b.entrada[int(rng.integers(len(b.entrada)))])
-    return _sanear(hijo, rng)
+    return _sanear((opciones or OPCIONES_POR_DEFECTO).aplicar(hijo), rng)
 
 
-def mutar(genoma, rng, probabilidad=0.3):
+def mutar(genoma, rng, probabilidad=0.3, opciones=None):
     """Aplica una mutación al azar sobre una copia del genoma."""
+    opciones = opciones or OPCIONES_POR_DEFECTO
     g = Genoma.desde_dict(json.loads(json.dumps(genoma.como_dict())))
 
     acciones = ["condicion", "operador", "periodo", "logico", "stop", "objetivo",
@@ -391,16 +443,16 @@ def mutar(genoma, rng, probabilidad=0.3):
         elif accion == "logico":
             g.logico_entrada = LOGICOS[rng.integers(len(LOGICOS))]
         elif accion == "stop":
-            g.stop_atr = float(STOPS_ATR[rng.integers(len(STOPS_ATR))])
+            g.stop_atr = float(opciones.stops_atr[rng.integers(len(opciones.stops_atr))])
         elif accion == "objetivo":
             g.objetivo_atr = float(OBJETIVOS_ATR[rng.integers(len(OBJETIVOS_ATR))])
         elif accion == "max_barras":
-            g.max_barras = int(MAX_BARRAS[rng.integers(len(MAX_BARRAS))])
+            g.max_barras = int(opciones.max_barras[rng.integers(len(opciones.max_barras))])
         elif accion == "anadir" and len(g.entrada) < 3:
             g.entrada.append(_condicion_aleatoria(rng))
         elif accion == "quitar" and len(g.entrada) > 1:
             g.entrada.pop(int(rng.integers(len(g.entrada))))
-    return _sanear(g, rng)
+    return _sanear(opciones.aplicar(g), rng)
 
 
 def _torneo(poblacion, puntuaciones, rng, tamano=3):
@@ -427,7 +479,7 @@ class Candidata:
 
 def evolucionar(datos, config=None, criterio="compuesto", poblacion=120, generaciones=25,
                 min_operaciones=40, fraccion_oos=0.3, elite=0.1, semilla=42,
-                banco_max=50, verboso=True):
+                banco_max=50, verboso=True, opciones=None):
     """
     Evoluciona una población de estrategias sobre el tramo in-sample.
 
@@ -436,12 +488,13 @@ def evolucionar(datos, config=None, criterio="compuesto", poblacion=120, generac
     validación, que es justo el error que estas herramientas invitan a cometer.
     """
     config = config or Config()
+    opciones = opciones or OPCIONES_POR_DEFECTO
     rng = np.random.default_rng(semilla)
     particion = partir(datos, fraccion_oos)
     ctx_is = Contexto(particion.entrenamiento)
     intervalo = datos.intervalo
 
-    actual = [genoma_aleatorio(rng) for _ in range(poblacion)]
+    actual = [genoma_aleatorio(rng, opciones=opciones) for _ in range(poblacion)]
     banco = {}
     n_elite = max(1, int(poblacion * elite))
 
@@ -479,11 +532,12 @@ def evolucionar(datos, config=None, criterio="compuesto", poblacion=120, generac
         siguiente = [actual[i] for i in orden[:n_elite]]
         while len(siguiente) < poblacion:
             if rng.random() < 0.15:
-                siguiente.append(genoma_aleatorio(rng))     # sangre nueva
+                siguiente.append(genoma_aleatorio(rng, opciones=opciones))   # sangre nueva
             else:
                 padre = _torneo(actual, puntuaciones, rng)
                 madre = _torneo(actual, puntuaciones, rng)
-                siguiente.append(mutar(cruzar(padre, madre, rng), rng))
+                siguiente.append(mutar(cruzar(padre, madre, rng, opciones), rng,
+                                       opciones=opciones))
         actual = siguiente
 
     # Validación fuera de muestra de todo el banco, una sola vez y al final.

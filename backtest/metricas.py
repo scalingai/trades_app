@@ -51,6 +51,46 @@ def estabilidad(equity):
     return float(max(0.0, 1 - residuos / varianza))
 
 
+def wilson_inferior(aciertos, total, z=1.96):
+    """
+    Extremo inferior del intervalo de confianza al 95 % de una proporción
+    (puntuación de Wilson).
+
+    Un 65 % de acierto sacado de 20 operaciones y otro sacado de 500 no valen
+    lo mismo, y la diferencia no se ve en el porcentaje. Con 20 el suelo del
+    intervalo está en torno al 43 %; con 500, cerca del 61 %. Optimizar por
+    este suelo en vez de por el win rate crudo hace que la muestra pequeña
+    deje de ser una ventaja para el sobreajuste.
+    """
+    if total <= 0:
+        return 0.0
+    p = aciertos / total
+    denominador = 1 + z ** 2 / total
+    centro = (p + z ** 2 / (2 * total)) / denominador
+    margen = z * np.sqrt(p * (1 - p) / total + z ** 2 / (4 * total ** 2)) / denominador
+    return float(max(0.0, centro - margen))
+
+
+def win_rate_equilibrio(retornos):
+    """
+    Win rate que haría falta para no perder dinero, dados el tamaño medio de
+    las ganancias y de las pérdidas realmente observados.
+
+    Con ratio 1:1 exacto y sin costes saldría 50 %. Los costes lo empujan
+    arriba, y cuanto más pequeño es el stop más lo empujan: con stop del 0,3 %
+    y 0,12 % de coste ida y vuelta, hace falta un 60 %.
+    """
+    ganancias = retornos[retornos > 0]
+    perdidas = retornos[retornos <= 0]
+    if len(ganancias) == 0 or len(perdidas) == 0:
+        return float("nan")
+    media_ganancia = ganancias.mean()
+    media_perdida = -perdidas.mean()
+    if media_ganancia + media_perdida <= 0:
+        return float("nan")
+    return float(media_perdida / (media_ganancia + media_perdida))
+
+
 def racha_perdedora(retornos):
     """Mayor número de operaciones perdedoras seguidas."""
     peor = actual = 0
@@ -73,6 +113,7 @@ def calcular(resultado, intervalo="1h", capital_inicial=10_000.0):
             "n_operaciones": 0, "retorno_medio": 0.0, "estabilidad": 0.0,
             "exposicion": 0.0, "racha_perdedora": 0, "buy_hold": 0.0,
             "capital_final": capital_inicial,
+            "win_rate_inf": 0.0, "win_rate_equilibrio": float("nan"), "margen_acierto": 0.0,
         }
 
     por_anio = barras_por_anio(intervalo)
@@ -103,6 +144,14 @@ def calcular(resultado, intervalo="1h", capital_inicial=10_000.0):
     precio = resultado.datos.close if resultado.datos is not None else None
     buy_hold = float(precio[-1] / precio[0] - 1) if precio is not None and precio[0] > 0 else 0.0
 
+    aciertos = int((retornos > 0).sum())
+    win_rate = aciertos / len(retornos)
+    equilibrio = win_rate_equilibrio(retornos)
+    # Margen: cuántos puntos porcentuales sobra el acierto por encima del que
+    # haría falta sólo para cubrir costes. Es la cifra que decide si una
+    # estrategia de ratio 1:1 gana dinero o no.
+    margen = win_rate - equilibrio if np.isfinite(equilibrio) else 0.0
+
     return {
         "retorno_total": float(retorno_total),
         "cagr": float(cagr),
@@ -112,7 +161,12 @@ def calcular(resultado, intervalo="1h", capital_inicial=10_000.0):
         "sharpe": sharpe,
         "sortino": sortino,
         "profit_factor": profit_factor,
-        "win_rate": float((retornos > 0).mean()),
+        "win_rate": float(win_rate),
+        # Suelo del intervalo de confianza al 95 %: con pocas operaciones cae
+        # mucho, que es exactamente lo que se busca al optimizar por acierto.
+        "win_rate_inf": wilson_inferior(aciertos, len(retornos)),
+        "win_rate_equilibrio": float(equilibrio),
+        "margen_acierto": float(margen),
         "n_operaciones": int(len(retornos)),
         "retorno_medio": float(retornos.mean()),
         "estabilidad": estabilidad(equity),
@@ -121,6 +175,36 @@ def calcular(resultado, intervalo="1h", capital_inicial=10_000.0):
         "buy_hold": buy_hold,
         "capital_final": capital_final,
     }
+
+
+def formatear_acierto(m):
+    """
+    Bloque centrado en la efectividad, para estrategias de ratio fijo.
+
+    Con ratio 1:1 lo único que decide es si el acierto supera al de equilibrio,
+    y por cuánto. El suelo del intervalo dice si ese margen se sostiene o es
+    ruido de una muestra corta.
+    """
+    equilibrio = m["win_rate_equilibrio"]
+    if not np.isfinite(equilibrio):
+        return "  sin operaciones ganadoras y perdedoras a la vez: no hay acierto que medir"
+
+    veredicto = ""
+    if m["win_rate_inf"] > equilibrio:
+        veredicto = "  ✅ el suelo del intervalo ya supera el equilibrio"
+    elif m["win_rate"] > equilibrio:
+        veredicto = "  ⚠️  gana de media, pero el intervalo llega por debajo del equilibrio:\n" \
+                    "      con estas operaciones no se puede descartar que sea suerte"
+    else:
+        veredicto = "  ❌ el acierto no cubre ni los costes"
+
+    return (
+        f"  acierto              {m['win_rate']:>8.1%}   sobre {m['n_operaciones']} operaciones\n"
+        f"  suelo del intervalo  {m['win_rate_inf']:>8.1%}   (95 % de confianza)\n"
+        f"  acierto de equilibrio{equilibrio:>8.1%}   el mínimo para cubrir costes\n"
+        f"  margen               {m['margen_acierto']:>+8.1%}\n"
+        f"{veredicto}"
+    )
 
 
 def formatear(m):

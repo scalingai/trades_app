@@ -222,6 +222,86 @@ def cmd_generar(args):
 # CLI
 # ========================
 
+def cmd_intradia(args):
+    """
+    Busca estrategias intradía de ratio 1:1 con filtro de contexto semanal.
+
+    Con ratio fijo lo único que decide es si el acierto supera al de
+    equilibrio. El fitness es el suelo del intervalo de confianza del acierto
+    menos ese umbral, así que una muestra corta no puede ganar por tener menos
+    con qué equivocarse.
+    """
+    datos = _cargar(args)
+    config = _config(args)
+
+    por_dia = int(86400 / metricas.INTERVALOS_SEG[datos.intervalo])
+    if args.max_barras:
+        opciones_barras = (args.max_barras,)
+    else:
+        # Cierre forzoso a media sesión, una sesión o dos: mantiene las
+        # operaciones dentro del horizonte intradía que se busca.
+        opciones_barras = tuple(sorted({max(por_dia // 2, 4), por_dia, por_dia * 2}))
+
+    opciones = generador.Opciones(modo="bracket", max_barras=opciones_barras,
+                                  stops_atr=tuple(args.stops))
+
+    print(f"\n🧬 Intradía 1:1 sobre {datos.intervalo} con contexto semanal")
+    print(f"   ratio fijo 1:1 (objetivo = stop), cierre forzoso a "
+          f"{'/'.join(str(b) for b in opciones_barras)} barras")
+    print(f"   coste ida y vuelta: {2 * config.coste:.3%} del nominal")
+    print(f"   la evolución sólo ve el {1 - args.oos:.0%} inicial de la serie\n")
+
+    candidatas = generador.evolucionar(
+        datos, config, criterio="acierto", poblacion=args.poblacion,
+        generaciones=args.generaciones, min_operaciones=args.min_operaciones,
+        fraccion_oos=args.oos, semilla=args.semilla, banco_max=args.banco,
+        opciones=opciones)
+
+    if not candidatas:
+        print("\n❌ Ninguna estrategia superó el acierto de equilibrio in-sample.")
+        return 1
+
+    tabla = generador.tabla(candidatas)
+    for columna, clave in (("is_acierto", "metricas_is"), ("oos_acierto", "metricas_oos")):
+        tabla[columna] = [getattr(c, clave)["win_rate"] if getattr(c, clave) else float("nan")
+                          for c in candidatas]
+        tabla[columna.replace("acierto", "equil")] = [
+            getattr(c, clave)["win_rate_equilibrio"] if getattr(c, clave) else float("nan")
+            for c in candidatas]
+
+    print(f"\n📚 Banco de {len(candidatas)} estrategias "
+          f"(acierto vs. acierto de equilibrio):")
+    columnas = ["id", "is_acierto", "is_equil", "is_ops", "oos_acierto", "oos_equil",
+                "oos_ops", "oos_retorno"]
+    print(tabla[[c for c in columnas if c in tabla]].head(args.top).to_string(index=False))
+
+    # El filtro pide que el acierto fuera de muestra siga cubriendo los costes.
+    supervivientes = [
+        c for c in candidatas
+        if c.metricas_oos and c.metricas_oos["n_operaciones"] >= args.min_ops_oos
+        and c.metricas_oos["margen_acierto"] > 0
+        and c.metricas_oos["win_rate_inf"] > c.metricas_oos["win_rate_equilibrio"]
+    ]
+
+    if supervivientes:
+        print(f"\n✅ {len(supervivientes)} estrategia(s) mantienen el acierto fuera de muestra"
+              f" con el intervalo de confianza por encima del equilibrio:\n")
+        for c in supervivientes[:args.top]:
+            print(c.genoma.describir())
+            print(metricas.formatear_acierto(c.metricas_oos))
+            print(f"    retorno fuera de muestra: {c.metricas_oos['retorno_total']:+.1%}\n")
+    else:
+        print("\n  Ninguna mantiene el acierto fuera de muestra con significancia.")
+        print("  Es el resultado esperable: con ratio 1:1 hay que batir de forma")
+        print("  sostenida un umbral que ya está por encima del 50 % sólo por los")
+        print("  costes, y casi nada lo hace sobre una muestra que no vio antes.")
+
+    if args.guardar:
+        generador.guardar(candidatas, args.guardar)
+        print(f"💾 Banco completo en {args.guardar}")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Backtesting local de estrategias sobre datos históricos.",
@@ -283,6 +363,22 @@ def main():
     p.add_argument("--max-drawdown", type=float, default=0.6,
                    help="Drawdown p95 máximo admitido en Monte Carlo")
     p.set_defaults(fn=cmd_generar, fitness="compuesto")
+
+    p = subs.add_parser("intradia", parents=[comun, optim],
+                        help="Busca estrategias intradía de ratio 1:1 con contexto semanal")
+    p.add_argument("--poblacion", type=int, default=150)
+    p.add_argument("--generaciones", type=int, default=30)
+    p.add_argument("--oos", type=float, default=0.3)
+    p.add_argument("--semilla", type=int, default=42)
+    p.add_argument("--banco", type=int, default=60)
+    p.add_argument("--min-ops-oos", type=int, default=50,
+                   help="Operaciones mínimas fuera de muestra para tomarse en serio el acierto")
+    p.add_argument("--max-barras", type=int, default=0,
+                   help="Cierre forzoso en barras (0 = prueba media sesión, una y dos)")
+    p.add_argument("--stops", type=float, nargs="+",
+                   default=[0.75, 1.0, 1.5, 2.0, 3.0],
+                   help="Múltiplos de ATR a probar como stop (el objetivo iguala al stop)")
+    p.set_defaults(fn=cmd_intradia, fitness="acierto")
 
     args = parser.parse_args()
     pd.set_option("display.width", 220)

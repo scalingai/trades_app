@@ -34,6 +34,13 @@ FITNESS = {
     "estabilidad": lambda m: m["estabilidad"],
     # Combinado: premia rentabilidad sostenida y penaliza la curva irregular.
     "compuesto": lambda m: m["return_dd"] * max(m["estabilidad"], 0.0),
+    # Para estrategias de ratio fijo: lo que importa es cuánto supera el
+    # acierto al de equilibrio. Se usa el suelo del intervalo de confianza y no
+    # el acierto crudo, para que una muestra de 25 operaciones no gane a una de
+    # 400 sólo por tener menos con qué equivocarse.
+    "acierto": lambda m: (m["win_rate_inf"] - m["win_rate_equilibrio"]
+                          if np.isfinite(m["win_rate_equilibrio"]) else -np.inf),
+    "expectativa": lambda m: m["retorno_medio"],
 }
 
 

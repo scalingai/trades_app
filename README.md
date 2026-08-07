@@ -239,3 +239,96 @@ al futuro, que la partición in/out-of-sample no solapa, que barajar en Monte
 Carlo no altera el retorno final, y que cambiar sólo el tramo out-of-sample no
 altera lo que produce la evolución (es decir, que la validación no está
 contaminada).
+
+## Intradía con contexto semanal y ratio 1:1
+
+```bash
+python backtestear.py intradia --datos data/BTCUSDT_1h_binance.csv \
+    --poblacion 100 --generaciones 20 --min-operaciones 150 --min-ops-oos 80
+```
+
+Fija objetivo = stop (ratio 1:1 exacto), quita las condiciones de salida para
+que toda operación acabe en stop, objetivo o tiempo, añade un cierre forzoso
+intradía, y puntúa por **efectividad** en vez de por Return/DD.
+
+### La aritmética del 1:1
+
+Con ratio fijo lo único que decide es si el acierto supera al de equilibrio.
+Con 0,04 % de comisión y 0,02 % de slippage por lado (0,12 % ida y vuelta):
+
+| Stop | Ganas | Pierdes | Acierto mínimo |
+|---:|---:|---:|---:|
+| 0,30 % | 0,240 % | 0,360 % | **60,0 %** |
+| 0,50 % | 0,440 % | 0,560 % | 56,0 % |
+| 1,00 % | 0,940 % | 1,060 % | 53,0 % |
+| 2,00 % | 1,940 % | 2,060 % | 51,5 % |
+| 3,00 % | 2,940 % | 3,060 % | 51,0 % |
+
+Cuanto más pequeño el stop, más alto el listón. Un stop del 0,3 % en 5m exige
+un 60 % de acierto sostenido sólo para no perder dinero.
+
+`metricas` calcula el acierto de equilibrio a partir de las ganancias y
+pérdidas realmente observadas, así que el umbral no es teórico: sale de las
+operaciones. El **margen** (acierto − equilibrio) es la cifra que decide.
+
+### Por qué el suelo del intervalo y no el acierto crudo
+
+Un 65 % sacado de 20 operaciones y otro sacado de 500 no valen lo mismo, y la
+diferencia no se ve en el porcentaje. Con 20, el suelo del intervalo de
+confianza al 95 % está en el 43 %: ni siquiera se distingue de lanzar una
+moneda. Con 500, en el 61 %.
+
+El fitness `acierto` optimiza el **suelo del intervalo menos el equilibrio**,
+no el acierto crudo. Así una muestra corta deja de ser una ventaja para el
+sobreajuste.
+
+### Contexto semanal sin mirar al futuro
+
+`superior.py` alinea el marco semanal sobre las velas intradía. Aquí vive el
+error más caro del backtesting multi-timeframe: usar el cierre de la semana en
+curso estando dentro de ella. Un lunes no se puede filtrar por "la semana
+cierra alcista", porque eso no se sabe hasta el domingo.
+
+Separa las dos cosas que sí son legítimas:
+
+- **Semanas ya cerradas** — cierre, máximo, mínimo, rango, variación, pivote,
+  R1, S1, media de N cierres semanales. Se conocen enteras.
+- **Semana en curso, acumulado hasta la vela actual** — apertura (se sabe al
+  abrir) y máximo y mínimo recorridos hasta ahora. Causal: sólo mira atrás.
+
+`tests/test_superior.py` lo verifica alterando la segunda mitad de la serie y
+comprobando que ningún valor de la primera se mueve.
+
+### Resultado de la búsqueda en 1h
+
+De 104 estrategias generadas, 60 evaluadas fuera de muestra, **sobrevivió 1**:
+
+```
+  LARGO si   macd(8) cruza ↑ macd(20) Y macd(12) > 0
+  GESTIÓN    stop 3.0×ATR(14), objetivo 3.0×ATR, máx 12 barras
+  acierto                 55.2%   sobre 194 operaciones
+  suelo del intervalo     48.1%   (95 % de confianza)
+  acierto de equilibrio   45.6%
+  margen                  +9.6%
+  retorno fuera de muestra: +53.0%
+```
+
+Tres cosas que hay que saber antes de emocionarse:
+
+1. **No es un 1:1 real.** El 51 % de las operaciones sale por tiempo, no por
+   stop ni por objetivo. El ratio realizado es 1,19:1, y ese sesgo favorable
+   (el cierre por tiempo corta perdedoras) es de dónde sale buena parte del
+   resultado, no del acierto.
+2. **Un superviviente de 60 candidatas está dentro de lo que da el azar.** Si
+   cada una tiene un 5-10 % de pasar por suerte, lo esperable serían 3-6. Salió
+   1, o sea por debajo de lo esperable sin ningún edge.
+3. **No usa el contexto semanal.** La evolución tenía los bloques disponibles y
+   no los eligió.
+
+El Monte Carlo sí sale bien (drawdown p95 del 17 %, 2,1 % de probabilidad de
+acabar en pérdidas al remuestrear), pero eso mide la robustez de esas 194
+operaciones concretas, no que el edge exista.
+
+En 15m el banco se queda casi vacío: casi nada supera el equilibrio ni siquiera
+in-sample, porque con el mismo coste sobre operaciones más pequeñas el listón
+sube. Si querés seguir por aquí, 1h y 4h dan más margen que 5m y 15m.
