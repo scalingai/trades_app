@@ -1,0 +1,13 @@
+# Datos descargados: se regeneran con descargar_datos.py y algunos pesan decenas de MB.
+# Se versiona sólo el histórico diario, que es pequeño y sirve de muestra.
+data/*
+!data/BTCUSDT_1d_binance.csv
+
+# Registro de trades de la app
+trades.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
