@@ -28,6 +28,7 @@ Ejemplos:
 import argparse
 import sys
 
+import numpy as np
 import pandas as pd
 
 import backtest as bt
@@ -269,18 +270,46 @@ def cmd_intradia(args):
             getattr(c, clave)["win_rate_equilibrio"] if getattr(c, clave) else float("nan")
             for c in candidatas]
 
+    # Frecuencia relativa de disparo: operaciones por vela fuera de muestra
+    # divididas por las de dentro. Un valor de 1 significa que la estrategia
+    # sigue encontrando sus condiciones al mismo ritmo. Muy por debajo de 1
+    # significa que dejó de dispararse, y eso delata dependencia del régimen
+    # antes y mejor que el propio acierto: una estrategia que en el tramo nuevo
+    # apenas opera no es que acierte menos, es que sus condiciones eran de una
+    # época concreta.
+    particion = optimizar.partir(datos, args.oos)
+    barras_is, barras_oos = len(particion.entrenamiento), len(particion.validacion)
+    frecuencias = []
+    for c in candidatas:
+        if c.metricas_oos and c.metricas_is["n_operaciones"] > 0:
+            ritmo_is = c.metricas_is["n_operaciones"] / barras_is
+            ritmo_oos = c.metricas_oos["n_operaciones"] / barras_oos
+            frecuencias.append(ritmo_oos / ritmo_is)
+        else:
+            frecuencias.append(float("nan"))
+    tabla["frec_rel"] = frecuencias
+
     print(f"\n📚 Banco de {len(candidatas)} estrategias "
           f"(acierto vs. acierto de equilibrio):")
     columnas = ["id", "is_acierto", "is_equil", "is_ops", "oos_acierto", "oos_equil",
-                "oos_ops", "oos_retorno"]
+                "oos_ops", "frec_rel", "oos_retorno"]
     print(tabla[[c for c in columnas if c in tabla]].head(args.top).to_string(index=False))
 
-    # El filtro pide que el acierto fuera de muestra siga cubriendo los costes.
+    mediana_frec = np.nanmedian(frecuencias) if frecuencias else float("nan")
+    if np.isfinite(mediana_frec) and mediana_frec < 0.5:
+        print(f"\n  ⚠️  Frecuencia relativa mediana {mediana_frec:.2f}: el banco dispara")
+        print(f"      mucho menos fuera de muestra que dentro. Las condiciones que")
+        print(f"      encontró la evolución eran propias del periodo de ajuste.")
+
+    # El filtro pide tres cosas a la vez fuera de muestra: operaciones
+    # suficientes, acierto que cubra costes con significancia, y que la
+    # estrategia siga disparándose a un ritmo comparable.
     supervivientes = [
-        c for c in candidatas
+        c for c, frec in zip(candidatas, frecuencias)
         if c.metricas_oos and c.metricas_oos["n_operaciones"] >= args.min_ops_oos
         and c.metricas_oos["margen_acierto"] > 0
         and c.metricas_oos["win_rate_inf"] > c.metricas_oos["win_rate_equilibrio"]
+        and np.isfinite(frec) and frec >= args.min_frecuencia
     ]
 
     if supervivientes:
@@ -375,6 +404,8 @@ def main():
                    help="Operaciones mínimas fuera de muestra para tomarse en serio el acierto")
     p.add_argument("--max-barras", type=int, default=0,
                    help="Cierre forzoso en barras (0 = prueba media sesión, una y dos)")
+    p.add_argument("--min-frecuencia", type=float, default=0.5,
+                   help="Ritmo de disparo fuera de muestra mínimo, relativo al de dentro")
     p.add_argument("--stops", type=float, nargs="+",
                    default=[0.75, 1.0, 1.5, 2.0, 3.0],
                    help="Múltiplos de ATR a probar como stop (el objetivo iguala al stop)")

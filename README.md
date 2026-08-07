@@ -332,3 +332,36 @@ operaciones concretas, no que el edge exista.
 En 15m el banco se queda casi vacío: casi nada supera el equilibrio ni siquiera
 in-sample, porque con el mismo coste sobre operaciones más pequeñas el listón
 sube. Si querés seguir por aquí, 1h y 4h dan más margen que 5m y 15m.
+
+### Frecuencia relativa: el filtro que delata el régimen
+
+`intradia` informa de `frec_rel`: operaciones por vela fuera de muestra
+divididas por las de dentro. Un 1 significa que la estrategia sigue
+encontrando sus condiciones al mismo ritmo. Muy por debajo de 1 significa que
+dejó de dispararse, y eso delata dependencia del régimen antes y mejor que el
+propio acierto: una estrategia que en el tramo nuevo apenas opera no es que
+acierte menos, es que sus condiciones eran de una época concreta.
+
+Salió de comparar las dos búsquedas:
+
+| Búsqueda | Ops in-sample | Ops out-of-sample | `frec_rel` |
+|---|---:|---:|---:|
+| 1h, superviviente MACD | 493 | 194 | **0,92** |
+| 15m, mejor del banco | 318 | 20 | 0,15 |
+| 15m, segunda | 402 | 52 | 0,30 |
+| 15m, tercera | 266 | 19 | 0,17 |
+
+El banco de 15m tenía aciertos fuera de muestra llamativos (uno con 85 %),
+pero sobre 18-20 operaciones y disparándose seis veces menos que en el tramo
+de ajuste. El de 1h mantiene el ritmo. Se comprobó que no era un fallo del
+motor: una estrategia trivial da 259 ops por 10.000 velas in-sample y 271
+out-of-sample, o sea proporcional.
+
+El filtro exige `frec_rel >= 0.5` por defecto (`--min-frecuencia`).
+
+### Resultado de la búsqueda en 15m
+
+Cero supervivientes de 28 candidatas. Con el mismo coste sobre operaciones más
+pequeñas, el listón de acierto sube y casi nada lo supera ni siquiera
+in-sample: el banco se quedó en 28 frente a las 104 de 1h. **Para ratio 1:1,
+1h y 4h dan bastante más margen que 5m y 15m.**
