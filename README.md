@@ -100,3 +100,142 @@ pena leerlo, porque estas cosas afectan al backtest:
 - **Microsegundos.** Los archivos de Binance posteriores a 2025-01-01 traen los
   timestamps en microsegundos en vez de milisegundos; el script lo detecta y lo
   corrige.
+
+## Backtesting
+
+`backtestear.py` es la puerta de entrada; `backtest/` es el paquete importable.
+
+```bash
+# Ejecutar una estrategia concreta
+python backtestear.py simple --datos data/BTCUSDT_4h_binance.csv \
+    --estrategia cruce_medias -p rapida=20 -p lenta=100 -p tipo=ema
+
+# Barrer parámetros con separación in-sample / out-of-sample
+python backtestear.py grid --datos data/BTCUSDT_4h_binance.csv \
+    --estrategia rsi_reversion --procesos 4
+
+# Walk-forward: reoptimiza por ventanas y mide sólo lo que no vio el ajuste
+python backtestear.py walkforward --datos data/BTCUSDT_4h_binance.csv \
+    --estrategia cruce_medias --dias-is 365 --dias-oos 90
+
+# Matriz: repite el walk-forward con varios tamaños de ventana
+python backtestear.py matriz --datos data/BTCUSDT_4h_binance.csv --estrategia cruce_medias
+
+# Robustez ante variaciones aleatorias
+python backtestear.py montecarlo --datos data/BTCUSDT_4h_binance.csv \
+    --estrategia cruce_medias -p rapida=20 -p lenta=100
+
+# Construir estrategias desde cero por programación genética
+python backtestear.py generar --datos data/BTCUSDT_4h_binance.csv \
+    --poblacion 120 --generaciones 25 --guardar banco.json
+```
+
+Como módulo:
+
+```python
+import backtest as bt
+from backtest import estrategias, metricas
+from backtest.indicadores import Contexto
+
+datos = bt.cargar("data/BTCUSDT_4h_binance.csv")
+estrategia = estrategias.obtener("cruce_medias")
+senales = estrategia.senales(Contexto(datos), rapida=20, lenta=100, tipo="ema")
+resultado = bt.ejecutar(datos, senales, bt.Config())
+print(metricas.formatear(metricas.calcular(resultado, datos.intervalo)))
+```
+
+### Piezas
+
+| Módulo | Qué hace |
+|---|---|
+| `motor` | Ejecuta señales con comisiones, slippage, stop y objetivo |
+| `metricas` | Retorno, CAGR, drawdown, Sharpe, Sortino, Return/DD, estabilidad |
+| `indicadores` | SMA, EMA, WMA, RSI, ATR, Bollinger, MACD, estocástico, CCI, ROC, Donchian |
+| `estrategias` | Cinco estrategias clásicas parametrizables |
+| `optimizar` | Barrido de parámetros con separación in/out-of-sample |
+| `walkforward` | Walk-forward analysis y matriz de ventanas |
+| `montecarlo` | Seis pruebas de robustez |
+| `generador` | Programación genética: construye estrategias desde cero |
+
+### Convenciones de ejecución
+
+Son las que separan un backtest honesto de uno que se engaña, y están fijadas
+con tests en `tests/test_motor.py`:
+
+- La señal se calcula con el cierre de la barra `t` y se ejecuta a la apertura
+  de `t+1`. Nunca se opera con información de la barra que generó la señal.
+- Stop y objetivo se comprueban con el máximo y el mínimo de cada barra.
+- Si en la misma barra se tocan stop y objetivo, se asume el stop: no se sabe
+  cuál se tocó antes, así que se toma el peor caso.
+- Si la vela abre saltándose el stop, se ejecuta al precio real de apertura.
+- Comisión y slippage se cobran en los dos lados (por defecto 0,04 % + 0,02 %,
+  que es taker de Binance).
+- En corto el resultado se mide sobre el nominal vendido, así que una caída del
+  100 % gana el 100 % y no más.
+- La curva de capital se marca a mercado dentro de cada operación, para que el
+  drawdown recoja lo que pasó mientras la posición estaba abierta.
+
+### El generador, y por qué el filtro importa más que el generador
+
+El generador hace lo mismo que el Builder de StrategyQuant: combina bloques
+(indicadores, comparaciones, operadores lógicos, gestión) en genomas
+aleatorios, se queda con los que mejor puntúan, los cruza, los muta y repite.
+Los bloques están tipados por escala, así que nunca compara un RSI con una
+media móvil, y las constantes sólo aparecen donde significan algo. Todo genoma
+lleva stop obligatorio: sin él la evolución descubre que no cerrar nunca las
+posiciones perdedoras mejora casi cualquier métrica sobre histórico.
+
+Genera candidatos, y generar candidatos es la parte fácil. Lo que decide si
+algo vale es el filtro: la evolución sólo ve el tramo in-sample, el
+out-of-sample se mira una vez al final, y encima pasa por Monte Carlo. Que no
+sobreviva ninguna es el resultado más frecuente, y es información.
+
+### Calibrar contra ruido antes de creerse nada
+
+```bash
+python validar_pipeline.py --series 10
+```
+
+Lanza el pipeline completo sobre series de precio puramente aleatorias, donde
+por construcción no hay nada que encontrar. Todo lo que sobreviva ahí es un
+falso positivo.
+
+Con la configuración por defecto, el resultado medido sobre 10 series fue:
+
+```
+  series con al menos un superviviente: 5/10 (50%)
+  supervivientes totales: 13
+```
+
+Conviene leerlo despacio. **La mitad de las series aleatorias producen una
+estrategia que pasa el out-of-sample y el Monte Carlo.** Sobrevivir al filtro
+es condición necesaria, no suficiente: si sobre bitcoin sobrevive una
+estrategia, hay que compararlo contra ese 50 %, no contra cero.
+
+Para bajar la tasa base: exigir más operaciones (`--min-operaciones`),
+endurecer el drawdown admitido (`--max-drawdown`), y validar además en otro
+timeframe y otro par. Este número es la referencia que ninguna plataforma
+comercial te da y que cambia por completo cómo se interpretan sus resultados.
+
+### Qué esperar de los datos que hay
+
+- **El diario tiene 3.278 velas.** Da para estrategias de uno o dos parámetros.
+  Con cuatro ya se está ajustando ruido.
+- **En 5m y 1m mandan los costes.** Con 0,06 % por lado y unos cientos de
+  operaciones, los costes se comen casi cualquier edge. Un backtest sin costes
+  realistas miente siempre a favor.
+- **Cuidado con el número de combinaciones.** Un barrido de 1.900 combinaciones
+  encuentra siempre una que brilla. En la prueba sobre 4h, la ganadora
+  in-sample (CAGR 104 %) conservó un −16 % de su fitness fuera de muestra.
+
+### Tests
+
+```bash
+python -m pytest tests/ -q      # 52 pruebas
+```
+
+Cubren las convenciones de ejecución del motor, que los indicadores no miran
+al futuro, que la partición in/out-of-sample no solapa, que barajar en Monte
+Carlo no altera el retorno final, y que cambiar sólo el tramo out-of-sample no
+altera lo que produce la evolución (es decir, que la validación no está
+contaminada).

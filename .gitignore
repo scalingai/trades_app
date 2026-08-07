@@ -11,3 +11,6 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# Bancos de estrategias generados
+banco*.json
