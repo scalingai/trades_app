@@ -97,6 +97,59 @@ def test_entradas_sin_horizonte_se_descartan():
 
 
 # ========================
+# BRACKET VARIABLE
+# ========================
+
+def test_cada_operacion_puede_llevar_su_propio_bracket():
+    """
+    Dos entradas idénticas con stops distintos tienen que dar desenlaces
+    distintos: la de stop estrecho salta y la de stop ancho aguanta.
+    """
+    df = marco([100, 100, 100, 100], alto=[100, 100, 100, 100],
+               bajo=[100, 98, 100, 100])
+    d = barreras.recorrer(*arrays(df), np.array([0, 0]),
+                          stop=np.array([0.01, 0.05]),
+                          objetivo=np.array([0.01, 0.05]), max_barras=3)
+    assert d.motivo[0] == barreras.STOP
+    assert d.motivo[1] != barreras.STOP
+    assert d.retorno[0] == pytest.approx(-0.01)
+
+
+def test_un_bracket_escalar_y_uno_repetido_dan_lo_mismo():
+    rng = np.random.default_rng(12)
+    n = 30000
+    precios = 30000 * np.exp(np.cumsum(rng.normal(0, 0.001, n)))
+    df = marco(precios, alto=precios * 1.001, bajo=precios * 0.999)
+    entradas = np.arange(0, n - 1, 300)
+    escalar = barreras.recorrer(*arrays(df), entradas, 0.01, 0.02, 500)
+    vector = barreras.recorrer(*arrays(df), entradas,
+                               np.full(len(entradas), 0.01),
+                               np.full(len(entradas), 0.02), 500)
+    assert np.array_equal(escalar.motivo, vector.motivo)
+    assert np.allclose(escalar.retorno, vector.retorno)
+
+
+def test_con_bracket_variable_y_ratio_fijo_se_sigue_cumpliendo_la_formula():
+    """
+    Escalar el bracket operación a operación no puede sesgar el medidor
+    mientras el ratio se mantenga: sobre un paseo, S/(S+T) tiene que seguir
+    saliendo. Si esto falla, cualquier mejora que aporte escalar por
+    volatilidad será del sesgo y no del mercado.
+    """
+    rng = np.random.default_rng(13)
+    n = 1_500_000
+    precios = 30000 * np.exp(np.cumsum(rng.normal(0, 0.0008, n)))
+    df = marco(precios, alto=precios * 1.0002, bajo=precios * 0.9998)
+    entradas = np.arange(0, n - 1, 500)
+    stops = rng.uniform(0.005, 0.02, len(entradas))
+    d = barreras.recorrer(*arrays(df), entradas, stops, stops * 2.0, 200_000)
+    r = barreras.contraste(d, 1.0, 2.0)
+    assert r["resueltas"] > 2000
+    assert abs(r["exceso"]) < 0.04, \
+        f"exceso {r['exceso']:+.3f} con bracket variable: el medidor está sesgado"
+
+
+# ========================
 # EL CONTRASTE CONTRA EL PASEO ALEATORIO
 # ========================
 

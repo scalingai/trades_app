@@ -167,22 +167,32 @@ def recorrer(alto, bajo, cierre, entradas, stop, objetivo, max_barras, direccion
     Se entra al cierre de la barra indicada y se empieza a mirar en la
     siguiente. Si en la misma barra se tocan las dos, se cuenta el stop: no se
     sabe cuál llegó antes y suponer lo contrario es regalarse resultados.
+
+    `stop` y `objetivo` admiten una cifra o un vector con una entrada por
+    operación. El vector sirve para escalar el bracket con la volatilidad del
+    momento, que es lo razonable: medio por ciento es un mundo a las cuatro de
+    la mañana y nada a la apertura de Nueva York. Eso sí, la comparación contra
+    S/(S+T) sólo se sostiene si el **ratio** es constante, porque si cambia con
+    la operación la referencia teórica cambia con ella.
     """
     n = len(cierre)
     sal, mot, ret = [], [], []
     validas = []
+    stops = np.broadcast_to(np.asarray(stop, dtype=float), (len(entradas),))
+    objetivos = np.broadcast_to(np.asarray(objetivo, dtype=float), (len(entradas),))
 
-    for i in entradas:
+    for k, i in enumerate(entradas):
         fin = min(i + max_barras, n - 1)
         if fin <= i:
             continue
+        stop_i, objetivo_i = stops[k], objetivos[k]
         precio = cierre[i]
         if direccion > 0:
-            nivel_obj, nivel_stop = precio * (1 + objetivo), precio * (1 - stop)
+            nivel_obj, nivel_stop = precio * (1 + objetivo_i), precio * (1 - stop_i)
             toca_obj = alto[i + 1:fin + 1] >= nivel_obj
             toca_stop = bajo[i + 1:fin + 1] <= nivel_stop
         else:
-            nivel_obj, nivel_stop = precio * (1 - objetivo), precio * (1 + stop)
+            nivel_obj, nivel_stop = precio * (1 - objetivo_i), precio * (1 + stop_i)
             toca_obj = bajo[i + 1:fin + 1] <= nivel_obj
             toca_stop = alto[i + 1:fin + 1] >= nivel_stop
 
@@ -190,9 +200,9 @@ def recorrer(alto, bajo, cierre, entradas, stop, objetivo, max_barras, direccion
         j_stop = int(np.argmax(toca_stop)) if toca_stop.any() else -1
 
         if j_stop >= 0 and (j_obj < 0 or j_stop <= j_obj):
-            motivo, j, r = STOP, j_stop, -stop
+            motivo, j, r = STOP, j_stop, -stop_i
         elif j_obj >= 0:
-            motivo, j, r = OBJETIVO, j_obj, objetivo
+            motivo, j, r = OBJETIVO, j_obj, objetivo_i
         else:
             motivo, j = TIEMPO, fin - i - 1
             r = (cierre[fin] / precio - 1) * direccion
