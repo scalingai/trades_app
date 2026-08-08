@@ -205,6 +205,62 @@ def paso_modelo(d, alto, bajo, cierre, zona, previa, stop, objetivo, horizonte):
     return pd.DataFrame(filas)
 
 
+def paso_control_ancho(d, alto, bajo, cierre, zona, previa, stop, objetivo,
+                       horizonte, horas=3):
+    """
+    La misma regla, con ventanas del mismo ancho que arrancan a cada hora.
+
+    Es el control que le faltaba a la ventana de tres horas. Los tramos de diez
+    minutos ya se comparan contra los 143 restantes, pero 01:00-04:00 no se
+    compara contra nada mientras no se corra también a las 02:00, a las 03:00 y
+    a las veintiuna horas que quedan. Sin eso no hay forma de saber si lo que
+    se mide es esa ventana o cualquier ventana de tres horas.
+    """
+    from datetime import time as _t
+
+    print(f"[5] Ventanas de {horas} h arrancando a cada hora, misma regla\n")
+    filas = []
+    for h in range(24):
+        ini, fin = _t(h, 0), _t((h + horas) % 24, 0)
+        primeras, ultimas = entradas_de_ventana(d.index, ini, fin, zona)
+        if len(primeras) < 100:
+            continue
+        for contrario, etiqueta in ((False, "reversión"), (True, "continuación")):
+            des = modelo_barrido(alto, bajo, cierre, primeras, ultimas, previa,
+                                 stop, objetivo, horizonte, contrario)
+            if des is None or len(des) < 100:
+                continue
+            r = barreras.contraste(des, stop, objetivo, COSTE)
+            cons = ventanas.consistencia(d.index[des.entrada], des.retorno - COSTE)
+            filas.append({"inicio": f"{h:02d}:00", "sentido": etiqueta,
+                          **r, **cons})
+
+    t = pd.DataFrame(filas)
+    if t.empty:
+        return t
+
+    cont = t[t["sentido"] == "continuación"].sort_values("neto_medio", ascending=False)
+    if cont.empty:
+        return t
+    print(f"     {'inicio':>7} {'n':>6} {'acierto':>8} {'exceso':>8} {'neto':>9} "
+          f"{'meses':>10} {'p':>7}")
+    for _, f in cont.iterrows():
+        marca = "  ←" if f["inicio"] == "01:00" else ""
+        print(f"     {f['inicio']:>7} {int(f['n']):>6,} {f['p_real']:>8.4f} "
+              f"{f['exceso']:>+8.4f} {f['neto_medio']:>+8.4%} "
+              f"{int(f['a_favor']):>4}/{int(f['periodos']):<5} {f['p']:>6.3f}{marca}")
+
+    referencia = cont[cont["inicio"] == "01:00"]
+    positivos = int((cont["neto_medio"] > 0).sum())
+    if not referencia.empty:
+        puesto = int((cont["neto_medio"] > referencia["neto_medio"].iloc[0]).sum()) + 1
+        print(f"\n     La ventana del indicador queda {puesto}ª de {len(cont)} "
+              f"en continuación.")
+    print(f"     {positivos} de {len(cont)} arranques dan neto positivo; "
+          f"~{len(cont) * 0.05:.1f} saldrían por azar.\n")
+    return t
+
+
 def paso_todo_el_dia(d, alto, bajo, cierre, zona, previa, stop, objetivo,
                      horizonte, desfase, minutos=10):
     """
@@ -321,6 +377,8 @@ def main():
                 args.horizonte)
     paso_todo_el_dia(d, alto, bajo, cierre, args.zona, previa, args.stop, objetivo,
                      args.horizonte, args.desfase)
+    paso_control_ancho(d, alto, bajo, cierre, args.zona, previa, args.stop,
+                       objetivo, args.horizonte)
     return 0
 
 
