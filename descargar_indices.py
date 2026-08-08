@@ -78,16 +78,29 @@ TICK = np.dtype([("ms", ">u4"), ("ask", ">u4"), ("bid", ">u4"),
 CABECERAS = {"User-Agent": "Mozilla/5.0"}
 
 
-def descargar_hora(simbolo, factor, momento, reintentos=3):
+def descargar_hora(simbolo, factor, momento, reintentos=6, cache=None):
     """
     Ticks de una hora concreta, ya decodificados.
 
     Una hora sin datos devuelve un archivo vacío y no es un error: el mercado
     cierra los fines de semana y en los festivos, y de madrugada hay tramos sin
     una sola cotización.
+
+    El servidor limita la tasa y responde 503 en cuanto se le pide de más, así
+    que hay que reintentar con espera creciente en vez de darlo por perdido: a
+    dos hilos ya rebota una de cada tres peticiones. Y como cada archivo cuesta
+    su tiempo, se guardan en disco: reanudar una descarga cortada o cambiar el
+    tamaño de barra no vuelve a pedir nada.
     """
+    if cache is not None:
+        guardado = cache / simbolo / f"{momento:%Y%m%d_%H}.bi5"
+        if guardado.exists():
+            crudo = guardado.read_bytes()
+            return _decodificar(crudo, factor, momento)
+
     url = URL.format(sim=simbolo, a=momento.year, m=momento.month - 1,
                      d=momento.day, h=momento.hour)
+    crudo = None
     for intento in range(reintentos):
         try:
             with urllib.request.urlopen(
@@ -96,14 +109,23 @@ def descargar_hora(simbolo, factor, momento, reintentos=3):
             break
         except urllib.error.HTTPError as e:
             if e.code == 404:
-                return None
+                crudo = b""
+                break
             if intento == reintentos - 1:
-                raise
-            time.sleep(2 ** intento)
+                return None
+            time.sleep(min(2 ** intento, 30))
         except Exception:
             if intento == reintentos - 1:
-                raise
-            time.sleep(2 ** intento)
+                return None
+            time.sleep(min(2 ** intento, 30))
+
+    if cache is not None and crudo is not None:
+        guardado.parent.mkdir(parents=True, exist_ok=True)
+        guardado.write_bytes(crudo)
+    return _decodificar(crudo, factor, momento)
+
+
+def _decodificar(crudo, factor, momento):
     if not crudo:
         return None
 
@@ -146,24 +168,49 @@ def a_barras(ticks, barra="10s"):
     return salida.dropna(subset=["close"])
 
 
-def descargar(clave, desde, hasta, barra="10s", hilos=16, verboso=True):
+def horas_utiles(desde, hasta, franja=None):
+    """
+    Horas a pedir, saltándose el fin de semana y, si se indica, las horas
+    muertas del día.
+
+    Para índices americanos la actividad se concentra entre la apertura europea
+    y el cierre de Nueva York. Recortar el resto no pierde nada operable y baja
+    la descarga casi a la mitad, que con este servidor es la diferencia entre
+    una hora y dos.
+    """
+    h = pd.date_range(desde, hasta, freq="h", tz="UTC")
+    h = h[h.dayofweek < 5]
+    if franja:
+        a, b = franja
+        h = h[(h.hour >= a) & (h.hour < b)]
+    return h
+
+
+def descargar(clave, desde, hasta, barra="10s", hilos=4, verboso=True,
+              franja=None, cache=None):
     """Serie de barras de un instrumento entre dos fechas."""
     simbolo, factor = INSTRUMENTOS[clave]
-    horas = pd.date_range(desde, hasta, freq="h", tz="UTC")
+    horas = horas_utiles(desde, hasta, franja)
     if verboso:
         print(f"{clave} ({simbolo}): {len(horas):,} horas "
-              f"{desde:%Y-%m-%d} → {hasta:%Y-%m-%d}")
+              f"{desde:%Y-%m-%d} → {hasta:%Y-%m-%d}"
+              + (f", franja {franja[0]:02d}-{franja[1]:02d} UTC" if franja else ""))
 
     trozos, vacias, hechas = [], 0, 0
+    inicio = time.time()
     with ThreadPoolExecutor(max_workers=hilos) as pool:
-        for t in pool.map(lambda h: descargar_hora(simbolo, factor, h), horas):
+        for t in pool.map(lambda h: descargar_hora(simbolo, factor, h, cache=cache),
+                          horas):
             hechas += 1
             if t is None or t.empty:
                 vacias += 1
             else:
                 trozos.append(t)
-            if verboso and hechas % 2000 == 0:
-                print(f"  {hechas:,}/{len(horas):,}  ({vacias:,} horas sin datos)")
+            if verboso and hechas % 500 == 0:
+                ritmo = hechas / max(time.time() - inicio, 1)
+                print(f"  {hechas:,}/{len(horas):,}  ({vacias:,} sin datos, "
+                      f"{ritmo:.1f} horas/s, faltan "
+                      f"{(len(horas) - hechas) / max(ritmo, 0.01) / 60:.0f} min)")
 
     if not trozos:
         return pd.DataFrame()
@@ -174,7 +221,8 @@ def descargar(clave, desde, hasta, barra="10s", hilos=16, verboso=True):
     return a_barras(ticks, barra)
 
 
-def construir_dxy(desde, hasta, barra="10s", hilos=16, verboso=True):
+def construir_dxy(desde, hasta, barra="10s", hilos=4, verboso=True,
+                  franja=None, cache=None):
     """
     Reconstruye el índice dólar con su fórmula oficial.
 
@@ -185,7 +233,7 @@ def construir_dxy(desde, hasta, barra="10s", hilos=16, verboso=True):
     """
     partes = {}
     for par in DXY_PESOS:
-        d = descargar(par, desde, hasta, barra, hilos, verboso)
+        d = descargar(par, desde, hasta, barra, hilos, verboso, franja, cache)
         if d.empty:
             raise RuntimeError(f"sin datos de {par}, no se puede armar el DXY")
         partes[par] = d["close"]
@@ -209,7 +257,12 @@ def main():
     parser.add_argument("--desde", default="2023-01-01")
     parser.add_argument("--hasta", default=None, help="Por defecto, ayer")
     parser.add_argument("--barra", default="10s")
-    parser.add_argument("--hilos", type=int, default=16)
+    parser.add_argument("--hilos", type=int, default=10,
+                        help="Medido: 8 hilos van más rápido y fallan menos que 2, "
+                             "así que los rebotes son intermitentes y no saturación")
+    parser.add_argument("--franja", default="7-22",
+                        help="Horas UTC a pedir, p. ej. 7-22. 'todo' para las 24")
+    parser.add_argument("--cache", default="data/cache_dukascopy")
     parser.add_argument("--salida", default="data")
     args = parser.parse_args()
 
@@ -218,15 +271,21 @@ def main():
              else pd.Timestamp(datetime.now(timezone.utc).date() - timedelta(days=1),
                                tz="UTC"))
     Path(args.salida).mkdir(parents=True, exist_ok=True)
+    cache = Path(args.cache) if args.cache else None
+    franja = None
+    if args.franja and args.franja != 'todo':
+        a, b = args.franja.split('-')
+        franja = (int(a), int(b))
 
     for clave in args.claves:
         if clave != "DXY" and clave not in INSTRUMENTOS:
             print(f"{clave}: desconocido. Disponibles: {', '.join(INSTRUMENTOS)}, DXY")
             continue
         inicio = time.time()
-        d = (construir_dxy(desde, hasta, args.barra, args.hilos)
+        d = (construir_dxy(desde, hasta, args.barra, args.hilos, True, franja, cache)
              if clave == "DXY" else
-             descargar(clave, desde, hasta, args.barra, args.hilos))
+             descargar(clave, desde, hasta, args.barra, args.hilos, True,
+                       franja, cache))
         if d.empty:
             print(f"{clave}: sin datos\n")
             continue
