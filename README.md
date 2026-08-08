@@ -1,0 +1,423 @@
+# trades_app
+
+Registro de trades de small caps (Streamlit) + descarga de datos históricos de
+precio para hacer backtesting local.
+
+```bash
+pip install -r requirements.txt
+streamlit run trades_app.py     # la app de registro de trades
+```
+
+## Descargar datos históricos
+
+`descargar_datos.py` baja velas OHLCV a CSV. No hace falta API key ni cuenta:
+usa los endpoints públicos del exchange.
+
+```bash
+# Histórico diario completo de BTC (2017 → hoy)
+python descargar_datos.py --intervalo 1d
+
+# Velas de 1 hora desde 2020
+python descargar_datos.py --intervalo 1h --desde 2020-01-01
+
+# Velas de 1 minuto de un rango concreto
+python descargar_datos.py --intervalo 1m --desde 2025-01-01 --hasta 2025-06-30
+
+# Añadir sólo las velas nuevas a un archivo ya descargado
+python descargar_datos.py --intervalo 1h --actualizar
+
+# Otro par
+python descargar_datos.py --par ETHUSDT --intervalo 4h
+```
+
+Los archivos se guardan en `data/` como `PAR_INTERVALO_FUENTE.csv`, con este
+esquema (una fila por vela, hora UTC):
+
+```
+timestamp,open,high,low,close,volume
+2017-08-17 04:00:00+00:00,4261.48,4313.62,4261.32,4308.83,47.181009
+```
+
+Para cargarlo ya listo para analizar, con índice temporal UTC:
+
+```python
+from descargar_datos import cargar_datos
+
+df = cargar_datos("data/BTCUSDT_1h_binance.csv")
+df["sma20"] = df["close"].rolling(20).mean()
+```
+
+En el repo va incluido `data/BTCUSDT_1d_binance.csv` (histórico diario completo)
+para poder empezar sin descargar nada. El resto de archivos se ignoran en git
+porque pesan mucho: el histórico de 1 minuto de año y medio son ~57 MB.
+
+### Opciones
+
+| Opción | Para qué sirve |
+|---|---|
+| `--fuente` | `binance` (por defecto) o `coinbase` |
+| `--par` | Par a bajar. Por defecto `BTCUSDT` en Binance, `BTC-USD` en Coinbase |
+| `--intervalo` | `1m`, `3m`, `5m`, `15m`, `30m`, `1h`, `2h`, `4h`, `6h`, `8h`, `12h`, `1d`, `3d`, `1w` |
+| `--desde` / `--hasta` | Rango en UTC, formato `YYYY-MM-DD` |
+| `--actualizar` | Continúa un archivo existente en vez de rebajarlo entero |
+| `--formato` | `csv` (por defecto) o `parquet` |
+| `--salida` | Ruta de salida propia |
+| `--sin-alinear` | Deja los timestamps tal cual los publica el exchange |
+
+### Fuentes y cobertura
+
+| Fuente | Par por defecto | Desde | Intervalos |
+|---|---|---|---|
+| Binance | `BTCUSDT` | 2017-08-17 | todos |
+| Coinbase | `BTC-USD` | 2015 | `1m`, `5m`, `15m`, `1h`, `6h`, `1d` |
+
+Binance es la fuente principal porque tiene el histórico más largo y completo.
+Para rangos amplios el script no pide las velas de mil en mil por el API: se
+descarga los ZIP mensuales de `data.binance.vision`, que es muchísimo más
+rápido (año y medio de velas de 1 minuto, 840.000 filas, en un par de minutos).
+El tramo final que aún no está archivado se completa por el API REST.
+
+Coinbase está como respaldo: `api.binance.com` responde **HTTP 451** en varias
+regiones, EE.UU. entre ellas. Si te pasa, el script cambia solo al mirror
+`data-api.binance.vision`, que sirve los mismos datos sin restricción
+geográfica; y si aun así falla, tienes `--fuente coinbase`.
+
+### Sobre la calidad de los datos
+
+Al terminar, el script revisa la serie y avisa de lo que encuentra. Merece la
+pena leerlo, porque estas cosas afectan al backtest:
+
+- **Huecos.** El histórico horario de BTC tiene 28 huecos (~127 velas) por
+  paradas de mantenimiento del exchange. El mayor es de 33 horas, del 8-9 de
+  febrero de 2018. No es un fallo de la descarga: esas velas no existen.
+- **Velas desalineadas.** Tras esa parada de 2018, Binance reanudó publicando
+  43 velas horarias desfasadas 28m14s respecto a la hora en punto. Un índice
+  irregular rompe `resample()` y las medias móviles, así que por defecto se
+  cuadran a su casilla (`--sin-alinear` lo desactiva).
+- **Última vela incompleta.** La vela más reciente casi siempre está a medio
+  formar, así que su cierre no es un cierre real. Descártala al backtestear.
+  `--actualizar` la reemplaza por su versión cerrada cuando la vuelves a lanzar.
+- **Microsegundos.** Los archivos de Binance posteriores a 2025-01-01 traen los
+  timestamps en microsegundos en vez de milisegundos; el script lo detecta y lo
+  corrige.
+
+## Backtesting
+
+`backtestear.py` es la puerta de entrada; `backtest/` es el paquete importable.
+
+```bash
+# Ejecutar una estrategia concreta
+python backtestear.py simple --datos data/BTCUSDT_4h_binance.csv \
+    --estrategia cruce_medias -p rapida=20 -p lenta=100 -p tipo=ema
+
+# Barrer parámetros con separación in-sample / out-of-sample
+python backtestear.py grid --datos data/BTCUSDT_4h_binance.csv \
+    --estrategia rsi_reversion --procesos 4
+
+# Walk-forward: reoptimiza por ventanas y mide sólo lo que no vio el ajuste
+python backtestear.py walkforward --datos data/BTCUSDT_4h_binance.csv \
+    --estrategia cruce_medias --dias-is 365 --dias-oos 90
+
+# Matriz: repite el walk-forward con varios tamaños de ventana
+python backtestear.py matriz --datos data/BTCUSDT_4h_binance.csv --estrategia cruce_medias
+
+# Robustez ante variaciones aleatorias
+python backtestear.py montecarlo --datos data/BTCUSDT_4h_binance.csv \
+    --estrategia cruce_medias -p rapida=20 -p lenta=100
+
+# Construir estrategias desde cero por programación genética
+python backtestear.py generar --datos data/BTCUSDT_4h_binance.csv \
+    --poblacion 120 --generaciones 25 --guardar banco.json
+```
+
+Como módulo:
+
+```python
+import backtest as bt
+from backtest import estrategias, metricas
+from backtest.indicadores import Contexto
+
+datos = bt.cargar("data/BTCUSDT_4h_binance.csv")
+estrategia = estrategias.obtener("cruce_medias")
+senales = estrategia.senales(Contexto(datos), rapida=20, lenta=100, tipo="ema")
+resultado = bt.ejecutar(datos, senales, bt.Config())
+print(metricas.formatear(metricas.calcular(resultado, datos.intervalo)))
+```
+
+### Piezas
+
+| Módulo | Qué hace |
+|---|---|
+| `motor` | Ejecuta señales con comisiones, slippage, stop y objetivo |
+| `metricas` | Retorno, CAGR, drawdown, Sharpe, Sortino, Return/DD, estabilidad |
+| `indicadores` | SMA, EMA, WMA, RSI, ATR, Bollinger, MACD, estocástico, CCI, ROC, Donchian |
+| `estrategias` | Cinco estrategias clásicas parametrizables |
+| `optimizar` | Barrido de parámetros con separación in/out-of-sample |
+| `walkforward` | Walk-forward analysis y matriz de ventanas |
+| `montecarlo` | Seis pruebas de robustez |
+| `generador` | Programación genética: construye estrategias desde cero |
+
+### Convenciones de ejecución
+
+Son las que separan un backtest honesto de uno que se engaña, y están fijadas
+con tests en `tests/test_motor.py`:
+
+- La señal se calcula con el cierre de la barra `t` y se ejecuta a la apertura
+  de `t+1`. Nunca se opera con información de la barra que generó la señal.
+- Stop y objetivo se comprueban con el máximo y el mínimo de cada barra.
+- Si en la misma barra se tocan stop y objetivo, se asume el stop: no se sabe
+  cuál se tocó antes, así que se toma el peor caso.
+- Si la vela abre saltándose el stop, se ejecuta al precio real de apertura.
+- Comisión y slippage se cobran en los dos lados (por defecto 0,04 % + 0,02 %,
+  que es taker de Binance).
+- En corto el resultado se mide sobre el nominal vendido, así que una caída del
+  100 % gana el 100 % y no más.
+- La curva de capital se marca a mercado dentro de cada operación, para que el
+  drawdown recoja lo que pasó mientras la posición estaba abierta.
+
+### El generador, y por qué el filtro importa más que el generador
+
+El generador hace lo mismo que el Builder de StrategyQuant: combina bloques
+(indicadores, comparaciones, operadores lógicos, gestión) en genomas
+aleatorios, se queda con los que mejor puntúan, los cruza, los muta y repite.
+Los bloques están tipados por escala, así que nunca compara un RSI con una
+media móvil, y las constantes sólo aparecen donde significan algo. Todo genoma
+lleva stop obligatorio: sin él la evolución descubre que no cerrar nunca las
+posiciones perdedoras mejora casi cualquier métrica sobre histórico.
+
+Genera candidatos, y generar candidatos es la parte fácil. Lo que decide si
+algo vale es el filtro: la evolución sólo ve el tramo in-sample, el
+out-of-sample se mira una vez al final, y encima pasa por Monte Carlo. Que no
+sobreviva ninguna es el resultado más frecuente, y es información.
+
+### Calibrar contra ruido antes de creerse nada
+
+```bash
+python validar_pipeline.py --series 10
+```
+
+Lanza el pipeline completo sobre series de precio puramente aleatorias, donde
+por construcción no hay nada que encontrar. Todo lo que sobreviva ahí es un
+falso positivo.
+
+Con la configuración por defecto, el resultado medido sobre 10 series fue:
+
+```
+  series con al menos un superviviente: 5/10 (50%)
+  supervivientes totales: 13
+```
+
+Conviene leerlo despacio. **La mitad de las series aleatorias producen una
+estrategia que pasa el out-of-sample y el Monte Carlo.** Sobrevivir al filtro
+es condición necesaria, no suficiente: si sobre bitcoin sobrevive una
+estrategia, hay que compararlo contra ese 50 %, no contra cero.
+
+Para bajar la tasa base: exigir más operaciones (`--min-operaciones`),
+endurecer el drawdown admitido (`--max-drawdown`), y validar además en otro
+timeframe y otro par. Este número es la referencia que ninguna plataforma
+comercial te da y que cambia por completo cómo se interpretan sus resultados.
+
+### Qué esperar de los datos que hay
+
+- **El diario tiene 3.278 velas.** Da para estrategias de uno o dos parámetros.
+  Con cuatro ya se está ajustando ruido.
+- **En 5m y 1m mandan los costes.** Con 0,06 % por lado y unos cientos de
+  operaciones, los costes se comen casi cualquier edge. Un backtest sin costes
+  realistas miente siempre a favor.
+- **Cuidado con el número de combinaciones.** Un barrido de 1.900 combinaciones
+  encuentra siempre una que brilla. En la prueba sobre 4h, la ganadora
+  in-sample (CAGR 104 %) conservó un −16 % de su fitness fuera de muestra.
+
+### Tests
+
+```bash
+python -m pytest tests/ -q      # 52 pruebas
+```
+
+Cubren las convenciones de ejecución del motor, que los indicadores no miran
+al futuro, que la partición in/out-of-sample no solapa, que barajar en Monte
+Carlo no altera el retorno final, y que cambiar sólo el tramo out-of-sample no
+altera lo que produce la evolución (es decir, que la validación no está
+contaminada).
+
+## Intradía con contexto semanal y ratio 1:1
+
+```bash
+python backtestear.py intradia --datos data/BTCUSDT_1h_binance.csv \
+    --poblacion 100 --generaciones 20 --min-operaciones 150 --min-ops-oos 80
+```
+
+Fija objetivo = stop (ratio 1:1 exacto), quita las condiciones de salida para
+que toda operación acabe en stop, objetivo o tiempo, añade un cierre forzoso
+intradía, y puntúa por **efectividad** en vez de por Return/DD.
+
+### La aritmética del 1:1
+
+Con ratio fijo lo único que decide es si el acierto supera al de equilibrio.
+Con 0,04 % de comisión y 0,02 % de slippage por lado (0,12 % ida y vuelta):
+
+| Stop | Ganas | Pierdes | Acierto mínimo |
+|---:|---:|---:|---:|
+| 0,30 % | 0,240 % | 0,360 % | **60,0 %** |
+| 0,50 % | 0,440 % | 0,560 % | 56,0 % |
+| 1,00 % | 0,940 % | 1,060 % | 53,0 % |
+| 2,00 % | 1,940 % | 2,060 % | 51,5 % |
+| 3,00 % | 2,940 % | 3,060 % | 51,0 % |
+
+Cuanto más pequeño el stop, más alto el listón. Un stop del 0,3 % en 5m exige
+un 60 % de acierto sostenido sólo para no perder dinero.
+
+`metricas` calcula el acierto de equilibrio a partir de las ganancias y
+pérdidas realmente observadas, así que el umbral no es teórico: sale de las
+operaciones. El **margen** (acierto − equilibrio) es la cifra que decide.
+
+### Por qué el suelo del intervalo y no el acierto crudo
+
+Un 65 % sacado de 20 operaciones y otro sacado de 500 no valen lo mismo, y la
+diferencia no se ve en el porcentaje. Con 20, el suelo del intervalo de
+confianza al 95 % está en el 43 %: ni siquiera se distingue de lanzar una
+moneda. Con 500, en el 61 %.
+
+El fitness `acierto` optimiza el **suelo del intervalo menos el equilibrio**,
+no el acierto crudo. Así una muestra corta deja de ser una ventaja para el
+sobreajuste.
+
+### Contexto semanal sin mirar al futuro
+
+`superior.py` alinea el marco semanal sobre las velas intradía. Aquí vive el
+error más caro del backtesting multi-timeframe: usar el cierre de la semana en
+curso estando dentro de ella. Un lunes no se puede filtrar por "la semana
+cierra alcista", porque eso no se sabe hasta el domingo.
+
+Separa las dos cosas que sí son legítimas:
+
+- **Semanas ya cerradas** — cierre, máximo, mínimo, rango, variación, pivote,
+  R1, S1, media de N cierres semanales. Se conocen enteras.
+- **Semana en curso, acumulado hasta la vela actual** — apertura (se sabe al
+  abrir) y máximo y mínimo recorridos hasta ahora. Causal: sólo mira atrás.
+
+`tests/test_superior.py` lo verifica alterando la segunda mitad de la serie y
+comprobando que ningún valor de la primera se mueve.
+
+### Resultado de la búsqueda en 1h
+
+De 104 estrategias generadas, 60 evaluadas fuera de muestra, **sobrevivió 1**:
+
+```
+  LARGO si   macd(8) cruza ↑ macd(20) Y macd(12) > 0
+  GESTIÓN    stop 3.0×ATR(14), objetivo 3.0×ATR, máx 12 barras
+  acierto                 55.2%   sobre 194 operaciones
+  suelo del intervalo     48.1%   (95 % de confianza)
+  acierto de equilibrio   45.6%
+  margen                  +9.6%
+  retorno fuera de muestra: +53.0%
+```
+
+Tres cosas que hay que saber antes de emocionarse:
+
+1. **No es un 1:1 real.** El 51 % de las operaciones sale por tiempo, no por
+   stop ni por objetivo. El ratio realizado es 1,19:1, y ese sesgo favorable
+   (el cierre por tiempo corta perdedoras) es de dónde sale buena parte del
+   resultado, no del acierto.
+2. **Un superviviente de 60 candidatas está dentro de lo que da el azar.** Si
+   cada una tiene un 5-10 % de pasar por suerte, lo esperable serían 3-6. Salió
+   1, o sea por debajo de lo esperable sin ningún edge.
+3. **No usa el contexto semanal.** La evolución tenía los bloques disponibles y
+   no los eligió.
+
+El Monte Carlo sí sale bien (drawdown p95 del 17 %, 2,1 % de probabilidad de
+acabar en pérdidas al remuestrear), pero eso mide la robustez de esas 194
+operaciones concretas, no que el edge exista.
+
+En 15m el banco se queda casi vacío: casi nada supera el equilibrio ni siquiera
+in-sample, porque con el mismo coste sobre operaciones más pequeñas el listón
+sube. Si querés seguir por aquí, 1h y 4h dan más margen que 5m y 15m.
+
+### Frecuencia relativa: el filtro que delata el régimen
+
+`intradia` informa de `frec_rel`: operaciones por vela fuera de muestra
+divididas por las de dentro. Un 1 significa que la estrategia sigue
+encontrando sus condiciones al mismo ritmo. Muy por debajo de 1 significa que
+dejó de dispararse, y eso delata dependencia del régimen antes y mejor que el
+propio acierto: una estrategia que en el tramo nuevo apenas opera no es que
+acierte menos, es que sus condiciones eran de una época concreta.
+
+Salió de comparar las dos búsquedas:
+
+| Búsqueda | Ops in-sample | Ops out-of-sample | `frec_rel` |
+|---|---:|---:|---:|
+| 1h, superviviente MACD | 493 | 194 | **0,92** |
+| 15m, mejor del banco | 318 | 20 | 0,15 |
+| 15m, segunda | 402 | 52 | 0,30 |
+| 15m, tercera | 266 | 19 | 0,17 |
+
+El banco de 15m tenía aciertos fuera de muestra llamativos (uno con 85 %),
+pero sobre 18-20 operaciones y disparándose seis veces menos que en el tramo
+de ajuste. El de 1h mantiene el ritmo. Se comprobó que no era un fallo del
+motor: una estrategia trivial da 259 ops por 10.000 velas in-sample y 271
+out-of-sample, o sea proporcional.
+
+El filtro exige `frec_rel >= 0.5` por defecto (`--min-frecuencia`).
+
+### Resultado de la búsqueda en 15m
+
+Cero supervivientes de 28 candidatas. Con el mismo coste sobre operaciones más
+pequeñas, el listón de acierto sube y casi nada lo supera ni siquiera
+in-sample: el banco se quedó en 28 frente a las 104 de 1h. **Para ratio 1:1,
+1h y 4h dan bastante más margen que 5m y 15m.**
+
+## Scalping con flujo de órdenes: por qué no sale
+
+La idea probada: muestrear la probabilidad direccional cada 10 segundos y
+dejar que la acumulación de esa evidencia decida entrar, mantener o salir de
+una posición que dura minutos u horas. No operar 10 segundos: **decidir** cada
+10 segundos.
+
+Se midió por dos vías y no se sostiene por ninguna.
+
+**Acumulando la probabilidad a 10 s.** Con medias exponenciales de 1, 5, 30 y
+60 minutos, el spread entre decil superior e inferior del score frente al
+movimiento futuro:
+
+| Ventana | +1 min | +5 min | +30 min | +1 h |
+|---|---:|---:|---:|---:|
+| 1 min | 0,0018% | 0,0025% | **0,0113%** | 0,0107% |
+| 5 min | 0,0007% | 0,0009% | −0,0007% | −0,0032% |
+| 30 min | 0,0003% | −0,0002% | −0,0098% | −0,0113% |
+| 1 hora | −0,0001% | −0,0006% | 0,0003% | 0,0004% |
+
+El mejor caso es diez veces menor que el coste de 0,12%, y **no mejora al
+acumular más**: las ventanas largas dan cero o negativo. La predictibilidad es
+local a los próximos segundos y no se suma.
+
+**Entrenando directamente sobre horizontes largos**, que es la prueba justa:
+
+| Horizonte | AUC | Spread d9−d1 | Sólo 20-21 UTC |
+|---|---:|---:|---:|
+| 30 min | 0,5232 | 0,0229% | 0,0538% |
+| 1 hora | 0,5226 | 0,0201% | 0,1090% |
+| 3 horas | 0,5129 | 0,0300% | **0,1388%** |
+
+Lo único que cruza el coste aparece restringiendo a la mejor sesión, a 3 horas.
+Con margen del 16%, selección de sesión hecha después de mirar los datos, AUC
+de 0,513 y capturando el spread entre extremos (que exige operar los dos
+lados). Y a 3 horas ya no es scalping.
+
+### El límite es estructural, no de modelado
+
+Con el acierto realmente medido, el coste máximo que admite cada horizonte:
+
+| Horizonte | Acierto | Movimiento medio | Coste máximo |
+|---|---:|---:|---:|
+| 10 s | 58,8% | 0,0131% | **0,23 pb** |
+| 1 min | 52,6% | 0,0381% | 0,20 pb |
+| 5 min | 52,6% | 0,0875% | 0,46 pb |
+| 30 min | 52,3% | 0,2144% | 0,99 pb |
+
+Contra costes reales de ida y vuelta: taker Binance con slippage 12 pb, taker
+VIP9 3,4 pb, maker estándar 4 pb, maker VIP9 2,4 pb. **Ni con comisión cero se
+llega**: haría falta slippage por debajo de 0,25 pb y el spread típico de
+BTCUSDT ya vale entre 0,5 y 1 pb.
+
+Mejorar el modelo no arregla esto. Para que el scalping a 10 s funcione con un
+movimiento medio del 0,013% haría falta un acierto del 96%, que no existe.
