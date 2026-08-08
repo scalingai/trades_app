@@ -365,3 +365,59 @@ Cero supervivientes de 28 candidatas. Con el mismo coste sobre operaciones más
 pequeñas, el listón de acierto sube y casi nada lo supera ni siquiera
 in-sample: el banco se quedó en 28 frente a las 104 de 1h. **Para ratio 1:1,
 1h y 4h dan bastante más margen que 5m y 15m.**
+
+## Scalping con flujo de órdenes: por qué no sale
+
+La idea probada: muestrear la probabilidad direccional cada 10 segundos y
+dejar que la acumulación de esa evidencia decida entrar, mantener o salir de
+una posición que dura minutos u horas. No operar 10 segundos: **decidir** cada
+10 segundos.
+
+Se midió por dos vías y no se sostiene por ninguna.
+
+**Acumulando la probabilidad a 10 s.** Con medias exponenciales de 1, 5, 30 y
+60 minutos, el spread entre decil superior e inferior del score frente al
+movimiento futuro:
+
+| Ventana | +1 min | +5 min | +30 min | +1 h |
+|---|---:|---:|---:|---:|
+| 1 min | 0,0018% | 0,0025% | **0,0113%** | 0,0107% |
+| 5 min | 0,0007% | 0,0009% | −0,0007% | −0,0032% |
+| 30 min | 0,0003% | −0,0002% | −0,0098% | −0,0113% |
+| 1 hora | −0,0001% | −0,0006% | 0,0003% | 0,0004% |
+
+El mejor caso es diez veces menor que el coste de 0,12%, y **no mejora al
+acumular más**: las ventanas largas dan cero o negativo. La predictibilidad es
+local a los próximos segundos y no se suma.
+
+**Entrenando directamente sobre horizontes largos**, que es la prueba justa:
+
+| Horizonte | AUC | Spread d9−d1 | Sólo 20-21 UTC |
+|---|---:|---:|---:|
+| 30 min | 0,5232 | 0,0229% | 0,0538% |
+| 1 hora | 0,5226 | 0,0201% | 0,1090% |
+| 3 horas | 0,5129 | 0,0300% | **0,1388%** |
+
+Lo único que cruza el coste aparece restringiendo a la mejor sesión, a 3 horas.
+Con margen del 16%, selección de sesión hecha después de mirar los datos, AUC
+de 0,513 y capturando el spread entre extremos (que exige operar los dos
+lados). Y a 3 horas ya no es scalping.
+
+### El límite es estructural, no de modelado
+
+Con el acierto realmente medido, el coste máximo que admite cada horizonte:
+
+| Horizonte | Acierto | Movimiento medio | Coste máximo |
+|---|---:|---:|---:|
+| 10 s | 58,8% | 0,0131% | **0,23 pb** |
+| 1 min | 52,6% | 0,0381% | 0,20 pb |
+| 5 min | 52,6% | 0,0875% | 0,46 pb |
+| 30 min | 52,3% | 0,2144% | 0,99 pb |
+
+Contra costes reales de ida y vuelta: taker Binance con slippage 12 pb, taker
+VIP9 3,4 pb, maker estándar 4 pb, maker VIP9 2,4 pb. **Ni con comisión cero se
+llega**: haría falta slippage por debajo de 0,25 pb y el spread típico de
+BTCUSDT ya vale entre 0,5 y 1 pb.
+
+Mejorar el modelo no arregla esto. Para que el scalping a 10 s funcione con un
+movimiento medio del 0,013% haría falta un acierto del 96%, que no existe.
