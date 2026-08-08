@@ -158,7 +158,8 @@ def paso_sigma(d, alto, bajo, cierre, entradas, lado, comisiones, horizonte,
     print(f"     ({len(entradas) - len(ent)} entradas descartadas por falta de historia)\n")
 
     print(f"     {'k·σ':>6} {'ratio':>6} {'n':>6} {'stop medio':>11} {'%res':>6} "
-          f"{'acierto':>8} {'exceso':>8} {'neto':>9} {'meses':>9}")
+          f"{'acierto':>8} {'exceso':>8} {'neto':>9} {'largo':>9} {'corto':>9} "
+          f"{'meses':>9}")
     filas = []
     for k in kas:
         stop = s[ent] * k
@@ -169,11 +170,18 @@ def paso_sigma(d, alto, bajo, cierre, entradas, lado, comisiones, horizonte,
                 continue
             r = resumen(des, ratio, comisiones, d.index)
             c = r["consistencia"]
-            filas.append({"k": k, "ratio": ratio, **r})
+            # Neto por lado: si sólo el largo da positivo, lo que se está
+            # cobrando es la subida de fondo de BTC y no la señal.
+            n_trade = barreras.neto(des, comisiones, d.index)
+            largo = float(n_trade[des.direccion > 0].mean())
+            corto = float(n_trade[des.direccion < 0].mean())
+            filas.append({"k": k, "ratio": ratio, "neto_largo": largo,
+                          "neto_corto": corto, **r})
             marca = "  ←" if r["neto_medio"] > 0 else ""
             print(f"     {k:>6.2f} {ratio:>6.2f} {r['n']:>6,} {stop.mean():>10.3%} "
                   f"{1 - r['frac_tiempo']:>5.0%} {r['p_real']:>8.4f} "
                   f"{r['exceso']:>+8.4f} {r['neto_medio']:>+8.4%} "
+                  f"{largo:>+8.4%} {corto:>+8.4%} "
                   f"{c['a_favor']:>3}/{c['periodos']:<4}{marca}")
     print()
     return pd.DataFrame(filas)
@@ -293,7 +301,8 @@ def main():
                                     args.horas, args.previa * 6)
     print(f"Señal: ventana {args.inicio:02d}:00-{(args.inicio + args.horas) % 24:02d}:00 "
           f"({args.zona}), barrido sobre {args.previa / 60:.0f} h previas")
-    print(f"  {len(primeras):,} apariciones con barrido de un solo lado")
+    print(f"  {len(primeras):,} apariciones con barrido de un solo lado "
+          f"({(lado > 0).mean():.0%} largas / {(lado < 0).mean():.0%} cortas)")
     print(f"  horizonte {args.horizonte * 10 / 3600:.0f} h, comisiones {args.mercado} "
           f"(gana {comisiones.del_ganador():.2%}, pierde {comisiones.del_perdedor():.2%})\n")
 
