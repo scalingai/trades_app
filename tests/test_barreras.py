@@ -190,6 +190,60 @@ def test_el_reparto_suma_uno():
     assert sum(d.reparto().values()) == pytest.approx(1.0)
 
 
+# ========================
+# COMISIONES DE FUTUROS
+# ========================
+
+def test_el_perdedor_cuesta_mas_que_el_ganador():
+    """
+    El objetivo es una orden límite y cobra de maker; el stop sale a mercado y
+    cobra de taker, más deslizamiento. Cobrarles lo mismo abarata al perdedor.
+    """
+    c = barreras.Comisiones.futuros_limite(deslizamiento=0.0001)
+    assert c.del_perdedor() > c.del_ganador()
+    assert c.del_ganador() == pytest.approx(0.0004)
+    assert c.del_perdedor() == pytest.approx(0.0008)
+
+
+def test_una_comision_plana_reproduce_el_calculo_viejo():
+    """Puente con lo medido antes: una cifra plana tiene que dar lo mismo."""
+    df = marco([100, 100, 100], alto=[100, 100, 103], bajo=[100, 100, 100])
+    d = barreras.recorrer(*arrays(df), np.array([0]), 0.02, 0.02, 5)
+    plano = barreras.contraste(d, 0.02, 0.02, coste=0.0012)
+    objeto = barreras.contraste(d, 0.02, 0.02, coste=barreras.Comisiones.plana(0.0012))
+    assert objeto["neto_medio"] == pytest.approx(plano["neto_medio"])
+
+
+def test_el_neto_descuenta_segun_como_salio():
+    gana = marco([100, 100, 100], alto=[100, 100, 103], bajo=[100, 100, 100])
+    pierde = marco([100, 100, 100], alto=[100, 100, 100], bajo=[100, 100, 97])
+    c = barreras.Comisiones.futuros_limite(deslizamiento=0.0001)
+
+    dg = barreras.recorrer(*arrays(gana), np.array([0]), 0.02, 0.02, 5)
+    dp = barreras.recorrer(*arrays(pierde), np.array([0]), 0.02, 0.02, 5)
+    assert barreras.neto(dg, c)[0] == pytest.approx(0.02 - 0.0004)
+    assert barreras.neto(dp, c)[0] == pytest.approx(-0.02 - 0.0008)
+
+
+def test_el_funding_solo_se_cobra_si_se_cruza_un_corte():
+    """El perpetuo liquida a las 00, 08 y 16 UTC. Sin cruzar, no se paga."""
+    dentro = pd.to_datetime(["2026-03-02T09:00:00Z", "2026-03-02T13:00:00Z"])
+    cruza = pd.to_datetime(["2026-03-02T15:00:00Z", "2026-03-02T17:00:00Z"])
+    assert barreras.cortes_de_funding(dentro[:1], dentro[1:])[0] == 0
+    assert barreras.cortes_de_funding(cruza[:1], cruza[1:])[0] == 1
+
+
+def test_el_largo_paga_el_funding_y_el_corto_lo_cobra():
+    marcas = pd.to_datetime([f"2026-03-02T{h:02d}:00:00Z" for h in range(24)])
+    d = barreras.Desenlaces(np.array([15]), np.array([17]),
+                            np.array([barreras.TIEMPO]), np.array([0.0]), 1)
+    c = barreras.Comisiones(0, 0, 0, 0, 0.0, funding=0.0001)
+    largo = barreras.neto(d, c, marcas)[0]
+    corto = barreras.neto(d, c, marcas, direcciones=np.array([-1]))[0]
+    assert largo == pytest.approx(-0.0001)
+    assert corto == pytest.approx(+0.0001)
+
+
 def test_contraste_sin_operaciones():
     vacio = barreras.Desenlaces(np.array([]), np.array([]), np.array([]), np.array([]), 1)
     assert barreras.contraste(vacio, 0.01, 0.01) == {}

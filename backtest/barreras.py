@@ -66,6 +66,92 @@ class Desenlaces:
                 for m in (OBJETIVO, STOP, TIEMPO)}
 
 
+CORTE_FUNDING = 8 * 3600      # el perpetuo liquida a las 00, 08 y 16 UTC
+
+
+@dataclass
+class Comisiones:
+    """
+    Lo que cuesta una operación en un perpetuo, que depende de cómo salga.
+
+    En un bracket la entrada puede ser límite y el objetivo también, porque los
+    dos son precios a los que uno espera. El stop no: cuando salta hay que
+    salir a mercado, pagando de taker y con deslizamiento. Así que un trade
+    ganador y uno perdedor no cuestan lo mismo, y una comisión plana subestima
+    justo al perdedor, que es el que más pesa en la cuenta.
+
+    El funding es aparte: se paga cada ocho horas y sólo si la operación cruza
+    uno de los cortes. Un trade de dos horas normalmente no cruza ninguno.
+    Sobre BTC la tasa media es de +0,006 % por corte, así que el largo paga y
+    el corto cobra.
+    """
+    entrada: float = 0.0002
+    objetivo: float = 0.0002
+    stop: float = 0.0005
+    tiempo: float = 0.0005
+    deslizamiento: float = 0.0
+    funding: float = 0.00006
+
+    @classmethod
+    def futuros_limite(cls, deslizamiento=0.0001):
+        """Entrada y objetivo con orden límite; el stop sale a mercado."""
+        return cls(0.0002, 0.0002, 0.0005, 0.0005, deslizamiento)
+
+    @classmethod
+    def futuros_mercado(cls, deslizamiento=0.0001):
+        """Todo a mercado: es la versión que de verdad se puede ejecutar siempre."""
+        return cls(0.0005, 0.0005, 0.0005, 0.0005, deslizamiento)
+
+    @classmethod
+    def plana(cls, coste):
+        """Una sola cifra de ida y vuelta, para comparar con lo medido antes."""
+        return cls(coste / 2, coste / 2, coste / 2, coste / 2, 0.0, 0.0)
+
+    def de_salida(self, motivo):
+        """Coste de cerrar, según por dónde se cerró."""
+        return np.where(motivo == OBJETIVO, self.objetivo,
+                        np.where(motivo == STOP, self.stop + self.deslizamiento,
+                                 self.tiempo + self.deslizamiento))
+
+    def del_ganador(self):
+        return self.entrada + self.objetivo
+
+    def del_perdedor(self):
+        return self.entrada + self.stop + self.deslizamiento
+
+
+def cortes_de_funding(entrada, salida):
+    """
+    Cuántos cortes de funding caen dentro de cada operación.
+
+    Se cuenta redondeando cada extremo hacia abajo al corte anterior y restando,
+    con aritmética de fechas y no de enteros: los enteros de un índice de
+    pandas están en la resolución que le haya tocado a la serie, y suponer
+    nanosegundos cuando son segundos deja el resultado en cero sin avisar.
+    """
+    paso = pd.Timedelta(seconds=CORTE_FUNDING)
+    e = pd.DatetimeIndex(entrada).floor(paso)
+    s = pd.DatetimeIndex(salida).floor(paso)
+    return ((s - e) // paso).to_numpy()
+
+
+def neto(desenlaces, comisiones, marcas=None, direcciones=None):
+    """
+    Retorno de cada operación descontando lo que costó según cómo salió.
+
+    Con `marcas` se cobra además el funding de los cortes que cruce, con el
+    signo que le toca: el largo lo paga cuando la tasa es positiva y el corto
+    lo cobra.
+    """
+    r = desenlaces.retorno - comisiones.entrada - comisiones.de_salida(desenlaces.motivo)
+    if marcas is not None and comisiones.funding:
+        marcas = pd.DatetimeIndex(marcas)
+        cruces = cortes_de_funding(marcas[desenlaces.entrada], marcas[desenlaces.salida])
+        lado = desenlaces.direccion if direcciones is None else direcciones
+        r = r - cruces * comisiones.funding * lado
+    return r
+
+
 def teorica(stop, objetivo):
     """
     P(tocar objetivo antes que stop) sobre un paseo sin deriva y sin límite de
@@ -120,7 +206,7 @@ def recorrer(alto, bajo, cierre, entradas, stop, objetivo, max_barras, direccion
                       np.array(mot, dtype=int), np.array(ret), direccion)
 
 
-def contraste(desenlaces, stop, objetivo, coste=0.0012):
+def contraste(desenlaces, stop, objetivo, coste=0.0012, marcas=None, direcciones=None):
     """
     Compara lo observado con lo que predice la fórmula del paseo aleatorio.
 
@@ -128,6 +214,9 @@ def contraste(desenlaces, stop, objetivo, coste=0.0012):
     se toca el objetivo respecto a S/(S+T). Positivo significa que la
     trayectoria persiste; negativo, que revierte. Cero significa que el mercado
     se comporta como un paseo y no hay nada que extraer.
+
+    `coste` admite una cifra plana de ida y vuelta o unas `Comisiones`, que
+    cobran distinto al ganador y al perdedor.
     """
     if len(desenlaces) == 0:
         return {}
@@ -140,6 +229,10 @@ def contraste(desenlaces, stop, objetivo, coste=0.0012):
               if n_res else float("nan"))
 
     bruto = float(desenlaces.retorno.mean())
+    if isinstance(coste, Comisiones):
+        neto_medio = float(neto(desenlaces, coste, marcas, direcciones).mean())
+    else:
+        neto_medio = bruto - coste
     return {
         "n": len(desenlaces),
         "resueltas": n_res,
@@ -148,7 +241,7 @@ def contraste(desenlaces, stop, objetivo, coste=0.0012):
         "p_real": p_real,
         "exceso": p_real - p_teorica if n_res else float("nan"),
         "bruto_medio": bruto,
-        "neto_medio": bruto - coste,
+        "neto_medio": neto_medio,
     }
 
 

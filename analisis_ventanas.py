@@ -28,12 +28,21 @@ minutos o de la regla, que no es lo mismo.
 **4. ¿Se repite?** Acuerdo mes a mes, que es lo que separa un patrón de una
 racha.
 
-Y por encima de todo está la aritmética del bracket del gráfico: 200 puntos de
-stop y 200 de objetivo sobre 65.110 son un 0,307 %, y con 12 puntos básicos de
-coste de ida y vuelta eso exige acertar el 69,5 % de las veces sólo para no
-perder dinero. Ese número manda sobre todos los demás.
+Y por encima de todo está la aritmética del bracket. El gráfico es de
+BTCUSDT PERPETUAL, así que las comisiones que mandan son las de futuros y no
+las de contado, que son unas cinco veces mayores. En futuros hay además dos
+esquemas muy distintos según cómo se ejecute:
 
-    python analisis_ventanas.py
+- todo a mercado, que se puede ejecutar siempre;
+- entrada y objetivo con orden límite y el stop a mercado, que es más barato
+  pero cobra distinto al ganador que al perdedor, porque cuando el stop salta
+  no hay más remedio que cruzar el diferencial.
+
+El apalancamiento no aparece por ningún lado y no es un olvido: la comisión se
+cobra sobre el nocional, así que multiplica el beneficio y el coste en la misma
+proporción y deja el punto de equilibrio exactamente donde estaba.
+
+    python analisis_ventanas.py --mercado futuros-limite
     python analisis_ventanas.py --zona nueva-york --stop 0.005
 """
 
@@ -46,13 +55,21 @@ import pandas as pd
 from backtest import barreras, ventanas
 from descargar_datos import cargar_datos
 
-COSTE = 0.0012
-COSTE_MAKER = 0.00024
 # Geometría del gráfico: 200 puntos sobre 65.110.
 STOP_GRAFICO = 200 / 65110
 
+# El gráfico es de BTCUSDT PERPETUAL, así que lo que manda son las comisiones
+# de futuros y no las de contado. En Binance USDⓈ-M sin descuentos son 0,02 %
+# de maker y 0,05 % de taker, casi la quinta parte de lo que cobra el contado.
+MERCADOS = {
+    "futuros-limite": barreras.Comisiones.futuros_limite(),
+    "futuros-mercado": barreras.Comisiones.futuros_mercado(),
+    "contado": barreras.Comisiones.plana(0.0012),
+}
+COSTE = MERCADOS["futuros-mercado"]
 
-def recorrido_por_grupo(des, etiquetas, stop, objetivo, coste):
+
+def recorrido_por_grupo(des, etiquetas, stop, objetivo, coste, marcas=None):
     """Contraste de barrera desglosado por etiqueta, en una sola pasada."""
     if len(des) == 0:
         return pd.DataFrame()
@@ -61,6 +78,7 @@ def recorrido_por_grupo(des, etiquetas, stop, objetivo, coste):
         "objetivo": (des.motivo == barreras.OBJETIVO),
         "resuelta": (des.motivo != barreras.TIEMPO),
         "retorno": des.retorno,
+        "neto": barreras.neto(des, coste, marcas),
     })
     g = t.groupby("etiqueta")
     r = pd.DataFrame({
@@ -68,11 +86,11 @@ def recorrido_por_grupo(des, etiquetas, stop, objetivo, coste):
         "resueltas": g["resuelta"].sum(),
         "frac_resueltas": g["resuelta"].mean(),
         "bruto": g["retorno"].mean(),
+        "neto": g["neto"].mean(),
     })
     aciertos = t[t["resuelta"]].groupby("etiqueta")["objetivo"].mean()
     r["p_real"] = aciertos
     r["exceso"] = r["p_real"] - barreras.teorica(stop, objetivo)
-    r["neto"] = r["bruto"] - coste
     return r
 
 
@@ -134,7 +152,7 @@ def paso_ciego(d, alto, bajo, cierre, zona, stop, objetivo, horizonte):
         for direccion, etiqueta in ((1, "largo"), (-1, "corto")):
             des = barreras.recorrer(alto, bajo, cierre, primeras, stop, objetivo,
                                     horizonte, direccion)
-            r = barreras.contraste(des, stop, objetivo, COSTE)
+            r = barreras.contraste(des, stop, objetivo, COSTE, d.index, direccion)
             if not r:
                 continue
             filas.append({"ventana": nombre, "lado": etiqueta, **r})
@@ -174,7 +192,8 @@ def modelo_barrido(alto, bajo, cierre, inicios, finales, previa, stop, objetivo,
         np.concatenate([s.entrada for s in salidas]),
         np.concatenate([s.salida for s in salidas]),
         np.concatenate([s.motivo for s in salidas]),
-        np.concatenate([s.retorno for s in salidas]), 0)
+        np.concatenate([s.retorno for s in salidas]),
+        np.concatenate([np.full(len(s), s.direccion) for s in salidas]))
 
 
 def paso_modelo(d, alto, bajo, cierre, zona, previa, stop, objetivo, horizonte):
@@ -191,8 +210,10 @@ def paso_modelo(d, alto, bajo, cierre, zona, previa, stop, objetivo, horizonte):
                                  stop, objetivo, horizonte, contrario)
             if des is None or len(des) < 100:
                 continue
-            r = barreras.contraste(des, stop, objetivo, COSTE)
-            cons = ventanas.consistencia(d.index[des.entrada], des.retorno - COSTE)
+            r = barreras.contraste(des, stop, objetivo, COSTE, d.index)
+            cons = ventanas.consistencia(
+                d.index[des.entrada],
+                barreras.neto(des, COSTE, d.index))
             filas.append({"ventana": nombre, "sentido": etiqueta, **r, **cons})
             marca = "  ←" if r["neto_medio"] > 0 else ""
             print(f"     {nombre:<14} {etiqueta:>12} {r['n']:>6,} "
@@ -230,8 +251,10 @@ def paso_control_ancho(d, alto, bajo, cierre, zona, previa, stop, objetivo,
                                  stop, objetivo, horizonte, contrario)
             if des is None or len(des) < 100:
                 continue
-            r = barreras.contraste(des, stop, objetivo, COSTE)
-            cons = ventanas.consistencia(d.index[des.entrada], des.retorno - COSTE)
+            r = barreras.contraste(des, stop, objetivo, COSTE, d.index)
+            cons = ventanas.consistencia(
+                d.index[des.entrada],
+                barreras.neto(des, COSTE, d.index))
             filas.append({"inicio": f"{h:02d}:00", "sentido": etiqueta,
                           **r, **cons})
 
@@ -293,8 +316,10 @@ def paso_todo_el_dia(d, alto, bajo, cierre, zona, previa, stop, objetivo,
         np.concatenate([t.entrada for t in trozos]),
         np.concatenate([t.salida for t in trozos]),
         np.concatenate([t.motivo for t in trozos]),
-        np.concatenate([t.retorno for t in trozos]), 0)
-    tabla = recorrido_por_grupo(des, np.concatenate(etiquetas), stop, objetivo, COSTE)
+        np.concatenate([t.retorno for t in trozos]),
+        np.concatenate([np.full(len(t), t.direccion) for t in trozos]))
+    tabla = recorrido_por_grupo(des, np.concatenate(etiquetas), stop, objetivo,
+                                COSTE, d.index)
     tabla["hora"] = [ventanas.inicio_de_bucket(b, minutos, desfase)
                      for b in tabla.index]
 
@@ -345,11 +370,11 @@ def main():
     parser.add_argument("--desfase", type=int, default=5,
                         help="Minutos que se corre la rejilla de 144 tramos. Con 5, "
                              "09:55-10:05 y 10:25-10:35 son tramos exactos")
-    parser.add_argument("--coste", type=float, default=COSTE,
-                        help=f"Ida y vuelta. {COSTE:.2%} es taker, "
-                             f"{COSTE_MAKER:.3%} es maker")
+    parser.add_argument("--mercado", default="futuros-mercado",
+                        choices=sorted(MERCADOS),
+                        help="Esquema de comisiones a aplicar")
     args = parser.parse_args()
-    COSTE = args.coste
+    COSTE = MERCADOS[args.mercado]
 
     d = cargar_datos(args.datos)
     if args.desde:
@@ -359,12 +384,14 @@ def main():
     objetivo = args.stop * args.ratio
     print(f"\nLa geometría del gráfico: stop {args.stop:.3%}, objetivo {objetivo:.3%}, "
           f"horizonte {args.horizonte * 10 / 60:.0f} min")
-    print(f"  acierto de un paseo aleatorio        "
-          f"{barreras.teorica(args.stop, objetivo):>6.1%}")
-    print(f"  necesario con el coste aplicado ({COSTE:.3%}) "
-          f"{ventanas.win_rate_necesario(args.stop, objetivo, COSTE):>6.1%}")
-    print(f"  necesario con comisiones de maker ({COSTE_MAKER:.3%}) "
-          f"{ventanas.win_rate_necesario(args.stop, objetivo, COSTE_MAKER):>6.1%}\n")
+    print(f"  acierto de un paseo aleatorio{barreras.teorica(args.stop, objetivo):>27.1%}")
+    for nombre in sorted(MERCADOS):
+        c = MERCADOS[nombre]
+        marca = "  ← aplicado" if nombre == args.mercado else ""
+        print(f"  necesario en {nombre:<16} (gana {c.del_ganador():.2%}, "
+              f"pierde {c.del_perdedor():.2%}) "
+              f"{ventanas.win_rate_necesario(args.stop, objetivo, c):>6.1%}{marca}")
+    print()
 
     alto = d["high"].to_numpy(dtype=float)
     bajo = d["low"].to_numpy(dtype=float)

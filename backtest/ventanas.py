@@ -32,7 +32,7 @@ from datetime import time
 import numpy as np
 import pandas as pd
 
-from backtest import patrones
+from backtest import barreras, patrones
 
 # El indicador escribe "GMT-4" fijo. Eso coincide con Nueva York sólo de marzo
 # a noviembre; el resto del año la ciudad está en GMT-5 y las ventanas se
@@ -256,9 +256,18 @@ def win_rate_necesario(stop, objetivo, coste=0.0012):
     y ese segundo término crece muy deprisa cuando el bracket es pequeño: un
     1:1 de 200 puntos sobre BTC a 65.000 es un 0,31 %, y con 12 puntos básicos
     de coste exige acertar casi siete de cada diez.
+
+    Con unas `Comisiones` el ganador y el perdedor cuestan distinto, así que la
+    condición de equilibrio es p·(T − c_gana) = (1−p)·(S + c_pierde).
     """
     if stop + objetivo <= 0:
         return float("nan")
+    if isinstance(coste, barreras.Comisiones):
+        gana, pierde = coste.del_ganador(), coste.del_perdedor()
+        denominador = stop + objetivo + pierde - gana
+        if denominador <= 0:
+            return float("nan")
+        return float((stop + pierde) / denominador)
     return float((stop + coste) / (stop + objetivo))
 
 

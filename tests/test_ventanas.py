@@ -322,3 +322,34 @@ def test_sin_costes_el_uno_a_uno_pide_la_mitad():
 def test_con_comisiones_de_maker_el_liston_baja_mucho():
     p = ventanas.win_rate_necesario(0.00307, 0.00307, coste=0.00024)
     assert p == pytest.approx(0.539, abs=0.005)
+
+
+def test_en_futuros_el_liston_queda_entre_medias():
+    """
+    Con límite en la entrada y en el objetivo pero el stop a mercado, el listón
+    no es ni el de taker puro ni el de maker puro: queda en medio, y por encima
+    del que saldría suponiendo que el perdedor también cobra de maker.
+    """
+    from backtest import barreras
+
+    c = barreras.Comisiones.futuros_limite(deslizamiento=0.0001)
+    p = ventanas.win_rate_necesario(0.005, 0.005, coste=c)
+    plano_optimista = ventanas.win_rate_necesario(0.005, 0.005, coste=c.del_ganador())
+    plano_taker = ventanas.win_rate_necesario(0.005, 0.005, coste=0.0012)
+    assert plano_optimista < p < plano_taker
+
+
+def test_solo_manda_la_relacion_entre_recorrido_y_comision():
+    """
+    Multiplicar recorrido y comisión por lo mismo deja el punto de equilibrio
+    donde estaba. Es la razón por la que el apalancamiento no arregla nada: en
+    un perpetuo la comisión se cobra sobre el nocional, así que subir el
+    apalancamiento multiplica el beneficio y la comisión en la misma
+    proporción y no aparece por ningún lado en la fórmula.
+    """
+    base = ventanas.win_rate_necesario(0.005, 0.005, coste=0.0010)
+    for k in (2, 5, 10, 25):
+        assert ventanas.win_rate_necesario(0.005 * k, 0.005 * k,
+                                           coste=0.0010 * k) == pytest.approx(base)
+    # Lo que sí baja el listón es agrandar el bracket dejando la comisión quieta.
+    assert ventanas.win_rate_necesario(0.010, 0.010, coste=0.0010) < base
