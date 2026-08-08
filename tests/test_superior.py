@@ -185,3 +185,63 @@ def test_funciona_aunque_la_serie_no_empiece_en_lunes():
     ctx = ContextoSemanal(datos)
     assert len(ctx.calcular("sem_ant_close")) == n
     assert np.diff(ctx._codigos).min() >= 0        # los códigos no retroceden
+
+
+# ========================
+# REMUESTREO Y FLUJO DE ÓRDENES
+# ========================
+
+def test_el_remuestreo_conserva_las_fechas():
+    """
+    Regresión: convertir el timestamp a entero y volver mandaba las fechas a
+    1970. astype("int64") sobre un datetime64[ms] devuelve milisegundos, no
+    nanosegundos, así que dividir por 1e6 destruía la fecha en silencio.
+    """
+    from descargar_datos import remuestrear
+
+    n = 600
+    inicio = pd.Timestamp("2026-08-01", tz="UTC")
+    df = pd.DataFrame({
+        "timestamp": pd.date_range(inicio, periods=n, freq="1s", tz="UTC"),
+        "open": np.arange(n, dtype=float), "high": np.arange(n, dtype=float) + 1,
+        "low": np.arange(n, dtype=float) - 1, "close": np.arange(n, dtype=float),
+        "volume": np.ones(n), "trades": np.ones(n), "taker_buy": np.full(n, 0.5),
+    })
+    r = remuestrear(df, 10)
+
+    assert len(r) == n // 10
+    assert r["timestamp"].iloc[0] == inicio
+    assert r["timestamp"].iloc[0].year == 2026            # no 1970
+    assert (r["timestamp"].diff().dropna() == pd.Timedelta(seconds=10)).all()
+
+
+def test_el_remuestreo_agrega_bien_cada_columna():
+    n = 30
+    df = pd.DataFrame({
+        "timestamp": pd.date_range("2026-08-01", periods=n, freq="1s", tz="UTC"),
+        "open": np.arange(n, dtype=float), "high": np.arange(n, dtype=float),
+        "low": np.arange(n, dtype=float), "close": np.arange(n, dtype=float),
+        "volume": np.ones(n), "trades": np.full(n, 2.0), "taker_buy": np.full(n, 0.25),
+    })
+    from descargar_datos import remuestrear
+    r = remuestrear(df, 10)
+
+    assert r["open"].tolist() == [0.0, 10.0, 20.0]        # primera de cada bloque
+    assert r["close"].tolist() == [9.0, 19.0, 29.0]       # última
+    assert r["high"].tolist() == [9.0, 19.0, 29.0]        # máximo
+    assert r["low"].tolist() == [0.0, 10.0, 20.0]         # mínimo
+    assert r["volume"].tolist() == [10.0, 10.0, 10.0]     # suma
+    assert r["trades"].tolist() == [20.0, 20.0, 20.0]     # suma
+    assert r["taker_buy"].tolist() == [2.5, 2.5, 2.5]     # suma
+
+
+def test_el_volumen_comprador_nunca_supera_al_total():
+    """Invariante del flujo: taker_buy es una parte del volumen, no otra cosa."""
+    from descargar_datos import cargar_datos
+    import os
+    ruta = "data/BTCUSDT_10s_binance.csv"
+    if not os.path.exists(ruta):
+        pytest.skip("hace falta la descarga de 10s")
+    df = cargar_datos(ruta).head(50_000)
+    assert (df["taker_buy"] <= df["volume"] + 1e-9).all()
+    assert (df["taker_buy"] >= -1e-9).all()

@@ -46,10 +46,20 @@ DIR_DATOS = "data"
 
 COLUMNAS = ["timestamp", "open", "high", "low", "close", "volume"]
 
+# Las velas de Binance traen 12 columnas y dos de ellas dicen algo que el OHLCV
+# no dice: cuántas operaciones hubo y cuánto volumen entró comprando a mercado.
+# La diferencia entre ese volumen agresivo y el resto es el desequilibrio de
+# flujo, que a escala de segundos es la medida más directa de presión compradora
+# o vendedora que hay sin pagar por datos de libro de órdenes.
+COLUMNAS_FLUJO = COLUMNAS + ["trades", "taker_buy"]
+
+# Posiciones en el CSV de Binance: 8 = nº de operaciones, 9 = volumen comprador agresivo.
+INDICES_FLUJO = [0, 1, 2, 3, 4, 5, 8, 9]
+
 # Duración de cada vela en segundos. Sirve para paginar las peticiones y para
 # detectar huecos en la serie descargada.
 INTERVALOS = {
-    "1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800,
+    "1s": 1, "1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800,
     "1h": 3600, "2h": 7200, "4h": 14400, "6h": 21600, "8h": 28800,
     "12h": 43200, "1d": 86400, "3d": 259200, "1w": 604800,
 }
@@ -145,15 +155,42 @@ def _host_binance(sesion):
 # BINANCE
 # ========================
 
-def _klines_a_filas(crudas):
+def _klines_a_filas(crudas, flujo=False):
     """Convierte la respuesta de Binance al esquema canónico."""
+    if flujo:
+        return [
+            (_normalizar_ms(k[0]), float(k[1]), float(k[2]), float(k[3]), float(k[4]),
+             float(k[5]), float(k[8]), float(k[9]))
+            for k in crudas
+        ]
     return [
         (_normalizar_ms(k[0]), float(k[1]), float(k[2]), float(k[3]), float(k[4]), float(k[5]))
         for k in crudas
     ]
 
 
-def _binance_rest(sesion, host, par, intervalo, inicio_ms, fin_ms):
+def remuestrear(df, segundos):
+    """
+    Agrega velas finas a un intervalo mayor conservando el flujo.
+
+    Se usa sobre todo para pasar de 1s a 10s: bajar un año de velas de 1 segundo
+    son 31 millones de filas, y agregarlas mes a mes según se descargan mantiene
+    la memoria acotada. La etiqueta de cada vela es su hora de apertura, igual
+    que hace Binance.
+    """
+    agregacion = {"open": "first", "high": "max", "low": "min",
+                  "close": "last", "volume": "sum"}
+    for extra in ("trades", "taker_buy"):
+        if extra in df.columns:
+            agregacion[extra] = "sum"
+    salida = (df.set_index("timestamp")
+                .resample(f"{segundos}s", label="left", closed="left")
+                .agg(agregacion)
+                .dropna(subset=["open"]))
+    return salida.reset_index()
+
+
+def _binance_rest(sesion, host, par, intervalo, inicio_ms, fin_ms, flujo=False):
     """Descarga velas por el API REST, paginando de 1000 en 1000."""
     filas = []
     cursor = inicio_ms
@@ -168,7 +205,7 @@ def _binance_rest(sesion, host, par, intervalo, inicio_ms, fin_ms):
         })
         if not datos:
             break
-        filas.extend(_klines_a_filas(datos))
+        filas.extend(_klines_a_filas(datos, flujo))
         cursor = _normalizar_ms(datos[-1][0]) + paso
         if len(datos) < LIMITE_BINANCE:
             break
@@ -176,7 +213,7 @@ def _binance_rest(sesion, host, par, intervalo, inicio_ms, fin_ms):
     return filas
 
 
-def _binance_archivo_mes(sesion, par, intervalo, anio, mes):
+def _binance_archivo_mes(sesion, par, intervalo, anio, mes, flujo=False):
     """
     Descarga el ZIP mensual de data.binance.vision. Devuelve None si ese mes
     todavía no está publicado (el archivo mensual aparece unos días después
@@ -196,18 +233,20 @@ def _binance_archivo_mes(sesion, par, intervalo, anio, mes):
     primera = crudo.split(b"\n", 1)[0].split(b",")[0].strip().strip(b'"')
     tiene_cabecera = not primera.isdigit()
 
+    columnas = COLUMNAS_FLUJO if flujo else COLUMNAS
+    indices = INDICES_FLUJO if flujo else list(range(6))
     df = pd.read_csv(
         io.BytesIO(crudo),
         header=0 if tiene_cabecera else None,
-        usecols=range(6),
-        names=None if tiene_cabecera else COLUMNAS,
+        usecols=indices,
+        names=None if tiene_cabecera else columnas,
     )
-    df.columns = COLUMNAS
+    df.columns = columnas
     df["timestamp"] = df["timestamp"].map(_normalizar_ms)
     return df
 
 
-def descargar_binance(par, intervalo, inicio, fin):
+def descargar_binance(par, intervalo, inicio, fin, flujo=False, agregar_a=None):
     """
     Estrategia mixta: los meses ya cerrados se bajan como ZIP (una petición
     por mes en vez de miles) y el tramo final se completa por REST.
@@ -234,8 +273,13 @@ def descargar_binance(par, intervalo, inicio, fin):
         vacios_seguidos = 0
 
         while mes < min(fin, limite_archivo):
-            df_mes = _binance_archivo_mes(sesion, par, intervalo, mes.year, mes.month)
+            df_mes = _binance_archivo_mes(sesion, par, intervalo, mes.year, mes.month, flujo)
             if df_mes is not None and not df_mes.empty:
+                if agregar_a:
+                    # Se agrega ya, antes de acumular: 12 meses de velas de 1s
+                    # sin agregar son 31 millones de filas en memoria.
+                    df_mes["timestamp"] = pd.to_datetime(df_mes["timestamp"], unit="ms", utc=True)
+                    df_mes = remuestrear(df_mes, agregar_a)
                 partes.append(df_mes)
                 cursor = mes + timedelta(days=32)
                 cursor = datetime(cursor.year, cursor.month, 1, tzinfo=timezone.utc)
@@ -252,12 +296,16 @@ def descargar_binance(par, intervalo, inicio, fin):
 
     if cursor < fin:
         print(f"  · completando desde {cursor:%Y-%m-%d} por API REST", file=sys.stderr)
-        filas = _binance_rest(sesion, host, par, intervalo, _ms(cursor), _ms(fin))
+        filas = _binance_rest(sesion, host, par, intervalo, _ms(cursor), _ms(fin), flujo)
         if filas:
-            partes.append(pd.DataFrame(filas, columns=COLUMNAS))
+            cola = pd.DataFrame(filas, columns=COLUMNAS_FLUJO if flujo else COLUMNAS)
+            if agregar_a:
+                cola["timestamp"] = pd.to_datetime(cola["timestamp"], unit="ms", utc=True)
+                cola = remuestrear(cola, agregar_a)
+            partes.append(cola)
 
     if not partes:
-        return pd.DataFrame(columns=COLUMNAS)
+        return pd.DataFrame(columns=COLUMNAS_FLUJO if flujo else COLUMNAS)
     return pd.concat(partes, ignore_index=True)
 
 
@@ -309,8 +357,12 @@ def normalizar(df, intervalo, inicio, fin, alinear=True):
     if df.empty:
         return df
     df = df.copy()
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
-    for col in ("open", "high", "low", "close", "volume"):
+    # El remuestreo ya devuelve datetime; el resto de rutas entregan epoch en ms.
+    # No se convierte a entero y vuelta: astype("int64") sobre un datetime64[ms]
+    # da milisegundos, no nanosegundos, y ese round-trip mandaba las fechas a 1970.
+    if not pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True)
+    for col in [c for c in df.columns if c != "timestamp"]:
         df[col] = pd.to_numeric(df[col], errors="coerce")
     df = df.dropna(subset=["open", "high", "low", "close"])
 
@@ -384,7 +436,8 @@ def ruta_archivo(par, intervalo, fuente, formato="csv"):
 
 def guardar(df, ruta):
     os.makedirs(os.path.dirname(ruta) or ".", exist_ok=True)
-    df = df[COLUMNAS]        # descarta columnas auxiliares del control de calidad
+    # Descarta sólo las columnas auxiliares del control de calidad.
+    df = df[[c for c in df.columns if c != "desalineada"]]
     if ruta.endswith(".parquet"):
         df.to_parquet(ruta, index=False)
     else:
@@ -428,13 +481,32 @@ def main():
     parser.add_argument("--formato", choices=["csv", "parquet"], default="csv")
     parser.add_argument("--actualizar", action="store_true",
                         help="Continúa un archivo existente desde su última vela")
+    parser.add_argument("--flujo", action="store_true",
+                        help="Guarda también nº de operaciones y volumen comprador agresivo "
+                             "(el desequilibrio de flujo, imprescindible en escalas de segundos)")
+    parser.add_argument("--agregar-a", type=int, default=0, metavar="SEGUNDOS",
+                        help="Remuestrea al vuelo a velas de N segundos (p.ej. 10 para pasar "
+                             "de 1s a 10s sin guardar el 1s intermedio)")
     parser.add_argument("--sin-alinear", dest="alinear", action="store_false",
                         help="Conserva los timestamps tal cual los publica el exchange, "
                              "sin cuadrarlos a la rejilla del intervalo")
     args = parser.parse_args()
 
     par = args.par or ("BTCUSDT" if args.fuente == "binance" else "BTC-USD")
-    salida = args.salida or ruta_archivo(par, args.intervalo, args.fuente, args.formato)
+    # El nombre refleja el intervalo final, no el descargado.
+    etiqueta = f"{args.agregar_a}s" if args.agregar_a else args.intervalo
+    salida = args.salida or ruta_archivo(par, etiqueta, args.fuente, args.formato)
+    intervalo_final = etiqueta if args.agregar_a else args.intervalo
+
+    if args.agregar_a and args.fuente != "binance":
+        print("❌ --agregar-a sólo está implementado para Binance.", file=sys.stderr)
+        return 1
+    if args.agregar_a and args.agregar_a % INTERVALOS[args.intervalo] != 0:
+        print(f"❌ {args.agregar_a}s no es múltiplo del intervalo descargado "
+              f"({INTERVALOS[args.intervalo]}s).", file=sys.stderr)
+        return 1
+    if args.agregar_a:
+        INTERVALOS.setdefault(etiqueta, args.agregar_a)
 
     # Mejor avisar ahora que tras media hora de descarga.
     if salida.endswith(".parquet"):
@@ -462,14 +534,17 @@ def main():
     print(f"⬇️  Descargando {par} {args.intervalo} de {args.fuente}: "
           f"{inicio:%Y-%m-%d} → {fin:%Y-%m-%d} UTC")
 
-    descargar = descargar_binance if args.fuente == "binance" else descargar_coinbase
     try:
-        df = descargar(par, args.intervalo, inicio, fin)
+        if args.fuente == "binance":
+            df = descargar_binance(par, args.intervalo, inicio, fin,
+                                   flujo=args.flujo, agregar_a=args.agregar_a or None)
+        else:
+            df = descargar_coinbase(par, args.intervalo, inicio, fin)
     except (RuntimeError, ValueError) as err:
         print(f"❌ {err}", file=sys.stderr)
         return 1
 
-    df = normalizar(df, args.intervalo, inicio, fin, alinear=args.alinear)
+    df = normalizar(df, intervalo_final, inicio, fin, alinear=args.alinear)
 
     if previo is not None and not previo.empty:
         # keep="last": ante un timestamp repetido gana lo recién descargado.
@@ -482,7 +557,7 @@ def main():
               file=sys.stderr)
         return 1
 
-    revisar_calidad(df, args.intervalo)
+    revisar_calidad(df, intervalo_final)
     guardar(df, salida)
     print(f"\n▶️  Para usarlo:  from descargar_datos import cargar_datos; "
           f"df = cargar_datos({salida!r})")
