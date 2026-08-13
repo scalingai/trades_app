@@ -1,4 +1,46 @@
-# Small Caps — Fase 0: estructura de papel
+# Small Caps — sistema semi-automático
+
+> **Estado al 2026-08-13.** Investigación con datos propios, sin operar.
+> Lo que tiene evidencia y lo que no está en [RESEARCH.md](RESEARCH.md).
+> El dimensionamiento de riesgo está en [GESTION-RIESGO.md](GESTION-RIESGO.md).
+
+## Qué hay construido
+
+| script | qué hace | costo |
+|---|---|---|
+| `ingest.py` | ficha de estructura de papel de un ticker (EDGAR) | $0 |
+| `profile_universe.py` | perfila el universo micro cap (1.459 empresas) | $0 |
+| `backfill_daily.py` | barras diarias de todo el mercado US, 2 años | $0 |
+| `detect_events.py` | detector de volumen anómalo → 87.943 eventos | $0 |
+| `join_structure.py` | cruza cada evento con su ficha point-in-time | $0 |
+| `horizons.py` | retornos a T+1/5/20 + máxima excursión adversa | $0 |
+| `backfill_minutes.py` | barras de 1 minuto, muestra aleatoria de 1.500 | $0 |
+| `test_out_of_sample.py` | ¿el efecto replica en dos períodos? | $0 |
+| `test_signals.py` | 8 señales técnicas de cero parámetros | $0 |
+| `test_ict.py` | 3 señales de estructura ICT + combinación de capas | $0 |
+| `test_rr.py` | stop/target con costos, por banda de precio | $0 |
+| `test_scalping.py` | ¿funcionan los trades cortos? (no) | $0 |
+| `test_correlacion.py` | ¿los trades del mismo día son independientes? | $0 |
+| `riesgo.py` | dimensionamiento por simulación sobre datos reales | $0 |
+
+Todo corre sobre datos locales. Lo único que necesita API key es la descarga
+de precio (Massive/Polygon, plan gratis).
+
+## Estado de la descarga
+
+`python backfill_minutes.py --stats` para ver dónde quedó. Es resumable: la
+muestra está fija con semilla en la base, así que relanzar continúa con los
+mismos eventos.
+
+## Lo que sigue
+
+1. Reconfirmar todo con la muestra de minutos completa (n al doble)
+2. Medir el slippage real en los eventos con halt detectado
+3. Fuera de muestra sobre la configuración de salida específica
+
+---
+
+# Fase 0: estructura de papel
 
 Ingesta determinística de SEC EDGAR. **Sin LLM, sin scoring, sin decisiones.**
 Emite hechos con fecha de publicación conocida; el juicio viene después y sobre
