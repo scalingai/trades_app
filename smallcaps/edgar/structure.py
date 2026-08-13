@@ -225,13 +225,30 @@ def build(
     *,
     as_of: date | None = None,
     cache_hours: float = 12.0,
+    full_filings: bool = True,
 ) -> PaperStructure:
     """Arma el snapshot point-in-time de estructura de papel para un ticker."""
-    as_of = as_of or date.today()
     cik = cik_for(ticker)
-
     cf = CompanyFacts.load(cik, cache_hours=cache_hours)
-    all_filings = load_filings(cik, cache_hours=cache_hours)
+    all_filings = load_filings(cik, cache_hours=cache_hours, full=full_filings)
+    return build_from(cf, all_filings, ticker=ticker, cik=cik, as_of=as_of)
+
+
+def build_from(
+    cf: CompanyFacts,
+    all_filings: list[Filing],
+    *,
+    ticker: str,
+    cik: int,
+    as_of: date | None = None,
+) -> PaperStructure:
+    """Igual que `build`, pero con los datos de EDGAR ya cargados.
+
+    Existe para el cruce con eventos: un ticker puede tener decenas de fechas
+    distintas que evaluar, y recargar+parsear su companyfacts en cada una es
+    trabajo repetido. Se carga una vez y se resuelven todas las fechas.
+    """
+    as_of = as_of or date.today()
     # PIT: nada que se haya publicado después de `as_of` puede entrar.
     filings: list[Filing] = [f for f in all_filings if f.filed <= as_of]
 
