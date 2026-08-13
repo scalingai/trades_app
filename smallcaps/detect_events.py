@@ -82,7 +82,7 @@ def compute(conn: sqlite3.Connection, *, min_rvol: float, min_dollar_vol: float,
     # Un solo scan ordenado por (ticker, d) y agrupado en Python. Evita 20.000
     # queries separadas y mantiene la memoria acotada a un ticker por vez.
     cur = conn.execute(
-        "SELECT ticker, d, o, h, l, c, v FROM bars_daily "
+        "SELECT ticker, d, o, h, l, c, v, vw FROM bars_daily "
         "WHERE c IS NOT NULL AND v IS NOT NULL ORDER BY ticker, d"
     )
 
@@ -95,12 +95,14 @@ def compute(conn: sqlite3.Connection, *, min_rvol: float, min_dollar_vol: float,
         n_rows += len(serie)
         vols = [r[6] for r in serie]
         closes = [r[5] for r in serie]
+        # Serie de precios para el volumen en dólares: VWAP con fallback a cierre.
+        prices = [(r[7] if (r[7] is not None and r[7] > 0) else r[5]) for r in serie]
 
         for i in range(len(serie)):
             if i < lookback:
                 continue  # sin historia previa suficiente no hay referencia
 
-            _, d, o, h, l, c, v = serie[i]
+            _, d, o, h, l, c, v, vw = serie[i]
 
             # POINT-IN-TIME: la ventana es [i-20, i-1], estrictamente ANTERIOR.
             # Incluir el día i en su propia referencia diluiría el pico que
@@ -113,7 +115,11 @@ def compute(conn: sqlite3.Connection, *, min_rvol: float, min_dollar_vol: float,
                 continue
 
             rvol = v / med_v
-            dollar_vol = v * (c or 0)
+            # VWAP, no cierre. El cierre es un proxy y se desvía justo en los
+            # eventos que importan: los que corren hacia el cierre lo
+            # sobreestiman hasta 4x (MCLE operó $0,34M reales, no $1,57M).
+            # Fallback al cierre en el 0,5% de barras sin vw.
+            dollar_vol = v * (vw if (vw is not None and vw > 0) else (c or 0))
 
             # Filtros de EXISTENCIA del evento (no de calidad):
             # sin liquidez en dólares no hay oportunidad, la haya o no en RVOL.
@@ -137,7 +143,7 @@ def compute(conn: sqlite3.Connection, *, min_rvol: float, min_dollar_vol: float,
                     continue
 
             med_dv = statistics.median(
-                [vols[j] * closes[j] for j in range(max(0, i - lookback), i)]
+                [vols[j] * prices[j] for j in range(max(0, i - lookback), i)]
             )
             rango = (h - l) if (h is not None and l is not None) else None
 

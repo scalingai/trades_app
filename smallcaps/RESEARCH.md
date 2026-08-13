@@ -275,6 +275,58 @@ extremo, o sea la población objetivo. Quedan marcadas para verificar.
 
 ---
 
+## 4.ter. Etapa C — primer contacto con precio (2 años, mercado completo)
+
+Backfill: **7.694.236 barras**, 493 días, **32.582 tickers distintos**, 1.022 MB,
+101 min con el tier free. Contra ~15.000 tickers en un día cualquiera: más del
+doble de rotación en 2 años. El sesgo de supervivencia en su forma más cruda.
+
+Detector: 87.943 eventos con umbrales permisivos (186/día). Apretando a
+RVOL≥10, $1M, movimiento≥20%, precio $0,30-$20 quedan **35,6/día** — dentro del
+rango 20-40 que se había estimado.
+
+### El resultado que importa
+
+Short en la apertura, cubrir al cierre, sobre los 1.658 gaps >+50% con volumen
+> $1M:
+
+| métrica | valor |
+|---|---|
+| gana el short | **65%** de las veces |
+| mediana | **−8,64%** |
+| media (todo) | −1,01% |
+| media sin el 1% superior | −3,87% |
+| media sin el 5% superior | −8,74% |
+| peor caso individual | **+530,7%** |
+
+**Win rate alto y expectativa cerca de cero.** Casi todo el resultado agregado
+lo define el 1-5% de casos extremos. Es el perfil de juntar monedas delante de
+una aplanadora — y confirma con datos la advertencia del arranque: probabilidad
+≠ expectativa.
+
+**Esto NO es una estrategia y no está descontado de costos.** Falta borrow,
+slippage (grande en estos nombres) y disponibilidad de locate — los tres restan.
+Shortear todo gapper grande no es un edge. La tesis es que los features de
+dilución seleccionan el subconjunto donde SÍ lo es. Eso sigue sin testear.
+
+### Un error de medición dio vuelta el signo
+
+El volumen en dólares se calculaba como `volumen × cierre`. El cierre es un
+proxy y se desvía justo en los eventos que corren hacia el cierre: MCLE operó
+**$0,34M reales** (VWAP) y aparecía como $1,57M — 4,65×. Con el umbral de $1M
+tendría que haber quedado afuera, y era el outlier de +6075% que dominaba la
+media.
+
+| | con cierre | con VWAP |
+|---|---|---|
+| media | **+2,76%** | **−1,01%** |
+
+Un solo evento mal medido invertía el signo del agregado. En agregado el sesgo
+es chico (−4,1% en gaps >50%, y en la dirección contraria a la esperada), pero
+en la cola es 2-4×. Y la cola es donde vive todo.
+
+---
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:

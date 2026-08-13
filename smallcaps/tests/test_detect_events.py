@@ -177,3 +177,31 @@ class TestFiltroDeMovimiento:
         bars = flat("DOWN", 25, vol=100_000, price=10.0)
         bars.append(("DOWN", 25, 9.9, 9.9, 7.0, 7.2, 5_000_000))
         assert len(run(make_db(bars), min_move_pct=10.0)) == 1
+
+
+class TestVolumenEnDolares:
+    def test_usa_vwap_no_cierre(self):
+        """MCLE: 253.962 acciones, cierre $6,17, VWAP $1,33.
+        Con cierre parece $1,57M operados; los reales son $0,34M."""
+        conn = sqlite3.connect(":memory:")
+        conn.executescript(_BARS)
+        base = date(2025, 1, 6)
+        filas = [("MCLE", (base + timedelta(days=i)).isoformat(),
+                  1.0, 1.0, 1.0, 1.0, 5_000, 1.0, None) for i in range(25)]
+        filas.append(("MCLE", (base + timedelta(days=25)).isoformat(),
+                      0.10, 6.35, 0.10, 6.17, 253_962, 1.33, None))
+        conn.executemany(
+            "INSERT INTO bars_daily (ticker,d,o,h,l,c,v,vw,n) VALUES (?,?,?,?,?,?,?,?,?)", filas)
+        conn.commit()
+        # Con el umbral de $1M queda AFUERA: sus dólares reales son 0,34M.
+        compute(conn, min_rvol=3.0, min_dollar_vol=1_000_000,
+                min_price=0.30, max_price=50.0, min_move_pct=10.0)
+        assert conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == 0
+
+    def test_fallback_a_cierre_sin_vwap(self):
+        """0,5% de las barras vienen sin vw: no se pierden, se usa el cierre."""
+        bars = flat("AAA", 25, vol=50_000, price=10.0)
+        bars.append(("AAA", 25, 10.0, 11.0, 10.0, 11.0, 5_000_000))
+        ev = run(make_db(bars))  # make_db no setea vw -> NULL
+        assert len(ev) == 1
+        assert ev[0]["dollar_volume"] == pytest.approx(55_000_000)
