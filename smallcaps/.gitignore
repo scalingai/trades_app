@@ -1,3 +1,8 @@
+# secretos — NUNCA commitear
+.env
+.env.*
+!.env.example
+
 # cache de respuestas de la SEC — se regenera solo
 data/cache/
 # dataset acumulado (append-only, local)

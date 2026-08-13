@@ -19,11 +19,17 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-# La SEC rechaza requests sin contacto. Configurable por env; el default
-# es explícito a propósito — que falle ruidoso si nadie lo seteó.
-USER_AGENT = os.environ.get(
-    "SEC_USER_AGENT", "AlgoTrade smallcaps research (agustinp.mktdigital@gmail.com)"
-)
+# La SEC rechaza requests sin contacto. Sale de `.env` vía config, con
+# fallback a la variable de entorno si este módulo se usa suelto.
+try:
+    from config import sec_user_agent as _sec_user_agent
+
+    USER_AGENT = _sec_user_agent()
+except ImportError:  # edgar/ usado fuera del paquete smallcaps
+    USER_AGENT = os.environ.get(
+        "SEC_USER_AGENT",
+        "AlgoTrade smallcaps research (agustinp.mktdigital@gmail.com)",
+    )
 
 # 10 req/s es el límite publicado. Vamos a 8 para dejar margen.
 _MAX_RPS = 8.0
