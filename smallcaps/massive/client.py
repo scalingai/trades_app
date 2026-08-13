@@ -68,11 +68,13 @@ class MassiveClient:
                         # host tampoco. Es una respuesta definitiva.
                         raise NotAuthorized(f"fuera del plan en {path}: {body}") from exc
                     if exc.code == 429:
-                        # Nos pasamos de rate. Backoff largo: el límite es por
-                        # minuto, así que esperar poco no sirve de nada.
+                        # El límite es por CUENTA, no por host: probar el otro
+                        # host no ayuda y gasta un turno de throttle al pepe.
+                        # Se espera y se reintenta el mismo host. (Esto causó
+                        # un stall que duplicó el ETA en el backfill de minutos.)
                         time.sleep(15 * (attempt + 1))
                         last_err = MassiveError(f"429 rate limit en {path}")
-                        continue
+                        break
                     if exc.code == 401:
                         raise MassiveError(
                             "401: la API key no es válida. Revisá POLYGON_API_KEY en el .env"
