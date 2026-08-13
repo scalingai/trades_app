@@ -290,12 +290,32 @@ def construir_mapeo(limite_rank: int = 4000) -> None:
 # ─────────────────────────────── descarga ──────────────────────────────────
 
 def bajar_supply(limite: int | None = None) -> None:
+    """Descarga la supply, priorizando lo que el análisis realmente necesita.
+
+    El free tier tolera ~5 peticiones/min sostenidas, así que el orden importa:
+    de las 568 monedas mapeadas solo 456 tienen algún evento, y las 300 con más
+    eventos cubren el 90% de la muestra. Bajar por ranking de capitalización
+    gastaba el presupuesto en monedas grandes que casi nunca disparan el
+    detector.
+    """
     con = conectar()
-    ids = [r[0] for r in con.execute(
-        "SELECT DISTINCT coingecko_id FROM mapeo "
-        "WHERE coingecko_id != '' AND dudoso = 0 "
-        "ORDER BY mcap_rank IS NULL, mcap_rank"
-    ).fetchall()]
+    tiene_eventos = {t[0] for t in con.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='eventos'")}
+    if tiene_eventos:
+        ids = [r[0] for r in con.execute("""
+            SELECT m.coingecko_id
+              FROM mapeo m
+              LEFT JOIN eventos e ON e.simbolo = m.simbolo
+                   AND e.rvol >= 5 AND e.quote_volume >= 2e6
+             WHERE m.coingecko_id != '' AND m.dudoso = 0
+             GROUP BY m.coingecko_id
+             ORDER BY COUNT(e.d) DESC, m.mcap_rank IS NULL, m.mcap_rank
+        """).fetchall()]
+    else:
+        ids = [r[0] for r in con.execute(
+            "SELECT DISTINCT coingecko_id FROM mapeo "
+            "WHERE coingecko_id != '' AND dudoso = 0 "
+            "ORDER BY mcap_rank IS NULL, mcap_rank").fetchall()]
     ya = {r[0] for r in con.execute(
         "SELECT coingecko_id FROM supply_meta WHERE n_puntos > 100").fetchall()}
     pendientes = [i for i in ids if i not in ya]

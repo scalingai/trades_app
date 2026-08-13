@@ -41,33 +41,71 @@ for _s in (sys.stdout, sys.stderr):
 LOOKBACK = 90
 
 
+def _series_supply(con) -> dict[str, list[tuple]]:
+    """Toda la supply en memoria, ordenada por fecha. Son ~200k filas."""
+    series: dict[str, list[tuple]] = defaultdict(list)
+    for cg, d, sup, mcap in con.execute(
+            "SELECT coingecko_id, d, supply, mcap FROM supply "
+            "WHERE supply > 0 ORDER BY coingecko_id, d"):
+        series[cg].append((d, sup, mcap))
+    return series
+
+
+def _en_o_antes(serie: list[tuple], limite: str, tolerancia_dias: int = 7):
+    """Última observación con fecha ≤ `limite`, si no está más vieja que
+    `tolerancia_dias`.
+
+    Exigir la fecha exacta descartaba eventos en silencio cada vez que
+    CoinGecko tenía un hueco. Se toma la observación anterior más cercana,
+    que además es lo correcto point-in-time: usar una posterior sería mirar
+    el futuro. La tolerancia evita comparar contra un dato viejísimo —el
+    mismo criterio que `shares_stale_days` en acciones.
+    """
+    import bisect
+    from datetime import date as _date
+
+    i = bisect.bisect_right([s[0] for s in serie], limite)
+    if i == 0:
+        return None
+    d, sup, mcap = serie[i - 1]
+    if (_date.fromisoformat(limite) - _date.fromisoformat(d)).days > tolerancia_dias:
+        return None
+    return d, sup, mcap
+
+
 def cargar(con, horizonte: str, min_rvol: float, min_vol: float,
            incluir_ambiguos: bool) -> list[dict]:
     """Eventos con su dilución previa, market cap y antigüedad."""
+    from datetime import date as _date, timedelta as _td
+
     cond_amb = "" if incluir_ambiguos else "AND m.ambiguo = 0"
     sql = f"""
         SELECT e.simbolo, e.d, m.coingecko_id,
-               s_hoy.supply, s_ant.supply, s_hoy.mcap,
                r.pct_{horizonte}, r.r_{horizonte}, r.mae_t5,
                e.rvol, e.quote_volume, e.rango_pct,
                u.primer_dia
           FROM eventos e
-          JOIN mapeo   m ON m.simbolo = e.simbolo
+          JOIN mapeo    m ON m.simbolo = e.simbolo
           JOIN universo u ON u.simbolo = e.simbolo
           JOIN retornos r ON r.simbolo = e.simbolo AND r.d = e.d
-          JOIN supply s_hoy ON s_hoy.coingecko_id = m.coingecko_id
-               AND s_hoy.d = e.d
-          JOIN supply s_ant ON s_ant.coingecko_id = m.coingecko_id
-               AND s_ant.d = date(e.d, '-{LOOKBACK} days')
-         WHERE m.dudoso = 0 {cond_amb}
+         WHERE m.dudoso = 0 {cond_amb} AND m.coingecko_id != ''
            AND r.pct_{horizonte} IS NOT NULL
-           AND s_ant.supply > 0 AND s_hoy.supply > 0
            AND e.rvol >= ? AND e.quote_volume >= ?
     """
+    series = _series_supply(con)
     filas = []
     for f in con.execute(sql, (min_rvol, min_vol)):
-        (sim, d, cg, sup_hoy, sup_ant, mcap, pct, raw, mae,
-         rvol, vol, rango, primer) = f
+        (sim, d, cg, pct, raw, mae, rvol, vol, rango, primer) = f
+        serie = series.get(cg)
+        if not serie:
+            continue
+        hoy = _en_o_antes(serie, d)
+        atras = _en_o_antes(
+            serie, (_date.fromisoformat(d) - _td(days=LOOKBACK)).isoformat())
+        if not hoy or not atras:
+            continue
+        sup_hoy, mcap = hoy[1], hoy[2]
+        sup_ant = atras[1]
         crec = (sup_hoy / sup_ant - 1) * 100
         # Un salto de supply de más de 10x en 90 días casi siempre es una
         # redenominación o un dato corrupto, no dilución. Mismo criterio que el
