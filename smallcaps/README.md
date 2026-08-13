@@ -82,6 +82,47 @@ Las ventanas de 3m y 12m —las que importan— no se ven afectadas.
 - **Todavía no hay precio.** Sin market cap no se puede evaluar el *baby shelf rule*
   (S-3 limitado a ⅓ del float si el public float < $75M). Entra en Fase 1.
 
+## Dónde vive cada cosa (leer antes de retomar)
+
+**Todo es local, en tu PC. Nada sale a ninguna nube.** Pero está partido en dos
+lugares a propósito:
+
+| | Ruta | Sobrevive si se borra el worktree |
+|---|---|---|
+| **Código** | `…/gracious-wing-b7a8fc/smallcaps/` | **Sí** — commiteado en la rama `claude/small-caps-trading-system-df39e8`, que vive en el `.git` real de `C:\Users\agust\Apps\algotrade` |
+| **Datos** | `C:\Users\agust\Apps\algotrade-data\smallcaps\` | **Sí** — está afuera del worktree |
+| **`.env`** | worktree + respaldo en el dir de datos | **Sí** — por el respaldo |
+
+**Por qué separados.** El código corre en un *worktree* de git, que es
+descartable. Los datos no van en git (son cientos de MB y son reproducibles),
+pero si vivieran adentro del worktree se perderían al borrarlo. El `.env` tenía
+el mismo problema con la key adentro, por eso `config.py` lo busca primero en el
+worktree y después en el respaldo.
+
+El directorio de datos está **fuera de todo repo git**, así que la key no puede
+commitearse por accidente ni siquiera equivocándose de comando.
+
+Se mueve con `SMALLCAPS_DATA_DIR` en el `.env`.
+
+**Presupuesto de disco:**
+
+| Qué | Tamaño | Costo de recuperarlo |
+|---|---|---|
+| cache de EDGAR | ~170 MB | ~25 min |
+| perfiles JSONL | ~2 MB | ~25 min |
+| barras diarias (2 años) | ~700 MB | ~100 min |
+
+Todo es reproducible; lo que se pierde al borrarlo es tiempo, no información.
+
+## Para retomar más adelante
+
+```bash
+cd C:/Users/agust/Apps/algotrade && git checkout claude/small-caps-trading-system-df39e8
+```
+
+Los datos ya están en `C:\Users\agust\Apps\algotrade-data\smallcaps\`. Si el
+`.env` del worktree no está, `config.py` levanta el respaldo solo.
+
 ## Estructura
 
 ```

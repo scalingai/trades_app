@@ -22,20 +22,27 @@ from pathlib import Path
 # La SEC rechaza requests sin contacto. Sale de `.env` vía config, con
 # fallback a la variable de entorno si este módulo se usa suelto.
 try:
-    from config import sec_user_agent as _sec_user_agent
+    import config as _cfg
 
-    USER_AGENT = _sec_user_agent()
+    USER_AGENT = _cfg.sec_user_agent()
+    _CACHE_DIR_FN = _cfg.cache_dir
 except ImportError:  # edgar/ usado fuera del paquete smallcaps
     USER_AGENT = os.environ.get(
         "SEC_USER_AGENT",
         "AlgoTrade smallcaps research (agustinp.mktdigital@gmail.com)",
     )
+    _CACHE_DIR_FN = None
 
 # 10 req/s es el límite publicado. Vamos a 8 para dejar margen.
 _MAX_RPS = 8.0
 _MIN_INTERVAL = 1.0 / _MAX_RPS
 
-CACHE_DIR = Path(__file__).resolve().parent.parent / "data" / "cache"
+# Fuera del worktree cuando config está disponible (ver config.data_dir).
+CACHE_DIR = (
+    _CACHE_DIR_FN()
+    if _CACHE_DIR_FN
+    else Path(__file__).resolve().parent.parent / "data" / "cache"
+)
 
 
 class RateLimitError(RuntimeError):
