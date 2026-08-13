@@ -81,10 +81,19 @@ aparecer, algo cambió y no es momento de seguir pagando por descubrirlo.
 
 Escrito acá para que no se pierda con el tiempo:
 
-- **Independencia entre trades.** La simulación remuestrea asumiendo trades
-  independientes. Los eventos de small caps **se agrupan** — cuando el sector
-  se calienta corren muchas a la vez. Esa correlación empeoraría las rachas
-  y todavía no se midió.
+- ~~**Independencia entre trades**~~ — **MEDIDO** (`test_correlacion.py`).
+  Sí hay agrupamiento por día, pero es **chico**: la varianza de tomar k trades
+  el mismo día es 7-18% mayor que lo que predice la independencia (ratios
+  winsorizados 1,07-1,18, consistentes). Prueba de permutación: percentil 97,
+  evidencia marginal (p≈0,03) pero con los cinco ratios apuntando igual.
+
+  La cola tapaba el efecto: con retornos crudos (p99 = +168%, máx +672%) los
+  ratios salían sin patrón. Recortando al p95 aparece.
+
+  **Impacto:** tomar 4 trades el mismo día equivale a ~3,5 independientes. La
+  simulación queda levemente optimista, pero el 0,25% tenía margen de sobra
+  (0-2% de muerte) y no se mueve materialmente. Donde sí empeora es en 0,5%,
+  que ya moría 20-56% de las veces. **La recomendación no cambia, se refuerza.**
 - **n=124 trades** en la muestra, con reuso pesado en el remuestreo.
 - **Slippage en halts.** El stop se asume ejecutado a su precio. En una acción
   que haltea, el fill real es peor. No modelado.
