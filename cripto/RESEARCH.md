@@ -591,6 +591,81 @@ dos. Es más débil que partir por tiempo. Queda anotado como tal.
 
 ---
 
+## 6.bis. Correcciones al implementar — antes de ver ningún resultado
+
+Tres cosas cambiaron al construir el pipeline. Se anotan acá, con fecha, para
+que quede claro que son decisiones previas al contraste y no ajustes hechos
+después de ver un número que no gustaba.
+
+### 6.bis.1 El lookback baja de 12 meses a 90 días — obligado por el dato
+
+Se probó una tercera vía además de las dos de §1.2: `market_chart/range` con
+ventana antigua. También 401, con el mensaje explícito
+*"Public API users are limited to querying historical data within the past 365
+days"*.
+
+Eso rompe el plan original, y la aritmética es simple: con 365 días de supply y
+lookback **L**, los eventos utilizables van de `hoy − 365 + L` a `hoy`. O sea
+que la ventana de eventos es `365 − L`.
+
+| L | Ventana de eventos |
+|---|---|
+| 365 días (12m) | **0 días — inútil** |
+| 180 días | 185 días |
+| **90 días** | **275 días** ← elegido |
+
+**Con lookback de 12 meses el estudio tendría cero eventos.** Se usa 90 días,
+que es un trimestre y se corresponde con el `dilution_3m` que ya existía en el
+trabajo de acciones. No es el feature que funcionó allá —aquel era de 12m— y eso
+**debilita el traslado**: se está midiendo un primo del feature, no el mismo.
+Queda como limitación explícita.
+
+### 6.bis.2 El mapeo tenía dos errores del tipo que envenena en silencio
+
+Los dos aparecieron recién al correr el mapeo sobre los 832 símbolos:
+
+**Multiplicadores mal parseados.** `1000000BOBUSDT` quedaba como ticker
+`000BOB` y no matcheaba con nada, porque el código sacaba de a cuatro
+caracteres y `1000000` tiene siete. Binance usa además la convención `1M`
+(`1MBABYDOGEUSDT`). Corregido con expresión regular; verificado sobre los cinco
+casos.
+
+**"El de mayor mcap gana" falla cuando el token real no está en el ranking
+descargado.** `MEMEUSDT` resolvía a `memetoon` (rank 10.274) y `AAPLUSDT` a
+`apple-robinhood-tokenized-stock`. Un match a una moneda de rank muy profundo
+es sospechoso por construcción: Binance no lista perpetuos de la moneda número
+10.000.
+
+**Y el universo contiene acciones tokenizadas** (AAPL, ADBE, AAOI), que no son
+tokens con dinámica de supply y no pertenecen al estudio.
+
+Solución: marca `dudoso` para todo match sin ranking o con rank >2000, y esos
+quedan **fuera del análisis primario** en vez de elegirse en silencio. Resultado
+sobre 832 perpetuos: **642 resueltos, 262 dudosos excluidos, 570 usables.** Los
+79 ambiguos que sí entran se testean aparte con `--incluir-ambiguos` como
+análisis de sensibilidad.
+
+### 6.bis.3 El agrupamiento es mucho menor de lo previsto — y la neutralización funciona
+
+§4.1 anticipaba que el n efectivo podía ser 3-5× peor que el nominal. **Medido,
+no lo es.** Sobre 9.807 eventos en 405 días (24,2 por día):
+
+| Medida | Factor de agrupamiento | n efectivo |
+|---|---|---|
+| retorno crudo `r_t1` | **1,38** (sube a 1,88 con k=5-6) | 7.092 |
+| percentil `pct_t1` | **1,15** | 8.555 |
+
+Dos lecturas. La primera es que la advertencia estaba exagerada: el
+agrupamiento existe pero es moderado, no catastrófico. La segunda es que **la
+diferencia entre las dos filas es la neutralización funcionando**: el percentil
+transversal reduce el agrupamiento de forma medible, que es exactamente lo que
+§4.2 predecía que haría.
+
+Los intervalos de confianza se ensanchan ×1,07 sobre el percentil. Se aplica
+igual, aunque sea chico.
+
+---
+
 ## 7. Los límites — lo que puede salir mal
 
 **7.1 Un solo régimen.** 12 meses de cripto es un régimen. Todo lo que se
