@@ -1,0 +1,6 @@
+# cache de respuestas de la SEC — se regenera solo
+data/cache/
+# dataset acumulado (append-only, local)
+data/*.jsonl
+__pycache__/
+.pytest_cache/

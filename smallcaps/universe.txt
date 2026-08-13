@@ -1,0 +1,13 @@
+# Universo de arranque — Fase 0
+#
+# Semilla manual para validar el parser contra perfiles distintos.
+# En Fase 1 esto se reemplaza por el scanner (gappers del día).
+#
+# Un ticker por línea. Las líneas con # se ignoran.
+
+# --- diluidores seriales conocidos (el caso de uso central) ---
+HSCS
+
+# --- controles: no deberían mostrar patología de dilución ---
+NVDA
+AAPL
