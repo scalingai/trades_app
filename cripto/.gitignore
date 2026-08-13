@@ -1,0 +1,16 @@
+# secretos — NUNCA commitear
+.env
+.env.*
+!.env.example
+
+# datos descargados: cientos de MB y reproducibles desde el archivo público
+data/
+*.zip
+*.parquet
+
+# el mapeo símbolo → moneda SÍ se versiona (§1.2): se resuelve a mano una vez
+# y es la diferencia entre un dataset limpio y uno envenenado.
+!mapeo.csv
+
+__pycache__/
+.pytest_cache/
