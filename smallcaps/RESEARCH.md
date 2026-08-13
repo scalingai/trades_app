@@ -212,23 +212,32 @@ Es la misma lógica que ya venís aplicando: las reglas son placeholders, el dat
 
 ## 4.bis. Resultado de Etapa A — capacidad vs comportamiento
 
-Perfilamos 150 empresas al azar del universo real (1.459 micro caps con public
-float < $75M, definido por `dei:EntityPublicFloat` vía el frames API). Corre con
-`python profile_universe.py --sample 150`.
+Perfilamos **el universo completo**: 1.459 micro caps con public float < $75M,
+definido por `dei:EntityPublicFloat` vía el frames API (8 requests, gratis).
+Corre con `python profile_universe.py --sample 0`.
 
 | Feature | % del universo que lo cumple | Veredicto |
 |---|---|---|
-| runway < 6 meses | **63%** | no discrimina |
-| runway < 12 meses | 72% | no discrimina |
-| shelf efectivo | **51%** | moneda al aire |
-| ≥3 8-K dilutivos 12m | 42% | débil |
-| dilución 12m > 25% | 39% | moderado |
-| **dilución 12m > 100%** | **20%** | discrimina |
-| **≥1 reverse split 12m** | **19%** | discrimina |
+| runway < 12 meses | 73% | no discrimina |
+| runway < 6 meses | **58%** | no discrimina |
+| shelf efectivo | **54%** | moneda al aire |
+| ≥3 8-K dilutivos 12m | 44% | débil |
+| ≥1 pricing en 12m | 42% | débil |
+| dilución 12m > 25% | 41% | moderado |
+| **dilución 12m > 100%** | **22%** | discrimina |
+| **≥1 reverse split 12m** | **17%** | discrimina |
 
-Distribución de dilución 12m: mediana **12,1%**, p75 **70%**, p90 **408%**.
-Brutalmente sesgada — la empresa mediana diluye modestamente, la cola diluye 4×
+Distribución de dilución 12m: mediana **10,4%**, p75 **73%**, p90 **366%**.
+Brutalmente sesgada — la empresa mediana diluye modestamente, la cola diluye 3,6×
 por año.
+
+**Los dos features útiles NO son redundantes.** `dil>100%` × `revsplit` da
+Jaccard 0,23 con lift 2,04: se solapan el doble de lo esperable por azar pero
+siguen siendo mayormente empresas distintas. Solo el **6,9% (101 empresas)**
+cumple ambos — ese sí es un filtro angosto.
+
+En cambio `shelf_efectivo` × `pricing≥1` da Jaccard **0,53**: además de no
+discriminar, son casi la misma medición.
 
 **Corrección a §1 de este documento.** Le dimos peso a la *capacidad* de diluir
 (shelf efectivo, runway corto) y los datos no lo sostienen: casi todas las micro
@@ -243,6 +252,26 @@ record, no el permiso.
 
 **Cobertura:** 21% del universo no tiene runway calculable (falta cash flow
 operativo en XBRL). Tenerlo en cuenta antes de apoyar decisiones en ese campo.
+
+**Calidad del dato de origen.** El perfilado destapó que la SEC contiene valores
+corruptos: KPTI reportó `17.050.876.000` acciones en un 10-Q y `18.343.968` en
+el siguiente — factor 1000 de más en el tag XBRL. Sin filtro, el retorno al
+valor correcto se leía como un reverse split 1:929, que dividía toda la historia
+y daba **+243.032%** de dilución.
+
+Afecta al **1,3% del universo (19 empresas)**. Los agregados casi no se mueven
+(p90 pasó de 367,4 a 366,3), pero las filas individuales sí — y como la tesis
+vive en la cola, las filas envenenadas eran justo las de la cola. Habría llegado
+al backtest disfrazado de señal.
+
+El filtro distingue basura de patología real por la **forma**: el error es un
+pico que revierte (>50× ambos vecinos), la dilución real es monótona. FOXO pasó
+de 45M → 526M → 3.732M acciones y se preserva intacta en +128.208%: es una
+espiral de muerte genuina, no un error.
+
+Aparte, **111 empresas (7,6%)** tienen reverse splits inferidos de ratio >100.
+No se asumen erróneos — una micro cap que hizo 1:200 es un diluidor serial
+extremo, o sea la población objetivo. Quedan marcadas para verificar.
 
 ---
 

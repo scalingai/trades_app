@@ -17,7 +17,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from edgar.facts import Fact, Series  # noqa: E402
-from edgar.structure import _monthly_burn, _pct_change_over, _split_adjusted  # noqa: E402
+from edgar.structure import (  # noqa: E402
+    _drop_spike_outliers,
+    _monthly_burn,
+    _pct_change_over,
+    _split_adjusted,
+)
 
 
 def f(end: str, val: float, filed: str, form: str = "10-Q", start: str | None = None) -> Fact:
@@ -195,3 +200,52 @@ class TestBurn:
         hist = [f("2026-06-30", -3_000_000, filed="2026-08-01", start="2026-01-01")]
         burn, quality = _monthly_burn(hist)
         assert burn is None and quality == "missing"
+
+
+# --------------------------------------------------------------------------
+# 5. Outliers de escala en el filing (caso KPTI)
+# --------------------------------------------------------------------------
+
+class TestSpikeOutliers:
+    def test_descarta_pico_aislado(self):
+        """KPTI reportó 17.050.876.000 acciones y al filing siguiente 18.343.968."""
+        hist = [
+            f("2025-08-06", 8_671_278, filed="2025-08-11"),
+            f("2025-10-30", 17_050_876_000, filed="2025-11-03"),
+            f("2026-02-05", 18_343_968, filed="2026-02-13"),
+        ]
+        clean, dropped = _drop_spike_outliers(hist)
+        assert len(dropped) == 1
+        assert dropped[0].val == 17_050_876_000
+        assert [c.val for c in clean] == [8_671_278, 18_343_968]
+
+    def test_no_genera_split_fantasma(self):
+        """Sin el filtro, el retorno al valor correcto se lee como 1:929."""
+        hist = [
+            f("2025-08-06", 8_671_278, filed="2025-08-11"),
+            f("2025-10-30", 17_050_876_000, filed="2025-11-03"),
+            f("2026-02-05", 18_343_968, filed="2026-02-13"),
+        ]
+        _, splits_sucio = _split_adjusted(hist)
+        assert len(splits_sucio) == 1 and splits_sucio[0].approx_ratio > 900
+
+        clean, _ = _drop_spike_outliers(hist)
+        _, splits_limpio = _split_adjusted(clean)
+        assert splits_limpio == []
+
+    def test_dilucion_monotona_extrema_se_preserva(self):
+        """FOXO: 45M -> 526M -> 3.732M acciones. Brutal pero REAL, no es pico."""
+        hist = [
+            f("2025-08-18", 45_767_410, filed="2025-08-19"),
+            f("2025-11-07", 526_520_303, filed="2025-11-10"),
+            f("2026-04-10", 3_732_660_151, filed="2026-04-15"),
+        ]
+        clean, dropped = _drop_spike_outliers(hist)
+        assert dropped == []
+        assert len(clean) == 3
+
+    def test_serie_corta_no_se_toca(self):
+        hist = [f("2026-03-31", 1_000_000, filed="2026-04-10"),
+                f("2026-06-30", 2_000_000, filed="2026-07-10")]
+        clean, dropped = _drop_spike_outliers(hist)
+        assert dropped == [] and len(clean) == 2

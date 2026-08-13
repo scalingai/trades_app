@@ -23,6 +23,17 @@ from .tickers import cik_for, ticker_for
 # acciones en un trimestre — no tienen la caja (ese es justamente su problema).
 _SPLIT_RATIO_MIN = 1.5
 
+# Un reverse split real va de 1:2 a 1:50; los de 1:100+ existen pero son raros.
+# Arriba de esto casi siempre es un error de tagueo en el XBRL, no una acción
+# societaria. Se marca como sospechoso aunque igual se ajuste.
+_SPLIT_RATIO_SUSPECT = 100.0
+
+# Un valor que es N veces más grande que AMBOS vecinos es un pico que revierte:
+# error de escala en el filing (ej. KPTI reportó 17.050.876.000 acciones en un
+# 10-Q y 18.343.968 en el siguiente — factor 1000 de más en el tag XBRL).
+# Una dilución real es monótona, no un pico. Este umbral separa las dos cosas.
+_OUTLIER_SPIKE_RATIO = 50.0
+
 _DAYS_PER_MONTH = 30.44
 
 
@@ -98,6 +109,34 @@ class PaperStructure:
             if d.get(key) is not None:
                 d[key] = d[key].isoformat()
         return d
+
+
+def _drop_spike_outliers(history: list[Fact]) -> tuple[list[Fact], list[Fact]]:
+    """Saca valores que son un pico aislado — error de escala en el filing.
+
+    Criterio: el punto es >50x AMBOS vecinos. Una dilución real, por brutal que
+    sea, es monótona: FOXO pasó de 45M a 526M a 3.732M acciones y ninguno de
+    esos puntos es un pico. Un error de tagueo sí lo es, y si no se saca, el
+    retorno al valor correcto se lee como un reverse split fantasma que divide
+    toda la historia y hace explotar la dilución calculada.
+    """
+    if len(history) < 3:
+        return list(history), []
+
+    clean: list[Fact] = [history[0]]
+    dropped: list[Fact] = []
+    for i in range(1, len(history) - 1):
+        prev, cur, nxt = history[i - 1].val, history[i].val, history[i + 1].val
+        if (
+            prev > 0 and nxt > 0
+            and cur / prev > _OUTLIER_SPIKE_RATIO
+            and cur / nxt > _OUTLIER_SPIKE_RATIO
+        ):
+            dropped.append(history[i])
+            continue
+        clean.append(history[i])
+    clean.append(history[-1])
+    return clean, dropped
 
 
 def _split_adjusted(history: list[Fact]) -> tuple[list[float], list[ReverseSplit]]:
@@ -228,8 +267,26 @@ def build(
                 f"(último filing {current.form} del {current.filed})"
             )
 
+        known_history, outliers = _drop_spike_outliers(known_history)
+        for o in outliers:
+            ps.warnings.append(
+                f"valor descartado por implausible: {o.val:,.0f} acciones en "
+                f"{o.form} del {o.filed} (pico aislado, >50x ambos vecinos) — "
+                f"casi seguro error de escala en el tag XBRL del filing"
+            )
+        if outliers:
+            ps.data_quality["shares"] = "xbrl_cover_page_outliers_dropped"
+
         adjusted, splits = _split_adjusted(known_history)
         ps.reverse_splits = splits
+        for s in splits:
+            if s.approx_ratio > _SPLIT_RATIO_SUSPECT:
+                ps.warnings.append(
+                    f"reverse split inferido 1:{s.approx_ratio:,.0f} entre "
+                    f"{s.detected_between[0]} y {s.detected_between[1]} — ratio "
+                    f"inusualmente alto, verificar si es acción societaria real "
+                    f"o dato erróneo antes de usar la dilución de este ticker"
+                )
         # Los forward splits NO se ajustan, a propósito: un salto de 4x hacia
         # arriba es indistinguible de una dilución del 300% mirando solo el
         # share count, y en micro caps la dilución del 300% es el caso normal.
