@@ -327,6 +327,63 @@ en la cola es 2-4×. Y la cola es donde vive todo.
 
 ---
 
+## 4.quater. PRIMER RESULTADO — la dilución previa separa las distribuciones
+
+Cruce completo: 65.697 eventos con ficha de papel point-in-time (75%), 46 min.
+43.886 con dilución 12m calculable.
+
+**Gaps >+20% con volumen >$1M (n=2.421), retorno intradía apertura→cierre:**
+
+| dilución 12m previa | n | mediana | media | % que baja |
+|---|---|---|---|---|
+| **>100%** | 704 | **−9,62%** | −5,14% | 69% |
+| 25-100% | 512 | −5,69% | −0,91% | 60% |
+| **<25%** | 1.205 | **−1,00%** | +2,43% | 53% |
+
+Gradiente **monotónico en tres baldes**, en la dirección que predice el
+mecanismo. Mucho más difícil de obtener por azar que un corte binario.
+
+**La hipótesis estaba pre-registrada** en §5 de este documento antes de tener
+un solo dato de precio. No se encontró revolviendo.
+
+### El control (que la hipótesis pre-registrada exigía)
+
+El confusor era real: las diluidoras cotizan a $1,85 de mediana contra $4,63
+las limpias, y gapean más (40,7% vs 31,2%). Dentro de bandas de precio × gap:
+
+| banda | dil >100% | dil <25% | Δ |
+|---|---|---|---|
+| $0,30-3 · gap 20-50% | −9,61% (n=287) | −2,41% (n=310) | −7,20pp |
+| $0,30-3 · gap >50% | −15,64% (n=182) | −7,46% (n=141) | −8,18pp |
+| $3-10 · gap 20-50% | −2,46% (n=99) | +1,63% (n=278) | −4,09pp |
+| $3-10 · gap >50% | −13,17% (n=80) | −4,90% (n=129) | −8,27pp |
+| $10-50 · gap 20-50% | +2,42% (n=35) | +0,31% (n=291) | **+2,11pp** |
+
+**4 de 5 bandas mantienen la separación.** La dilución aporta información
+propia, no es un proxy del precio. La banda de $10-50 se da vuelta, pero con
+n=35 es ruido; se registra igual.
+
+### Corrección a §4.bis
+
+`shelf_efectivo` fue descartado en Etapa A por no discriminar (54% del
+universo). Acá **sí separa** (−6,05% vs −1,41% de mediana). No es contradicción:
+no sirve para elegir *qué empresas son micro caps*, sí discrimina *qué pasa el
+día del evento*. Son preguntas distintas.
+
+### Lo que NO está probado
+
+- Sin costos: ni borrow, ni locate, ni slippage. En una acción de $2 el
+  slippage solo puede comerse varios de esos puntos.
+- Sin MAE (máxima excursión adversa) — lo que decide la supervivencia bajo un
+  límite de pérdida diaria.
+- n de 80-180 en las bandas. La mediana es estable, la media no.
+- 5 comparaciones, 1 se da vuelta. Esperable por azar.
+- Sin fuera de muestra: se usaron los 2 años completos.
+
+**No es una estrategia. Es un feature con información demostrada.**
+
+---
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:
