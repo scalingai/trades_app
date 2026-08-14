@@ -196,25 +196,61 @@ def control_bandas(filas: list[dict], horizonte: str) -> None:
               f"(el criterio de §6 pide 3 de 4)")
 
 
-def control_negativo(filas: list[dict], semilla: int = 7) -> None:
-    """H5. Baraja la dilución entre símbolos y exige que NO aparezca gradiente.
+def _delta(filas: list[dict]) -> float:
+    """Δ del gradiente: percentil mediano del balde alto menos el del bajo."""
+    g = _baldes(filas, "crec")
+    return (statistics.median([x["pct"] for x in g[2]])
+            - statistics.median([x["pct"] for x in g[0]]))
 
-    Si aparece, el pipeline está roto y todo lo demás se descarta.
+
+def control_negativo(filas: list[dict], n_perm: int = 500,
+                     semilla: int = 11) -> None:
+    """H5. ¿El gradiente se distingue de barajar la dilución entre símbolos?
+
+    Un solo barajado no alcanza y compararlo contra un umbral inventado es
+    peor: la primera versión de este control usaba |Δ| > 0,02 y marcaba como
+    sospechosa una permutación que estaba a UN desvío de la media nula. El
+    umbral estaba mal calibrado, no el pipeline.
+
+    La forma correcta es construir la distribución nula: se baraja muchas
+    veces y se mira dónde cae el Δ real dentro de ella. Se baraja POR SÍMBOLO
+    —cada símbolo recibe la dilución de otro— para conservar el agrupamiento
+    de eventos dentro de un mismo símbolo, que es el null honesto.
     """
-    print("\n\nH5 — CONTROL NEGATIVO (dilución barajada entre símbolos)")
+    print(f"\n\nH5 — CONTROL NEGATIVO ({n_perm} barajados de la dilución)")
     random.seed(semilla)
     por_simbolo = defaultdict(list)
     for f in filas:
         por_simbolo[f["simbolo"]].append(f)
     simbolos = list(por_simbolo)
     valores = [por_simbolo[s][0]["crec"] for s in simbolos]
-    random.shuffle(valores)
-    falso = {s: v for s, v in zip(simbolos, valores)}
-    barajadas = [dict(f, crec=falso[f["simbolo"]]) for f in filas]
-    med = tabla_gradiente(barajadas, "  con el feature barajado:")
-    if len(med) == 3:
-        delta = med[2] - med[0]
-        print(f"  → {'SOSPECHOSO: aparece gradiente sin señal' if abs(delta) > 0.02 else 'OK: sin gradiente, como debe ser'}")
+
+    real = _delta(filas)
+    nulos = []
+    for _ in range(n_perm):
+        random.shuffle(valores)
+        falso = dict(zip(simbolos, valores))
+        nulos.append(_delta([dict(f, crec=falso[f["simbolo"]]) for f in filas]))
+    nulos.sort()
+
+    media = statistics.fmean(nulos)
+    desvio = statistics.pstdev(nulos) or 1e-9
+    p = sum(1 for x in nulos if x <= real) / len(nulos)
+
+    print(f"\n  Δ real                 : {real:+.4f}")
+    print(f"  Δ bajo el azar         : media {media:+.4f}  desvío {desvio:.4f}")
+    print(f"    p05 {nulos[int(.05*n_perm)]:+.4f}   "
+          f"p95 {nulos[int(.95*n_perm)]:+.4f}   "
+          f"rango [{nulos[0]:+.4f}, {nulos[-1]:+.4f}]")
+    print(f"\n  p-valor (una cola)     : {p:.4f}   "
+          f"({sum(1 for x in nulos if x <= real)} de {n_perm})")
+    print(f"  distancia a la nula     : {(real-media)/desvio:+.2f} desvíos")
+    if p < 0.01:
+        print("  → el gradiente NO se explica por azar")
+    elif p < 0.05:
+        print("  → evidencia marginal")
+    else:
+        print("  → indistinguible del azar: H1 NO se sostiene")
 
 
 def main() -> int:
