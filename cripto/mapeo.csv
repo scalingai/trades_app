@@ -1,0 +1,833 @@
+simbolo,coingecko_id,ticker,multiplicador,mcap_rank,ambiguo,dudoso,nota
+0GUSDT,zero-gravity,0G,1.0,569,0,0,
+1000000BOBUSDT,bob-build-on-bitcoin,BOB,1000000.0,1031,1,0,4 candidatos
+1000000MOGUSDT,mog-coin,MOG,1000000.0,510,0,0,
+1000BONKUSDT,bonk,BONK,1000.0,158,0,0,
+1000BTTCUSDT,,BTTC,1000.0,,0,1,sin match en el ranking
+1000CATUSDT,simon-s-cat,CAT,1000.0,1061,1,0,4 candidatos
+1000CHEEMSUSDT,cheems-token,CHEEMS,1000.0,255,0,0,
+1000FLOKIUSDT,floki,FLOKI,1000.0,162,0,0,
+1000LUNCUSDT,terra-luna,LUNC,1000.0,137,0,0,
+1000PEPEUSDT,pepe,PEPE,1000.0,64,1,0,5 candidatos
+1000RATSUSDT,,RATS,1000.0,,0,1,sin match en el ranking
+1000SATSUSDT,sats-ordinals,SATS,1000.0,764,0,0,
+1000SHIBUSDT,shiba-inu,SHIB,1000.0,36,1,0,3 candidatos
+1000WHYUSDT,why,WHY,1000.0,3155,0,1,RANK PROFUNDO (3155) — verificar a mano
+1000XECUSDT,ecash,XEC,1000.0,216,0,0,
+1000XUSDT,talex,X,1000.0,3008,1,1,2 candidatos; RANK PROFUNDO (3008) — verificar a mano
+1INCHUSDT,1inch,1INCH,1.0,232,0,0,
+1MBABYDOGEUSDT,baby-doge-coin,BABYDOGE,1000000.0,367,0,0,
+2ZUSDT,doublezero,2Z,1.0,176,0,0,
+42USDT,42-coin,42,1.0,3104,0,1,RANK PROFUNDO (3104) — verificar a mano
+4USDT,4-2,4,1.0,1149,0,0,
+A2ZUSDT,,A2Z,1.0,,0,1,sin match en el ranking
+AAOIUSDT,,AAOI,1.0,,0,1,sin match en el ranking
+AAPLUSDT,apple-robinhood-tokenized-stock,AAPL,1.0,2330,0,1,RANK PROFUNDO (2330) — verificar a mano
+AAVEUSDT,aave,AAVE,1.0,52,0,0,
+ACEUSDT,endurance,ACE,1.0,1005,0,0,
+ACHUSDT,,ACH,1.0,,0,1,sin match en el ranking
+ACTUSDT,act-i-the-ai-prophecy,ACT,1.0,1207,1,0,3 candidatos
+ACUUSDT,acurast,ACU,1.0,545,0,0,
+ACXUSDT,across-protocol,ACX,1.0,645,0,0,
+ADAUSDT,cardano,ADA,1.0,17,0,0,
+ADBEUSDT,,ADBE,1.0,,0,1,sin match en el ranking
+AERGOUSDT,,AERGO,1.0,,0,1,sin match en el ranking
+AEROUSDT,aerodrome-finance,AERO,1.0,107,0,0,
+AEVOUSDT,aevo-exchange,AEVO,1.0,848,0,0,
+AGIXUSDT,singularitynet,AGIX,1.0,970,0,0,
+AGLDUSDT,adventure-gold,AGLD,1.0,971,0,0,
+AGTUSDT,,AGT,1.0,,0,1,sin match en el ranking
+AI16ZUSDT,,AI16Z,1.0,,0,1,sin match en el ranking
+AIAUSDT,aia,AIA,1.0,1365,0,0,
+AIGENSYNUSDT,,AIGENSYN,1.0,,0,1,sin match en el ranking
+AINUSDT,infinity-ground,AIN,1.0,933,1,0,2 candidatos
+AIOTUSDT,okzoo,AIOT,1.0,1137,0,0,
+AIOUSDT,olaxbt,AIO,1.0,1193,0,0,
+AIUSDT,gensyn,AI,1.0,683,1,0,2 candidatos
+AIXBTUSDT,aixbt,AIXBT,1.0,850,0,0,
+AKEUSDT,akedo,AKE,1.0,194,0,0,
+AKROUSDT,,AKRO,1.0,,0,1,sin match en el ranking
+AKTUSDT,akash-network,AKT,1.0,186,0,0,
+ALABUSDT,,ALAB,1.0,,0,1,sin match en el ranking
+ALCHUSDT,alchemist-ai,ALCH,1.0,734,0,0,
+ALGOUSDT,algorand,ALGO,1.0,82,0,0,
+ALICEUSDT,my-neighbor-alice,ALICE,1.0,1079,0,0,
+ALLOUSDT,allora,ALLO,1.0,344,0,0,
+ALLUSDT,sallar-2,ALL,1.0,3351,0,1,RANK PROFUNDO (3351) — verificar a mano
+ALPACAUSDT,,ALPACA,1.0,,0,1,sin match en el ranking
+ALPHAUSDT,alpha-fi,ALPHA,1.0,1463,1,0,3 candidatos
+ALPINEUSDT,alpine-f1-team-fan-token,ALPINE,1.0,1794,0,0,
+ALTUSDT,altlayer,ALT,1.0,491,1,0,2 candidatos
+AMATUSDT,,AMAT,1.0,,0,1,sin match en el ranking
+AMBUSDT,,AMB,1.0,,0,1,sin match en el ranking
+AMDUSDT,amd-robinhood-tokenized-stock,AMD,1.0,2781,0,1,RANK PROFUNDO (2781) — verificar a mano
+AMZNUSDT,amazon-robinhood-tokenized-stock,AMZN,1.0,2763,0,1,RANK PROFUNDO (2763) — verificar a mano
+ANCUSDT,,ANC,1.0,,0,1,sin match en el ranking
+ANIMEUSDT,anime,ANIME,1.0,1001,0,0,
+ANKRUSDT,ankr,ANKR,1.0,578,0,0,
+ANTHROPICUSDT,anthropic-prestocks-2,ANTHROPIC,1.0,1468,0,0,
+ANTUSDT,autonomi,ANT,1.0,950,1,0,2 candidatos
+APEUSDT,apecoin,APE,1.0,223,0,0,
+API3USDT,api3,API3,1.0,671,0,0,
+APPUSDT,,APP,1.0,,0,1,sin match en el ranking
+APRUSDT,apriori,APR,1.0,205,0,0,
+APTUSDT,aptos,APT,1.0,99,0,0,
+ARBUSDT,arbitrum,ARB,1.0,97,0,0,
+ARCUSDT,ai-rig-complex,ARC,1.0,306,1,0,2 candidatos
+ARIAUSDT,aria-ai,ARIA,1.0,1486,0,0,
+ARKMUSDT,arkham,ARKM,1.0,355,0,0,
+ARKUSDT,ark,ARK,1.0,853,0,0,
+ARMUSDT,,ARM,1.0,,0,1,sin match en el ranking
+ARPAUSDT,arpa,ARPA,1.0,1252,0,0,
+ARUSDT,arweave,AR,1.0,236,0,0,
+ARXUSDT,arcs,ARX,1.0,2324,1,1,2 candidatos; RANK PROFUNDO (2324) — verificar a mano
+ASMLUSDT,,ASML,1.0,,0,1,sin match en el ranking
+ASRUSDT,as-roma-fan-token,ASR,1.0,1315,0,0,
+ASTERUSDT,aster-2,ASTER,1.0,47,0,0,
+ASTRUSDT,astar,ASTR,1.0,499,0,0,
+ASTSUSDT,,ASTS,1.0,,0,1,sin match en el ranking
+ATAUSDT,automata,ATA,1.0,4273,0,1,RANK PROFUNDO (4273) — verificar a mano
+ATHUSDT,aethir,ATH,1.0,295,0,0,
+ATOMUSDT,cosmos,ATOM,1.0,77,0,0,
+ATUSDT,apro,AT,1.0,553,0,0,
+AUCTIONUSDT,auction,AUCTION,1.0,757,0,0,
+AUDIOUSDT,audius,AUDIO,1.0,869,0,0,
+AUSDT,vaulta,A,1.0,248,0,0,
+AVAAIUSDT,,AVAAI,1.0,,0,1,sin match en el ranking
+AVAUSDT,ava-ai,AVA,1.0,955,1,0,2 candidatos
+AVAXUSDT,avalanche-2,AVAX,1.0,33,0,0,
+AVGOUSDT,,AVGO,1.0,,0,1,sin match en el ranking
+AVNTUSDT,avantis,AVNT,1.0,539,0,0,
+AWEUSDT,stp-network,AWE,1.0,229,0,0,
+AXLUSDT,axelar,AXL,1.0,463,0,0,
+AXSUSDT,axie-infinity,AXS,1.0,193,0,0,
+AXTIUSDT,,AXTI,1.0,,0,1,sin match en el ranking
+AZTECUSDT,aztec,AZTEC,1.0,555,0,0,
+B2USDT,bsquared-network,B2,1.0,801,0,0,
+B3USDT,b3,B3,1.0,793,0,0,
+BABAUSDT,,BABA,1.0,,0,1,sin match en el ranking
+BABYUSDT,babylon,BABY,1.0,468,0,0,
+BADGERUSDT,badger-dao,BADGER,1.0,1373,0,0,
+BAKEUSDT,,BAKE,1.0,,0,1,sin match en el ranking
+BALUSDT,balancer,BAL,1.0,1387,0,0,
+BANANAS31USDT,banana-for-scale-2,BANANAS31,1.0,290,0,0,
+BANANAUSDT,banana-gun,BANANA,1.0,953,0,0,
+BANDUSDT,band-protocol,BAND,1.0,650,0,0,
+BANKUSDT,lorenzo-protocol,BANK,1.0,914,0,0,
+BANUSDT,comedian,BAN,1.0,308,1,0,2 candidatos
+BARDUSDT,lombard-protocol,BARD,1.0,521,0,0,
+BASEDUSDT,based-one,BASED,1.0,855,0,0,
+BASUSDT,bas,BAS,1.0,347,0,0,
+BATUSDT,basic-attention-token,BAT,1.0,282,0,0,
+BBUSDT,bouncebit,BB,1.0,1620,1,0,2 candidatos
+BBXUSDT,,BBX,1.0,,0,1,sin match en el ranking
+BCHUSDT,bitcoin-cash,BCH,1.0,22,0,0,
+BDXNUSDT,,BDXN,1.0,,0,1,sin match en el ranking
+BEAMXUSDT,,BEAMX,1.0,,0,1,sin match en el ranking
+BEATUSDT,audiera,BEAT,1.0,125,0,0,
+BELUSDT,bella-protocol,BEL,1.0,1251,0,0,
+BERAUSDT,berachain-bera,BERA,1.0,460,0,0,
+BEUSDT,bloom-energy-robinhood-tokenized-stock,BE,1.0,3563,0,1,RANK PROFUNDO (3563) — verificar a mano
+BICOUSDT,biconomy,BICO,1.0,799,0,0,
+BIDUSDT,creatorbid,BID,1.0,2159,0,1,RANK PROFUNDO (2159) — verificar a mano
+BIGTIMEUSDT,big-time,BIGTIME,1.0,1199,0,0,
+BILLUSDT,billions-network,BILL,1.0,389,0,0,
+BIOUSDT,bio-protocol,BIO,1.0,404,0,0,
+BIRBUSDT,moonbirds,BIRB,1.0,967,0,0,
+BITOUSDT,,BITO,1.0,,0,1,sin match en el ranking
+BLESSUSDT,bless-2,BLESS,1.0,827,0,0,
+BLUAIUSDT,bluwhale,BLUAI,1.0,890,0,0,
+BLUEBIRDUSDT,,BLUEBIRD,1.0,,0,1,sin match en el ranking
+BLURUSDT,blur,BLUR,1.0,522,0,0,
+BLZUSDT,bluzelle,BLZ,1.0,1910,0,0,
+BMNRUSDT,,BMNR,1.0,,0,1,sin match en el ranking
+BMTUSDT,bubblemaps,BMT,1.0,1081,0,0,
+BNBUSDT,binancecoin,BNB,1.0,4,0,0,
+BNCUSDT,bifrost-native-coin,BNC,1.0,3455,0,1,RANK PROFUNDO (3455) — verificar a mano
+BNTUSDT,bancor,BNT,1.0,680,0,0,
+BNXUSDT,binaryx,BNX,1.0,770,0,0,
+BOBUSDT,bob-build-on-bitcoin,BOB,1.0,1031,1,0,4 candidatos
+BOMEUSDT,book-of-meme,BOME,1.0,422,0,0,
+BONDUSDT,,BOND,1.0,,0,1,sin match en el ranking
+BOTUSDT,bot,BOT,1.0,315,1,0,3 candidatos
+BRETTUSDT,based-brett,BRETT,1.0,509,1,0,2 candidatos
+BREVUSDT,brevis,BREV,1.0,876,0,0,
+BRKBUSDT,,BRKB,1.0,,0,1,sin match en el ranking
+BROCCOLI714USDT,,BROCCOLI714,1.0,,0,1,sin match en el ranking
+BROCCOLIF3BUSDT,,BROCCOLIF3B,1.0,,0,1,sin match en el ranking
+BRUSDT,bedrock-token,BR,1.0,299,0,0,
+BSBUSDT,block-street,BSB,1.0,647,0,0,
+BSPUSDT,,BSP,1.0,,0,1,sin match en el ranking
+BSVUSDT,bitcoin-cash-sv,BSV,1.0,122,0,0,
+BSWUSDT,,BSW,1.0,,0,1,sin match en el ranking
+BTCDOMUSDT,,BTCDOM,1.0,,0,1,sin match en el ranking
+BTCSTUSDT,,BTCST,1.0,,0,1,sin match en el ranking
+BTCUSDT,bitcoin,BTC,1.0,1,0,0,
+BTRUSDT,bitlayer-bitvm,BTR,1.0,1288,1,0,2 candidatos
+BTSUSDT,bitshares,BTS,1.0,1842,0,0,
+BTTUSDT,bittorrent,BTT,1.0,139,0,0,
+BTWUSDT,bitway,BTW,1.0,79,0,0,
+BULLAUSDT,bulla-3,BULLA,1.0,1613,0,0,
+BUSDT,build-on,B,1.0,185,1,0,2 candidatos
+BXUSDT,,BX,1.0,,0,1,sin match en el ranking
+BZRXUSDT,,BZRX,1.0,,0,1,sin match en el ranking
+BZUSDT,,BZ,1.0,,0,1,sin match en el ranking
+C98USDT,coin98,C98,1.0,983,0,0,
+CAKEUSDT,pancakeswap-token,CAKE,1.0,104,0,0,
+CAPUSDT,cap-4,CAP,1.0,275,1,0,2 candidatos
+CARVUSDT,carv,CARV,1.0,796,0,0,
+CATIUSDT,catizen,CATI,1.0,765,0,0,
+CATUSDT,simon-s-cat,CAT,1.0,1061,1,0,4 candidatos
+CBRSUSDT,,CBRS,1.0,,0,1,sin match en el ranking
+CCUSDT,canton-network,CC,1.0,25,0,0,
+CELOUSDT,celo,CELO,1.0,541,0,0,
+CELRUSDT,celer-network,CELR,1.0,1116,0,0,
+CETUSUSDT,cetus-protocol,CETUS,1.0,819,0,0,
+CFGUSDT,centrifuge-2,CFG,1.0,382,0,0,
+CFXUSDT,conflux-token,CFX,1.0,149,0,0,
+CGPTUSDT,chaingpt,CGPT,1.0,814,0,0,
+CHESSUSDT,,CHESS,1.0,,0,1,sin match en el ranking
+CHILLGUYUSDT,chill-guy,CHILLGUY,1.0,1110,0,0,
+CHIPUSDT,chip-2,CHIP,1.0,450,0,0,
+CHRUSDT,chromaway,CHR,1.0,1018,0,0,
+CHZUSDT,chiliz,CHZ,1.0,217,0,0,
+CIENUSDT,,CIEN,1.0,,0,1,sin match en el ranking
+CKBUSDT,nervos-network,CKB,1.0,492,0,0,
+CLANKERUSDT,tokenbot-2,CLANKER,1.0,1050,0,0,
+CLOUSDT,yei-finance,CLO,1.0,939,0,0,
+CLUSDT,,CL,1.0,,0,1,sin match en el ranking
+COAIUSDT,chainopera-ai,COAI,1.0,362,0,0,
+COCOSUSDT,,COCOS,1.0,,0,1,sin match en el ranking
+COHRUSDT,,COHR,1.0,,0,1,sin match en el ranking
+COINUSDT,8-bit-coin,COIN,1.0,1961,1,0,2 candidatos
+COLLECTUSDT,collect-on-fanable,COLLECT,1.0,610,0,0,
+COMBOUSDT,,COMBO,1.0,,0,1,sin match en el ranking
+COMMONUSDT,,COMMON,1.0,,0,1,sin match en el ranking
+COMPUSDT,compound-governance-token,COMP,1.0,188,0,0,
+COOKIEUSDT,cookie,COOKIE,1.0,1192,0,0,
+COPPERUSDT,,COPPER,1.0,,0,1,sin match en el ranking
+COSTUSDT,,COST,1.0,,0,1,sin match en el ranking
+COSUSDT,contentos,COS,1.0,3004,0,1,RANK PROFUNDO (3004) — verificar a mano
+COTIUSDT,coti,COTI,1.0,590,0,0,
+COWUSDT,cow-protocol,COW,1.0,376,0,0,
+CRCLUSDT,circle-internet-group-robinhood-tokenized-stock,CRCL,1.0,3501,0,1,RANK PROFUNDO (3501) — verificar a mano
+CRDOUSDT,,CRDO,1.0,,0,1,sin match en el ranking
+CRMUSDT,,CRM,1.0,,0,1,sin match en el ranking
+CROSSUSDT,cross-2,CROSS,1.0,436,0,0,
+CRVUSDT,curve-dao-token,CRV,1.0,109,0,0,
+CRWDUSDT,,CRWD,1.0,,0,1,sin match en el ranking
+CRWVUSDT,coreweave-robinhood-tokenized-stock,CRWV,1.0,3382,0,1,RANK PROFUNDO (3382) — verificar a mano
+CSCOUSDT,,CSCO,1.0,,0,1,sin match en el ranking
+CTKUSDT,certik,CTK,1.0,881,0,0,
+CTRUSDT,citrea,CTR,1.0,1013,0,0,
+CTSIUSDT,cartesi,CTSI,1.0,728,0,0,
+CUDISUSDT,,CUDIS,1.0,,0,1,sin match en el ranking
+CUSDT,chainbase,C,1.0,1158,0,0,
+CVCUSDT,civic,CVC,1.0,972,0,0,
+CVXUSDT,convex-finance,CVX,1.0,191,0,0,
+CYBERUSDT,cyberconnect,CYBER,1.0,763,0,0,
+CYSUSDT,cysic,CYS,1.0,169,0,0,
+DAMUSDT,reservoir,DAM,1.0,3207,0,1,RANK PROFUNDO (3207) — verificar a mano
+DARUSDT,,DAR,1.0,,0,1,sin match en el ranking
+DASHUSDT,dash,DASH,1.0,111,0,0,
+DATAIPUSDT,,DATAIP,1.0,,0,1,sin match en el ranking
+DEEPUSDT,deep,DEEP,1.0,564,0,0,
+DEFIUSDT,de-fi,DEFI,1.0,3697,0,1,RANK PROFUNDO (3697) — verificar a mano
+DEGENUSDT,degen-base,DEGEN,1.0,530,0,0,
+DEGOUSDT,,DEGO,1.0,,0,1,sin match en el ranking
+DELLUSDT,,DELL,1.0,,0,1,sin match en el ranking
+DENTUSDT,dent,DENT,1.0,2030,0,1,RANK PROFUNDO (2030) — verificar a mano
+DEXEUSDT,dexe,DEXE,1.0,324,0,0,
+DFUSDT,,DF,1.0,,0,1,sin match en el ranking
+DGBUSDT,digibyte,DGB,1.0,302,0,0,
+DIAUSDT,dia-data,DIA,1.0,944,0,0,
+DISUSDT,,DIS,1.0,,0,1,sin match en el ranking
+DKNGUSDT,,DKNG,1.0,,0,1,sin match en el ranking
+DMCUSDT,delorean,DMC,1.0,2070,0,1,RANK PROFUNDO (2070) — verificar a mano
+DODOUSDT,dodo,DODO,1.0,738,0,0,
+DODOXUSDT,,DODOX,1.0,,0,1,sin match en el ranking
+DOGEUSDT,dogecoin,DOGE,1.0,11,1,0,2 candidatos
+DOGSUSDT,dogs-2,DOGS,1.0,840,0,0,
+DOLOUSDT,dolomite,DOLO,1.0,1092,0,0,
+DOODUSDT,doodles,DOOD,1.0,1171,0,0,
+DOTECOUSDT,,DOTECO,1.0,,0,1,sin match en el ranking
+DOTUSDT,polkadot,DOT,1.0,55,1,0,2 candidatos
+DRAMUSDT,roundhill-memory-etf-backpack-securities,DRAM,1.0,2581,0,1,RANK PROFUNDO (2581) — verificar a mano
+DRIFTUSDT,drift-protocol,DRIFT,1.0,1282,0,0,
+DUSDT,dar-open-network,D,1.0,2645,0,1,RANK PROFUNDO (2645) — verificar a mano
+DUSKUSDT,dusk-network,DUSK,1.0,546,0,0,
+DYDXUSDT,dydx-chain,DYDX,1.0,269,0,0,
+DYMUSDT,dymension,DYM,1.0,1247,0,0,
+EBAYUSDT,,EBAY,1.0,,0,1,sin match en el ranking
+EDENUSDT,openeden,EDEN,1.0,618,0,0,
+EDGEUSDT,edgex,EDGE,1.0,233,1,0,3 candidatos
+EDUUSDT,edu-coin,EDU,1.0,600,0,0,
+EGLDUSDT,elrond-erd-2,EGLD,1.0,292,0,0,
+EIGENUSDT,eigenlayer,EIGEN,1.0,218,0,0,
+ELSAUSDT,elsa,ELSA,1.0,1066,0,0,
+ENAUSDT,ethena,ENA,1.0,75,0,0,
+ENJUSDT,enjincoin,ENJ,1.0,439,0,0,
+ENSOUSDT,enso,ENSO,1.0,903,0,0,
+ENSUSDT,ethereum-name-service,ENS,1.0,175,0,0,
+EOSUSDT,,EOS,1.0,,0,1,sin match en el ranking
+EPICUSDT,epic-chain,EPIC,1.0,1044,1,0,2 candidatos
+EPTUSDT,balance,EPT,1.0,3164,0,1,RANK PROFUNDO (3164) — verificar a mano
+ERAUSDT,caldera,ERA,1.0,1093,0,0,
+ESPORTSUSDT,yooldo-games,ESPORTS,1.0,2043,0,1,RANK PROFUNDO (2043) — verificar a mano
+ESPUSDT,espresso,ESP,1.0,445,0,0,
+ETCUSDT,ethereum-classic,ETC,1.0,66,0,0,
+ETHFIUSDT,ether-fi,ETHFI,1.0,106,0,0,
+ETHUSDT,ethereum,ETH,1.0,2,0,0,
+ETHWUSDT,ethereum-pow-iou,ETHW,1.0,703,0,0,
+EULUSDT,euler,EUL,1.0,666,0,0,
+EVAAUSDT,evaa-protocol,EVAA,1.0,1529,0,0,
+EWJUSDT,,EWJ,1.0,,0,1,sin match en el ranking
+EWTUSDT,energy-web-token,EWT,1.0,761,0,0,
+EWYUSDT,,EWY,1.0,,0,1,sin match en el ranking
+EWZUSDT,,EWZ,1.0,,0,1,sin match en el ranking
+FARTCOINUSDT,fartcoin,FARTCOIN,1.0,206,0,0,
+FETUSDT,fetch-ai,FET,1.0,123,0,0,
+FFUSDT,falcon-finance-ff,FF,1.0,161,0,0,
+FHEUSDT,mind-network,FHE,1.0,1428,0,0,
+FIDAUSDT,bonfida,FIDA,1.0,863,0,0,
+FIGHTUSDT,fight-2,FIGHT,1.0,1255,0,0,
+FILUSDT,filecoin,FIL,1.0,92,0,0,
+FIOUSDT,,FIO,1.0,,0,1,sin match en el ranking
+FISUSDT,,FIS,1.0,,0,1,sin match en el ranking
+FLEXUSDT,,FLEX,1.0,,0,1,sin match en el ranking
+FLMUSDT,,FLM,1.0,,0,1,sin match en el ranking
+FLNCUSDT,,FLNC,1.0,,0,1,sin match en el ranking
+FLOCKUSDT,flock-2,FLOCK,1.0,1006,0,0,
+FLOWUSDT,flow,FLOW,1.0,407,0,0,
+FLUIDUSDT,instadapp,FLUID,1.0,259,0,0,
+FLUXUSDT,zelcash,FLUX,1.0,887,0,0,
+FOGOUSDT,fogo,FOGO,1.0,585,0,0,
+FOLKSUSDT,folks,FOLKS,1.0,594,0,0,
+FOOTBALLUSDT,,FOOTBALL,1.0,,0,1,sin match en el ranking
+FORMUSDT,four,FORM,1.0,287,0,0,
+FORTHUSDT,ampleforth-governance-token,FORTH,1.0,2231,0,1,RANK PROFUNDO (2231) — verificar a mano
+FRAXUSDT,frax,FRAX,1.0,147,1,0,2 candidatos
+FRONTUSDT,frontier-token,FRONT,1.0,2691,0,1,RANK PROFUNDO (2691) — verificar a mano
+FTMUSDT,,FTM,1.0,,0,1,sin match en el ranking
+FTTUSDT,,FTT,1.0,,0,1,sin match en el ranking
+FUNUSDT,funfair,FUN,1.0,437,1,0,2 candidatos
+FUSDT,synfutures,F,1.0,1027,0,0,
+FWDIUSDT,,FWDI,1.0,,0,1,sin match en el ranking
+FXSUSDT,,FXS,1.0,,0,1,sin match en el ranking
+GALAUSDT,gala,GALA,1.0,289,0,0,
+GALUSDT,project-galaxy,GAL,1.0,556,1,0,2 candidatos
+GASUSDT,gas,GAS,1.0,369,0,0,
+GENIUSUSDT,genius-3,GENIUS,1.0,215,0,0,
+GEVUSDT,,GEV,1.0,,0,1,sin match en el ranking
+GHSTUSDT,aavegotchi,GHST,1.0,2146,0,1,RANK PROFUNDO (2146) — verificar a mano
+GIGGLEUSDT,giggle-fund,GIGGLE,1.0,587,0,0,
+GLMRUSDT,moonbeam,GLMR,1.0,,0,1,RANK PROFUNDO (0) — verificar a mano
+GLMUSDT,golem,GLM,1.0,277,0,0,
+GLWUSDT,,GLW,1.0,,0,1,sin match en el ranking
+GMEUSDT,gme,GME,1.0,2065,1,1,3 candidatos; RANK PROFUNDO (2065) — verificar a mano
+GMTUSDT,stepn,GMT,1.0,784,0,0,
+GMXUSDT,gmx,GMX,1.0,327,0,0,
+GOATUSDT,goatseus-maximus,GOAT,1.0,1012,0,0,
+GOOGLUSDT,alphabet-class-a-robinhood-tokenized-stock,GOOGL,1.0,2809,0,1,RANK PROFUNDO (2809) — verificar a mano
+GPSUSDT,goplus-security,GPS,1.0,364,0,0,
+GRAMUSDT,the-open-network,GRAM,1.0,26,0,0,
+GRASSUSDT,grass,GRASS,1.0,148,0,0,
+GRIFFAINUSDT,griffain,GRIFFAIN,1.0,1078,0,0,
+GRTUSDT,the-graph,GRT,1.0,197,0,0,
+GRVTUSDT,grvt,GRVT,1.0,528,0,0,
+GSUSDT,gammaswap,GS,1.0,2463,0,1,RANK PROFUNDO (2463) — verificar a mano
+GTCUSDT,gitcoin,GTC,1.0,1359,0,0,
+GUAUSDT,superfortune,GUA,1.0,2214,0,1,RANK PROFUNDO (2214) — verificar a mano
+GUNUSDT,gunz,GUN,1.0,1211,0,0,
+GUSDT,g-token,G,1.0,698,0,0,
+GWEIUSDT,ethgas-2,GWEI,1.0,390,0,0,
+HAEDALUSDT,haedal,HAEDAL,1.0,1884,0,0,
+HANAUSDT,hana-network,HANA,1.0,1304,0,0,
+HBARUSDT,hedera-hashgraph,HBAR,1.0,30,0,0,
+HDUSDT,,HD,1.0,,0,1,sin match en el ranking
+HEIUSDT,heima,HEI,1.0,1163,0,0,
+HEMIUSDT,hemi,HEMI,1.0,1627,0,0,
+HFTUSDT,hashflow,HFT,1.0,1326,0,0,
+HIFIUSDT,,HIFI,1.0,,0,1,sin match en el ranking
+HIGHUSDT,,HIGH,1.0,,0,1,sin match en el ranking
+HIMSUSDT,,HIMS,1.0,,0,1,sin match en el ranking
+HIPPOUSDT,sudeng,HIPPO,1.0,2670,0,1,RANK PROFUNDO (2670) — verificar a mano
+HIVEUSDT,hive,HIVE,1.0,753,0,0,
+HK0700USDT,,HK0700,1.0,,0,1,sin match en el ranking
+HK1810USDT,,HK1810,1.0,,0,1,sin match en el ranking
+HMSTRUSDT,hamster-kombat,HMSTR,1.0,1080,0,0,
+HNTUSDT,helium,HNT,1.0,603,0,0,
+HOLOUSDT,holoworld,HOLO,1.0,394,0,0,
+HOMEUSDT,home,HOME,1.0,475,0,0,
+HOODUSDT,robinhood-markets-backpack-securities,HOOD,1.0,3479,0,1,RANK PROFUNDO (3479) — verificar a mano
+HOOKUSDT,hooked-protocol,HOOK,1.0,2857,0,1,RANK PROFUNDO (2857) — verificar a mano
+HOTUSDT,holotoken,HOT,1.0,385,0,0,
+HPEUSDT,,HPE,1.0,,0,1,sin match en el ranking
+HUMAUSDT,huma-finance,HUMA,1.0,576,0,0,
+HUSDT,humanity,H,1.0,153,0,0,
+HYPERUSDT,hyperlane,HYPER,1.0,752,0,0,
+HYPEUSDT,hyperliquid,HYPE,1.0,10,0,0,
+HYUNDAIUSDT,,HYUNDAI,1.0,,0,1,sin match en el ranking
+IBMUSDT,,IBM,1.0,,0,1,sin match en el ranking
+ICNTUSDT,impossible-cloud-network-token,ICNT,1.0,579,0,0,
+ICPUSDT,internet-computer,ICP,1.0,60,0,0,
+ICXUSDT,icon,ICX,1.0,775,0,0,
+IDEXUSDT,aurora-dao,IDEX,1.0,3206,0,1,RANK PROFUNDO (3206) — verificar a mano
+IDOLUSDT,meet48,IDOL,1.0,574,0,0,
+IDUSDT,space-id,ID,1.0,1029,1,0,2 candidatos
+ILVUSDT,illuvium,ILV,1.0,724,0,0,
+IMXUSDT,immutable-x,IMX,1.0,271,0,0,
+INITUSDT,initia,INIT,1.0,1125,0,0,
+INJUSDT,injective-protocol,INJ,1.0,103,0,0,
+INTCUSDT,intel-robinhood-tokenized-stock,INTC,1.0,3266,1,1,2 candidatos; RANK PROFUNDO (3266) — verificar a mano
+INTWUSDT,,INTW,1.0,,0,1,sin match en el ranking
+INUSDT,infinit,IN,1.0,1115,0,0,
+INXUSDT,infinex-2,INX,1.0,916,0,0,
+IOSTUSDT,iostoken,IOST,1.0,813,0,0,
+IOTAUSDT,iota,IOTA,1.0,190,0,0,
+IOTXUSDT,iotex,IOTX,1.0,720,0,0,
+IOUSDT,io,IO,1.0,465,0,0,
+IPUSDT,,IP,1.0,,0,1,sin match en el ranking
+IRENUSDT,,IREN,1.0,,0,1,sin match en el ranking
+IRUSDT,infrared-finance,IR,1.0,2181,0,1,RANK PROFUNDO (2181) — verificar a mano
+IRYSUSDT,irys,IRYS,1.0,588,0,0,
+IWMUSDT,,IWM,1.0,,0,1,sin match en el ranking
+JASMYUSDT,jasmycoin,JASMY,1.0,155,0,0,
+JCTUSDT,janction,JCT,1.0,501,0,0,
+JELLYJELLYUSDT,jelly-my-jelly,JELLYJELLY,1.0,378,0,0,
+JOEUSDT,joe,JOE,1.0,1032,1,0,2 candidatos
+JPMUSDT,,JPM,1.0,,0,1,sin match en el ranking
+JSTUSDT,just,JST,1.0,73,0,0,
+JTOUSDT,jito-governance-token,JTO,1.0,131,0,0,
+JUPUSDT,jupiter-exchange-solana,JUP,1.0,91,0,0,
+KAIAUSDT,kaia,KAIA,1.0,179,0,0,
+KAITOUSDT,kaito,KAITO,1.0,247,0,0,
+KASUSDT,kaspa,KAS,1.0,85,0,0,
+KATUSDT,katana-network-token,KAT,1.0,998,1,0,2 candidatos
+KAVAUSDT,kava,KAVA,1.0,464,0,0,
+KDAUSDT,kadena,KDA,1.0,2436,0,1,RANK PROFUNDO (2436) — verificar a mano
+KEEPUSDT,keep-network,KEEP,1.0,1205,0,0,
+KERNELUSDT,kernel-2,KERNEL,1.0,1173,0,0,
+KEYUSDT,,KEY,1.0,,0,1,sin match en el ranking
+KGENUSDT,kgen,KGEN,1.0,519,0,0,
+KITEUSDT,kite-2,KITE,1.0,143,1,0,2 candidatos
+KLACUSDT,,KLAC,1.0,,0,1,sin match en el ranking
+KLAYUSDT,,KLAY,1.0,,0,1,sin match en el ranking
+KMNOUSDT,kamino,KMNO,1.0,258,0,0,
+KNCUSDT,kyber-network-crystal,KNC,1.0,875,0,0,
+KOMAUSDT,koma-inu,KOMA,1.0,1244,0,0,
+KORUUSDT,,KORU,1.0,,0,1,sin match en el ranking
+KSMUSDT,kusama,KSM,1.0,403,0,0,
+KSTRUSDT,,KSTR,1.0,,0,1,sin match en el ranking
+LABUSDT,lab,LAB,1.0,573,0,0,
+LAUSDT,lagrange,LA,1.0,1203,0,0,
+LAYERUSDT,solayer,LAYER,1.0,1041,1,0,2 candidatos
+LDOUSDT,lido-dao,LDO,1.0,141,0,0,
+LENDUSDT,ethlend,LEND,1.0,1846,0,0,
+LEVERUSDT,,LEVER,1.0,,0,1,sin match en el ranking
+LIGHTUSDT,bitlight,LIGHT,1.0,1323,1,0,2 candidatos
+LINAUSDT,,LINA,1.0,,0,1,sin match en el ranking
+LINEAUSDT,linea,LINEA,1.0,416,0,0,
+LINKUSDT,chainlink,LINK,1.0,18,0,0,
+LISTAUSDT,lista,LISTA,1.0,710,0,0,
+LITEUSDT,,LITE,1.0,,0,1,sin match en el ranking
+LITUSDT,lighter,LIT,1.0,90,1,0,3 candidatos
+LLYUSDT,,LLY,1.0,,0,1,sin match en el ranking
+LOKAUSDT,,LOKA,1.0,,0,1,sin match en el ranking
+LOOMUSDT,,LOOM,1.0,,0,1,sin match en el ranking
+LPTUSDT,livepeer,LPT,1.0,374,0,0,
+LQTYUSDT,liquity,LQTY,1.0,805,0,0,
+LRCUSDT,loopring,LRC,1.0,1084,0,0,
+LRCXUSDT,,LRCX,1.0,,0,1,sin match en el ranking
+LSKUSDT,lisk,LSK,1.0,844,0,0,
+LTCUSDT,litecoin,LTC,1.0,28,0,0,
+LUMIAUSDT,lumia,LUMIA,1.0,1124,0,0,
+LUNA2USDT,,LUNA2,1.0,,0,1,sin match en el ranking
+LUNAUSDT,terra-luna-2,LUNA,1.0,630,1,0,2 candidatos
+LYNUSDT,everlyn,LYN,1.0,1325,0,0,
+MAGICUSDT,magic,MAGIC,1.0,989,0,0,
+MAGMAUSDT,magma-finance,MAGMA,1.0,568,0,0,
+MANAUSDT,decentraland,MANA,1.0,219,0,0,
+MANTAUSDT,manta-network,MANTA,1.0,669,0,0,
+MANTRAUSDT,mantra,MANTRA,1.0,655,0,0,
+MASKUSDT,mask-network,MASK,1.0,561,1,0,2 candidatos
+MATICUSDT,,MATIC,1.0,,0,1,sin match en el ranking
+MAVIAUSDT,heroes-of-mavia,MAVIA,1.0,1343,0,0,
+MAVUSDT,maverick-protocol,MAV,1.0,1132,0,0,
+MBLUSDT,moviebloc,MBL,1.0,1071,0,0,
+MBOXUSDT,,MBOX,1.0,,0,1,sin match en el ranking
+MDTUSDT,measurable-data-token,MDT,1.0,2371,0,1,RANK PROFUNDO (2371) — verificar a mano
+MEGAUSDT,megaeth,MEGA,1.0,538,0,0,
+MELANIAUSDT,melania-meme,MELANIA,1.0,334,0,0,
+MEMEFIUSDT,memefi-2,MEMEFI,1.0,5797,0,1,RANK PROFUNDO (5797) — verificar a mano
+MEMEUSDT,memetoon,MEME,1.0,10274,1,1,2 candidatos; RANK PROFUNDO (10274) — verificar a mano
+MERLUSDT,merlin-chain,MERL,1.0,714,0,0,
+METAUSDT,meta-2-2,META,1.0,243,1,0,3 candidatos
+METISUSDT,metis-token,METIS,1.0,829,0,0,
+METUSDT,meteora,MET,1.0,273,1,0,2 candidatos
+MEUSDT,magic-eden,ME,1.0,506,0,0,
+MEWUSDT,cat-in-a-dogs-world,MEW,1.0,648,0,0,
+MILKUSDT,,MILK,1.0,,0,1,sin match en el ranking
+MINAUSDT,mina-protocol,MINA,1.0,415,0,0,
+MINIMAXUSDT,,MINIMAX,1.0,,0,1,sin match en el ranking
+MIRAUSDT,mira-3,MIRA,1.0,1009,0,0,
+MITOUSDT,mitosis,MITO,1.0,1195,0,0,
+MKRUSDT,,MKR,1.0,,0,1,sin match en el ranking
+MLNUSDT,melon,MLN,1.0,1718,0,0,
+MMTUSDT,momentum-3,MMT,1.0,577,0,0,
+MOCAUSDT,mocaverse,MOCA,1.0,626,0,0,
+MONUSDT,monad,MON,1.0,140,1,0,2 candidatos
+MOODENGUSDT,moo-deng,MOODENG,1.0,552,1,0,2 candidatos
+MORPHOUSDT,morpho,MORPHO,1.0,56,0,0,
+MOVEUSDT,movement,MOVE,1.0,668,0,0,
+MOVRUSDT,moonriver,MOVR,1.0,1128,0,0,
+MRVLUSDT,,MRVL,1.0,,0,1,sin match en el ranking
+MSFTUSDT,microsoft-robinhood-tokenized-stock,MSFT,1.0,3111,0,1,RANK PROFUNDO (3111) — verificar a mano
+MSTRUSDT,strategy-dinari-tokenized-stock,MSTR,1.0,3336,1,1,3 candidatos; RANK PROFUNDO (3336) — verificar a mano
+MTLUSDT,metal,MTL,1.0,851,0,0,
+MUBARAKUSDT,mubarak,MUBARAK,1.0,917,0,0,
+MUSDT,memecore,M,1.0,50,1,0,2 candidatos
+MUUSDT,micron-technology-backpack-securities,MU,1.0,1333,1,0,2 candidatos
+MUUUSDT,,MUU,1.0,,0,1,sin match en el ranking
+MVLLUSDT,,MVLL,1.0,,0,1,sin match en el ranking
+MYROUSDT,myro,MYRO,1.0,2274,0,1,RANK PROFUNDO (2274) — verificar a mano
+MYXUSDT,myx-finance,MYX,1.0,940,0,0,
+NAORISUSDT,naoris,NAORIS,1.0,800,0,0,
+NATGASUSDT,,NATGAS,1.0,,0,1,sin match en el ranking
+NBISUSDT,nebius-group-n-v-backpack-securities,NBIS,1.0,3630,0,1,RANK PROFUNDO (3630) — verificar a mano
+NEARUSDT,near,NEAR,1.0,41,0,0,
+NEIROETHUSDT,,NEIROETH,1.0,,0,1,sin match en el ranking
+NEIROUSDT,neiro-3,NEIRO,1.0,654,0,0,
+NEOUSDT,neo,NEO,1.0,228,0,0,
+NEWTUSDT,newton-protocol,NEWT,1.0,1276,0,0,
+NFLXUSDT,,NFLX,1.0,,0,1,sin match en el ranking
+NFPUSDT,nfprompt-token,NFP,1.0,4146,0,1,RANK PROFUNDO (4146) — verificar a mano
+NIGHTUSDT,midnight-3,NIGHT,1.0,128,0,0,
+NILUSDT,nillion,NIL,1.0,769,0,0,
+NKNUSDT,nkn,NKN,1.0,1643,0,0,
+NMRUSDT,numeraire,NMR,1.0,386,0,0,
+NOKUSDT,,NOK,1.0,,0,1,sin match en el ranking
+NOMUSDT,nomina,NOM,1.0,1670,0,0,
+NOTUSDT,notcoin,NOT,1.0,517,0,0,
+NOWUSDT,changenow,NOW,1.0,673,0,0,
+NTRNUSDT,,NTRN,1.0,,0,1,sin match en el ranking
+NULSUSDT,,NULS,1.0,,0,1,sin match en el ranking
+NUUSDT,,NU,1.0,,0,1,sin match en el ranking
+NVDAUSDT,nvidia-robinhood-tokenized-stock,NVDA,1.0,1741,1,0,2 candidatos
+NVOUSDT,,NVO,1.0,,0,1,sin match en el ranking
+NXPCUSDT,nexpace,NXPC,1.0,409,0,0,
+OBOLUSDT,obol-2,OBOL,1.0,3182,0,1,RANK PROFUNDO (3182) — verificar a mano
+OCEANUSDT,ocean-protocol,OCEAN,1.0,742,1,0,2 candidatos
+OGNUSDT,origin-protocol,OGN,1.0,1095,0,0,
+OGUSDT,og-fan-token,OG,1.0,1060,0,0,
+OLUSDT,open-loot,OL,1.0,1749,0,0,
+OMGUSDT,omisego,OMG,1.0,1455,0,0,
+OMNIUSDT,,OMNI,1.0,,0,1,sin match en el ranking
+OMUSDT,,OM,1.0,,0,1,sin match en el ranking
+ONDOUSDT,ondo-finance,ONDO,1.0,46,0,0,
+ONDSUSDT,,ONDS,1.0,,0,1,sin match en el ranking
+ONEUSDT,harmony,ONE,1.0,1112,0,0,
+ONGUSDT,ong,ONG,1.0,782,0,0,
+ONTUSDT,ontology,ONT,1.0,549,0,0,
+ONUSDT,orochi-network,ON,1.0,381,0,0,
+OPENAIUSDT,openai-prestocks-2,OPENAI,1.0,2342,0,1,RANK PROFUNDO (2342) — verificar a mano
+OPENUSDT,openledger-2,OPEN,1.0,493,0,0,
+OPGUSDT,opengradient,OPG,1.0,860,0,0,
+OPNUSDT,opinion,OPN,1.0,1231,1,0,2 candidatos
+OPUSDT,optimism,OP,1.0,159,0,0,
+ORBSUSDT,orbs,ORBS,1.0,684,0,0,
+ORCAUSDT,orca,ORCA,1.0,356,0,0,
+ORCLUSDT,oracle-robinhood-tokenized-stock,ORCL,1.0,3557,0,1,RANK PROFUNDO (3557) — verificar a mano
+ORDERUSDT,orderly-network,ORDER,1.0,1088,0,0,
+ORDIUSDT,ordinals,ORDI,1.0,310,0,0,
+OUSDT,o1-exchange,O,1.0,320,1,0,2 candidatos
+OXTUSDT,orchid-protocol,OXT,1.0,1577,0,0,
+PANWUSDT,,PANW,1.0,,0,1,sin match en el ranking
+PARTIUSDT,particle-network,PARTI,1.0,1546,0,0,
+PAXGUSDT,pax-gold,PAXG,1.0,43,0,0,
+PAYPUSDT,,PAYP,1.0,,0,1,sin match en el ranking
+PENDLEUSDT,pendle,PENDLE,1.0,144,0,0,
+PENGUSDT,,PENG,1.0,,0,1,sin match en el ranking
+PENGUUSDT,pudgy-penguins,PENGU,1.0,108,0,0,
+PEOPLEUSDT,constitutiondao,PEOPLE,1.0,504,0,0,
+PERPUSDT,perpetual-protocol,PERP,1.0,2567,0,1,RANK PROFUNDO (2567) — verificar a mano
+PHAROSUSDT,,PHAROS,1.0,,0,1,sin match en el ranking
+PHAUSDT,pha,PHA,1.0,830,0,0,
+PHBUSDT,red-pulse,PHB,1.0,1352,0,0,
+PIEVERSEUSDT,pieverse,PIEVERSE,1.0,160,0,0,
+PIPPINUSDT,pippin,PIPPIN,1.0,888,0,0,
+PIXELUSDT,pixels,PIXEL,1.0,1841,0,0,
+PLAYUSDT,playsout,PLAY,1.0,1004,1,0,2 candidatos
+PLTRUSDT,palantir-technologies-robinhood-tokenized-stock,PLTR,1.0,3133,0,1,RANK PROFUNDO (3133) — verificar a mano
+PLUMEUSDT,plume,PLUME,1.0,296,0,0,
+PNUTUSDT,peanut-the-squirrel,PNUT,1.0,482,0,0,
+POLUSDT,polygon-ecosystem-token,POL,1.0,78,0,0,
+POLYXUSDT,polymesh,POLYX,1.0,512,0,0,
+PONKEUSDT,ponke,PONKE,1.0,1280,0,0,
+POPCATUSDT,popcat,POPCAT,1.0,486,0,0,
+POPMARTUSDT,,POPMART,1.0,,0,1,sin match en el ranking
+PORT3USDT,,PORT3,1.0,,0,1,sin match en el ranking
+PORTALUSDT,portal-2,PORTAL,1.0,1240,0,0,
+POWERUSDT,power-protocol,POWER,1.0,809,1,0,2 candidatos
+POWRUSDT,power-ledger,POWR,1.0,795,0,0,
+PRLUSDT,pearl-2,PRL,1.0,333,1,0,3 candidatos
+PROMPTUSDT,wayfinder,PROMPT,1.0,1602,0,0,
+PROMUSDT,prometeus,PROM,1.0,444,0,0,
+PROVEUSDT,succinct,PROVE,1.0,649,0,0,
+PTBUSDT,portal-to-bitcoin,PTB,1.0,2332,0,1,RANK PROFUNDO (2332) — verificar a mano
+PUFFERUSDT,puffer-finance,PUFFER,1.0,1405,0,0,
+PUMPBTCUSDT,,PUMPBTC,1.0,,0,1,sin match en el ranking
+PUMPUSDT,pump-fun,PUMP,1.0,63,1,0,2 candidatos
+PUNDIXUSDT,pundi-x-2,PUNDIX,1.0,808,0,0,
+PYPLUSDT,,PYPL,1.0,,0,1,sin match en el ranking
+PYTHUSDT,pyth-network,PYTH,1.0,120,0,0,
+QCOMUSDT,,QCOM,1.0,,0,1,sin match en el ranking
+QNTUSDT,quant-network,QNT,1.0,74,0,0,
+QNTXUSDT,,QNTX,1.0,,0,1,sin match en el ranking
+QQQUSDT,invesco-qqq-robinhood-tokenized-stock,QQQ,1.0,3181,0,1,RANK PROFUNDO (3181) — verificar a mano
+QTUMUSDT,qtum,QTUM,1.0,326,0,0,
+QUICKUSDT,quickswap,QUICK,1.0,1535,0,0,
+QUSDT,quack-ai,Q,1.0,265,1,0,2 candidatos
+RADUSDT,radicle,RAD,1.0,1072,0,0,
+RAREUSDT,superrare,RARE,1.0,1176,0,0,
+RAVEUSDT,ravedao,RAVE,1.0,316,0,0,
+RAYSOLUSDT,,RAYSOL,1.0,,0,1,sin match en el ranking
+RAYUSDT,raydium,RAY,1.0,178,0,0,
+RDNTUSDT,radiant-capital,RDNT,1.0,3445,0,1,RANK PROFUNDO (3445) — verificar a mano
+RECALLUSDT,recall,RECALL,1.0,1049,0,0,
+REDUSDT,redstone-oracles,RED,1.0,488,0,0,
+REEFUSDT,reef,REEF,1.0,2226,0,1,RANK PROFUNDO (2226) — verificar a mano
+REIUSDT,unit-00-rei,REI,1.0,721,1,0,2 candidatos
+RENDERUSDT,render-token,RENDER,1.0,88,0,0,
+RENUSDT,republic-protocol,REN,1.0,1870,0,0,
+RESOLVUSDT,resolv,RESOLV,1.0,1307,0,0,
+REUSDT,re,RE,1.0,323,0,0,
+REZUSDT,renzo,REZ,1.0,730,0,0,
+RIFUSDT,rif-token,RIF,1.0,330,0,0,
+RIVERUSDT,river,RIVER,1.0,421,0,0,
+RIVNUSDT,,RIVN,1.0,,0,1,sin match en el ranking
+RKLBUSDT,,RKLB,1.0,,0,1,sin match en el ranking
+RLCUSDT,iexec-rlc,RLC,1.0,806,0,0,
+RLSUSDT,rayls,RLS,1.0,1826,0,0,
+RNDRUSDT,,RNDR,1.0,,0,1,sin match en el ranking
+ROBOUSDT,robo-token-2,ROBO,1.0,601,0,0,
+RONINUSDT,,RONIN,1.0,,0,1,sin match en el ranking
+ROSEUSDT,oasis-network,ROSE,1.0,476,0,0,
+RPLUSDT,rocket-pool,RPL,1.0,611,0,0,
+RSRUSDT,reserve-rights-token,RSR,1.0,314,0,0,
+RUNEUSDT,thorchain,RUNE,1.0,202,0,0,
+RVNUSDT,ravencoin,RVN,1.0,466,0,0,
+RVVUSDT,astra-nova,RVV,1.0,4661,0,1,RANK PROFUNDO (4661) — verificar a mano
+SAFEUSDT,safecoin,SAFE,1.0,309,1,0,3 candidatos
+SAGAUSDT,saga-2,SAGA,1.0,1540,0,0,
+SAHARAUSDT,sahara-ai,SAHARA,1.0,656,0,0,
+SAMSUNGUSDT,,SAMSUNG,1.0,,0,1,sin match en el ranking
+SANDUSDT,the-sandbox,SAND,1.0,250,0,0,
+SANTOSUSDT,santos-fc-fan-token,SANTOS,1.0,1308,0,0,
+SAPIENUSDT,sapien-2,SAPIEN,1.0,938,0,0,
+SCRTUSDT,secret,SCRT,1.0,986,0,0,
+SCRUSDT,scroll,SCR,1.0,1767,0,0,
+SCUSDT,siacoin,SC,1.0,731,1,0,2 candidatos
+SEIUSDT,sei-network,SEI,1.0,134,0,0,
+SENTUSDT,sentient,SENT,1.0,263,0,0,
+SFPUSDT,safepal,SFP,1.0,230,0,0,
+SHAZUSDT,,SHAZ,1.0,,0,1,sin match en el ranking
+SHELLUSDT,myshell,SHELL,1.0,1551,0,0,
+SIGNUSDT,sign-global,SIGN,1.0,891,0,0,
+SIRENUSDT,siren-2,SIREN,1.0,586,0,0,
+SKATEUSDT,,SKATE,1.0,,0,1,sin match en el ranking
+SKHYNIXUSDT,,SKHYNIX,1.0,,0,1,sin match en el ranking
+SKHYUSDT,sk-hynix-backpack-securities,SKHY,1.0,1867,0,0,
+SKLUSDT,skale,SKL,1.0,774,0,0,
+SKRUSDT,seeker,SKR,1.0,442,0,0,
+SKYAIUSDT,skyai,SKYAI,1.0,297,0,0,
+SKYUSDT,sky,SKY,1.0,57,0,0,
+SLERFUSDT,slerf,SLERF,1.0,1338,1,0,2 candidatos
+SLPUSDT,smooth-love-potion,SLP,1.0,833,0,0,
+SLXUSDT,solstice,SLX,1.0,816,0,0,
+SMCIUSDT,,SMCI,1.0,,0,1,sin match en el ranking
+SMHUSDT,,SMH,1.0,,0,1,sin match en el ranking
+SNDKUSDT,sandisk-backpack-securities,SNDK,1.0,2321,1,1,2 candidatos; RANK PROFUNDO (2321) — verificar a mano
+SNOWUSDT,,SNOW,1.0,,0,1,sin match en el ranking
+SNTUSDT,status,SNT,1.0,789,0,0,
+SNXUSDT,havven,SNX,1.0,240,0,0,
+SNXXUSDT,,SNXX,1.0,,0,1,sin match en el ranking
+SOFIUSDT,,SOFI,1.0,,0,1,sin match en el ranking
+SOLUSDT,solana,SOL,1.0,7,0,0,
+SOLVUSDT,solv-protocol,SOLV,1.0,1059,0,0,
+SOMIUSDT,somnia,SOMI,1.0,960,0,0,
+SONICUSDT,sonic-svm,SONIC,1.0,1433,0,0,
+SONYUSDT,,SONY,1.0,,0,1,sin match en el ranking
+SOONUSDT,soon-2,SOON,1.0,331,0,0,
+SOPHUSDT,sophon,SOPH,1.0,980,0,0,
+SOXLUSDT,,SOXL,1.0,,0,1,sin match en el ranking
+SOXSUSDT,,SOXS,1.0,,0,1,sin match en el ranking
+SPACEUSDT,spacecoin-2,SPACE,1.0,659,1,0,2 candidatos
+SPCXUSDT,spacex-backpack-securities,SPCX,1.0,1400,1,0,3 candidatos
+SPELLUSDT,spell-token,SPELL,1.0,995,0,0,
+SPKUSDT,spark-2,SPK,1.0,471,0,0,
+SPORTFUNUSDT,,SPORTFUN,1.0,,0,1,sin match en el ranking
+SPXUSDT,spx6900,SPX,1.0,126,0,0,
+SPYUSDT,spdr-s-p-500-etf-trust-robinhood-tokenized-stock,SPY,1.0,2095,0,1,RANK PROFUNDO (2095) — verificar a mano
+SQDUSDT,subsquid,SQD,1.0,380,0,0,
+SQQQUSDT,,SQQQ,1.0,,0,1,sin match en el ranking
+SRMUSDT,serum,SRM,1.0,5454,0,1,RANK PROFUNDO (5454) — verificar a mano
+SSVUSDT,ssv-network,SSV,1.0,632,0,0,
+STABLEUSDT,stable-2,STABLE,1.0,76,1,0,2 candidatos
+STARUSDT,starpower,STAR,1.0,937,0,0,
+STBLUSDT,stbl,STBL,1.0,1086,0,0,
+STEEMUSDT,steem,STEEM,1.0,786,0,0,
+STGUSDT,stargate-finance,STG,1.0,783,0,0,
+STMXUSDT,,STMX,1.0,,0,1,sin match en el ranking
+STORJUSDT,storj,STORJ,1.0,1386,0,0,
+STOUSDT,stakestone,STO,1.0,1234,0,0,
+STPTUSDT,,STPT,1.0,,0,1,sin match en el ranking
+STRAXUSDT,stratis,STRAX,1.0,846,0,0,
+STRCUSDT,strategy-stretch-preferred-dinari-tokenized-stock,STRC,1.0,3101,0,1,RANK PROFUNDO (3101) — verificar a mano
+STRKUSDT,starknet,STRK,1.0,189,0,0,
+STXUSDT,blockstack,STX,1.0,145,0,0,
+STXXUSDT,,STXX,1.0,,0,1,sin match en el ranking
+SUIUSDT,sui,SUI,1.0,31,0,0,
+SUNUSDT,sun-token,SUN,1.0,116,0,0,
+SUPERUSDT,superfarm,SUPER,1.0,398,0,0,
+SUSDT,sonic-3,S,1.0,281,0,0,
+SUSHIUSDT,sushi,SUSHI,1.0,467,0,0,
+SWARMSUSDT,swarms,SWARMS,1.0,1284,0,0,
+SWELLUSDT,swell-network,SWELL,1.0,1865,0,0,
+SXPUSDT,swipe,SXP,1.0,2093,0,1,RANK PROFUNDO (2093) — verificar a mano
+SXTUSDT,space-and-time,SXT,1.0,832,0,0,
+SYNUSDT,synapse-2,SYN,1.0,725,0,0,
+SYRUPUSDT,syrup,SYRUP,1.0,171,0,0,
+SYSUSDT,syscoin,SYS,1.0,2381,0,1,RANK PROFUNDO (2381) — verificar a mano
+TACUSDT,tac,TAC,1.0,1024,0,0,
+TAGUSDT,tagger,TAG,1.0,214,0,0,
+TAIKOUSDT,taiko,TAIKO,1.0,968,0,0,
+TAKEUSDT,overtake,TAKE,1.0,965,0,0,
+TANSSIUSDT,,TANSSI,1.0,,0,1,sin match en el ranking
+TAOUSDT,bittensor,TAO,1.0,42,0,0,
+TAUSDT,trusta-ai,TA,1.0,1097,1,0,2 candidatos
+TBTUSDT,,TBT,1.0,,0,1,sin match en el ranking
+TENCENTUSDT,,TENCENT,1.0,,0,1,sin match en el ranking
+TERUSDT,,TER,1.0,,0,1,sin match en el ranking
+THETAUSDT,theta-token,THETA,1.0,213,0,0,
+THEUSDT,thena,THE,1.0,1286,0,0,
+TIAUSDT,celestia,TIA,1.0,127,1,0,2 candidatos
+TLMUSDT,alien-worlds,TLM,1.0,1111,0,0,
+TMFUSDT,,TMF,1.0,,0,1,sin match en el ranking
+TNSRUSDT,tensor,TNSR,1.0,1121,0,0,
+TOKENUSDT,tokenfi,TOKEN,1.0,1378,0,0,
+TOMOUSDT,,TOMO,1.0,,0,1,sin match en el ranking
+TONUSDT,tokamak-network,TON,1.0,874,1,0,2 candidatos
+TOSHIUSDT,toshi,TOSHI,1.0,479,0,0,
+TOWNSUSDT,towns,TOWNS,1.0,1635,0,0,
+TQQQUSDT,,TQQQ,1.0,,0,1,sin match en el ranking
+TRADOORUSDT,tradoor,TRADOOR,1.0,1197,0,0,
+TRBUSDT,tellor,TRB,1.0,534,0,0,
+TREEUSDT,tree-capital,TREE,1.0,932,1,0,2 candidatos
+TRIAUSDT,tria,TRIA,1.0,843,0,0,
+TROYUSDT,,TROY,1.0,,0,1,sin match en el ranking
+TRUMPUSDT,official-trump,TRUMP,1.0,117,1,0,2 candidatos
+TRUSTUSDT,intuition,TRUST,1.0,1198,0,0,
+TRUTHUSDT,swarm-network,TRUTH,1.0,653,0,0,
+TRUUSDT,truefi,TRU,1.0,2552,0,1,RANK PROFUNDO (2552) — verificar a mano
+TRXUSDT,tron,TRX,1.0,8,0,0,
+TSLAUSDT,tesla-robinhood-tokenized-stock,TSLA,1.0,2451,1,1,2 candidatos; RANK PROFUNDO (2451) — verificar a mano
+TSMUSDT,,TSM,1.0,,0,1,sin match en el ranking
+TSTUSDT,test-3,TST,1.0,1014,0,0,
+TTWOUSDT,take-two-interactive-software-backpack-securities,TTWO,1.0,3940,0,1,RANK PROFUNDO (3940) — verificar a mano
+TURBOUSDT,turbo,TURBO,1.0,397,1,0,3 candidatos
+TURTLEUSDT,turtle-4,TURTLE,1.0,1415,0,0,
+TUSDT,threshold-network-token,T,1.0,523,1,0,2 candidatos
+TUTUSDT,tutorial,TUT,1.0,642,0,0,
+TWTUSDT,trust-wallet-token,TWT,1.0,177,0,0,
+TXNUSDT,,TXN,1.0,,0,1,sin match en el ranking
+TZAUSDT,,TZA,1.0,,0,1,sin match en el ranking
+UAIUSDT,unifai-network,UAI,1.0,366,0,0,
+UBERUSDT,,UBER,1.0,,0,1,sin match en el ranking
+UBUSDT,unibase,UB,1.0,118,0,0,
+UMAUSDT,uma,UMA,1.0,640,0,0,
+UNFIUSDT,,UNFI,1.0,,0,1,sin match en el ranking
+UNIUSDT,uniswap,UNI,1.0,38,0,0,
+URNMUSDT,,URNM,1.0,,0,1,sin match en el ranking
+USARUSDT,usa-rare-earth-robinhood-tokenized-stock,USAR,1.0,3449,0,1,RANK PROFUNDO (3449) — verificar a mano
+USDCUSDT,usd-coin,USDC,1.0,5,0,0,
+USELESSUSDT,useless-3,USELESS,1.0,529,0,0,
+USTCUSDT,terrausd,USTC,1.0,670,0,0,
+USUALUSDT,usual,USUAL,1.0,921,0,0,
+USUSDT,talus,US,1.0,303,0,0,
+UVXYUSDT,,UVXY,1.0,,0,1,sin match en el ranking
+UXLINKUSDT,uxlink,UXLINK,1.0,3361,0,1,RANK PROFUNDO (3361) — verificar a mano
+VANAUSDT,vana,VANA,1.0,693,0,0,
+VANRYUSDT,,VANRY,1.0,,0,1,sin match en el ranking
+VELODROMEUSDT,,VELODROME,1.0,,0,1,sin match en el ranking
+VELVETUSDT,velvet,VELVET,1.0,124,0,0,
+VETUSDT,vechain,VET,1.0,110,0,0,
+VFYUSDT,zkverify,VFY,1.0,2236,0,1,RANK PROFUNDO (2236) — verificar a mano
+VICUSDT,tomochain,VIC,1.0,1959,0,0,
+VIDTUSDT,,VIDT,1.0,,0,1,sin match en el ranking
+VINEUSDT,vine,VINE,1.0,1403,0,0,
+VIRTUALUSDT,virtual-protocol,VIRTUAL,1.0,112,0,0,
+VOXELUSDT,voxies,VOXEL,1.0,3191,0,1,RANK PROFUNDO (3191) — verificar a mano
+VRTUSDT,,VRT,1.0,,0,1,sin match en el ranking
+VTHOUSDT,vethor-token,VTHO,1.0,591,0,0,
+VUSDT,vault-2,V,1.0,1514,0,0,
+VVVUSDT,venice-token,VVV,1.0,89,0,0,
+WALUSDT,walrus-2,WAL,1.0,413,0,0,
+WAVESUSDT,waves,WAVES,1.0,797,0,0,
+WAXPUSDT,wax,WAXP,1.0,867,0,0,
+WCTUSDT,connect-token-wct,WCT,1.0,945,0,0,
+WDCUSDT,,WDC,1.0,,0,1,sin match en el ranking
+WENUSDT,wen-lambo-2,WEN,1.0,1894,1,0,2 candidatos
+WETUSDT,humidifi,WET,1.0,908,0,0,
+WIFUSDT,dogwifcoin,WIF,1.0,207,1,0,3 candidatos
+WLDUSDT,worldcoin-wld,WLD,1.0,59,0,0,
+WLFIUSDT,world-liberty-financial,WLFI,1.0,44,0,0,
+WMTUSDT,,WMT,1.0,,0,1,sin match en el ranking
+WOOUSDT,woo-network,WOO,1.0,781,0,0,
+WUSDT,wormhole,W,1.0,414,0,0,
+XAGUSDT,,XAG,1.0,,0,1,sin match en el ranking
+XAIUSDT,xai-blockchain,XAI,1.0,1017,1,0,2 candidatos
+XANUSDT,anoma,XAN,1.0,661,0,0,
+XAUTUSDT,tether-gold,XAUT,1.0,35,0,0,
+XAUUSDT,,XAU,1.0,,0,1,sin match en el ranking
+XBIUSDT,,XBI,1.0,,0,1,sin match en el ranking
+XCNUSDT,chain-2,XCN,1.0,234,0,0,
+XEMUSDT,nem,XEM,1.0,1695,0,0,
+XLEUSDT,,XLE,1.0,,0,1,sin match en el ranking
+XLMUSDT,stellar,XLM,1.0,20,0,0,
+XMRUSDT,monero,XMR,1.0,16,0,0,
+XNYUSDT,codatta,XNY,1.0,871,0,0,
+XPDUSDT,,XPD,1.0,,0,1,sin match en el ranking
+XPINUSDT,xpin-network,XPIN,1.0,679,0,0,
+XPLUSDT,plasma,XPL,1.0,157,0,0,
+XPTUSDT,xpt,XPT,1.0,2694,0,1,RANK PROFUNDO (2694) — verificar a mano
+XRPUSDT,ripple,XRP,1.0,6,0,0,
+XTZUSDT,tezos,XTZ,1.0,150,0,0,
+XVGUSDT,verge,XVG,1.0,575,0,0,
+XVSUSDT,venus,XVS,1.0,459,0,0,
+YALAUSDT,,YALA,1.0,,0,1,sin match en el ranking
+YBUSDT,yield-basis,YB,1.0,779,0,0,
+YFIIUSDT,yfii-finance,YFII,1.0,2882,0,1,RANK PROFUNDO (2882) — verificar a mano
+YFIUSDT,yearn-finance,YFI,1.0,329,0,0,
+YGGUSDT,yield-guild-games,YGG,1.0,941,0,0,
+ZAMAUSDT,zama,ZAMA,1.0,245,0,0,
+ZBTUSDT,zerobase,ZBT,1.0,697,0,0,
+ZECUSDT,zcash,ZEC,1.0,15,0,0,
+ZENUSDT,zencash,ZEN,1.0,307,0,0,
+ZEREBROUSDT,zerebro,ZEREBRO,1.0,531,0,0,
+ZESTUSDT,zest-protocol,ZEST,1.0,741,0,0,
+ZETAUSDT,zetachain,ZETA,1.0,473,0,0,
+ZHIPUUSDT,,ZHIPU,1.0,,0,1,sin match en el ranking
+ZILUSDT,zilliqa,ZIL,1.0,446,0,0,
+ZKCUSDT,boundless,ZKC,1.0,1103,0,0,
+ZKJUSDT,polyhedra-network,ZKJ,1.0,1788,0,0,
+ZKPUSDT,zkpass,ZKP,1.0,1254,1,0,2 candidatos
+ZKUSDT,zksync,ZK,1.0,311,0,0,
+ZMUSDT,,ZM,1.0,,0,1,sin match en el ranking
+ZORAUSDT,zora,ZORA,1.0,755,0,0,
+ZRCUSDT,zircuit,ZRC,1.0,2252,0,1,RANK PROFUNDO (2252) — verificar a mano
+ZROUSDT,layerzero,ZRO,1.0,130,0,0,
+ZRXUSDT,0x,ZRX,1.0,343,0,0,
+币安人生USDT,bianrensheng,币安人生,1.0,100,0,0,
+我踏马来了USDT,wo-ta-ma-laile,我踏马来了,1.0,1227,0,0,
+龙虾USDT,lobster-2,龙虾,1.0,798,0,0,
