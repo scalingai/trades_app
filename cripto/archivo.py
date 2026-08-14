@@ -207,3 +207,57 @@ def meses_con_datos(simbolo: str, desde: date, hasta: date) -> list[str]:
     """Qué meses tienen archivo. Es como se deriva la fecha de listado."""
     return [m.strftime("%Y-%m") for m in _meses(desde, hasta)
             if klines_mes(simbolo, "1d", m)]
+
+
+# ────────────────────────────────── funding ────────────────────────────────
+
+def funding_mes(simbolo: str, mes: date) -> list[tuple[str, float]]:
+    """Tasas de funding de un mes: [(timestamp_iso, tasa), …].
+
+    El perpetuo liquida a las 00, 08 y 16 UTC. La tasa es lo que se pagan
+    largos y cortos: con tasa positiva el largo paga y **el corto cobra**, que
+    es el lado del que habla la tesis.
+    """
+    ym = mes.strftime("%Y-%m")
+    url = (f"{ARCHIVO}/data/futures/um/monthly/fundingRate/{simbolo}/"
+           f"{simbolo}-fundingRate-{ym}.zip")
+    cache = config.cache_dir() / "funding" / simbolo
+    cache.mkdir(parents=True, exist_ok=True)
+    csv_path = cache / f"{ym}.csv"
+    vacio = cache / f"{ym}.vacio"
+
+    if vacio.exists():
+        return []
+    if csv_path.exists():
+        texto = csv_path.read_text(encoding="utf-8")
+    else:
+        try:
+            crudo = _pedir(url)
+        except NoExiste:
+            vacio.write_text("")
+            return []
+        with zipfile.ZipFile(io.BytesIO(crudo)) as z:
+            texto = z.read(z.namelist()[0]).decode("utf-8", "replace")
+        csv_path.write_text(texto, encoding="utf-8")
+
+    filas = []
+    for linea in texto.splitlines():
+        if not linea or linea[0] not in "0123456789":
+            continue
+        partes = linea.split(",")
+        try:
+            v = int(partes[0])
+            if v > 1e15:
+                v //= 1000
+            ts = datetime.fromtimestamp(v / 1000, tz=timezone.utc)
+            filas.append((ts.isoformat(), float(partes[-1])))
+        except (ValueError, IndexError):
+            continue
+    return filas
+
+
+def funding(simbolo: str, desde: date, hasta: date) -> list[tuple[str, float]]:
+    salida = []
+    for mes in _meses(desde, hasta):
+        salida.extend(funding_mes(simbolo, mes))
+    return salida
