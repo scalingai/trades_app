@@ -114,15 +114,22 @@ def _mapa_funding(con) -> dict[str, list[tuple[str, float]]]:
     return m
 
 
-def funding_del_trade(serie, d: str) -> float:
+def funding_del_trade(serie, d: str, dias: int = 1) -> float:
     """Suma de tasas en los cortes estrictamente interiores al hold.
 
     Signo: tasa positiva → el largo paga y el corto cobra, así que para el
     corto esto entra sumando.
+
+    `dias` es la duración REAL del hold. Se suman las tasas efectivamente
+    publicadas en esa ventana en vez de extrapolar la del primer día: el
+    funding de un día de evento extremo es anómalo y normaliza después, así
+    que multiplicarlo por la duración exageraría el costo de los holds largos
+    — y en un resultado negativo eso sería culpar al mercado de un artefacto
+    propio.
     """
     import bisect
     entrada = datetime.fromisoformat(d).replace(tzinfo=timezone.utc) + timedelta(days=1)
-    salida = entrada + timedelta(days=1)
+    salida = entrada + timedelta(days=max(1, dias))
     claves = [x[0] for x in serie]
     i = bisect.bisect_right(claves, entrada.isoformat())
     j = bisect.bisect_left(claves, salida.isoformat())
