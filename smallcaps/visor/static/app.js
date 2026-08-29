@@ -9,7 +9,7 @@ let VISIBLES = [];     // lo que está en la tabla ahora
 let SEL = null;        // {ticker, d}
 let DATOS = null;      // payload del día abierto
 let orden = { col: 'd', desc: true };
-const ver = { anom: true, vwap: true, marcas: true };
+const ver = { anom: true, vwap: true, marcas: true, trade: true };
 let modoMarcar = null;   // tipo de etiqueta activo, o null
 
 /* ------------------------------------------------------------------ chart */
@@ -36,6 +36,13 @@ chart.priceScale('vol').applyOptions({ scaleMargins: { top: .78, bottom: 0 } });
 
 const sVwap = chart.addLineSeries({
   color: '#e6c84a', lineWidth: 1, priceLineVisible: false, lastValueVisible: false,
+});
+/* El precio medio de la posición, escalonado. Es la línea que dice si construir
+   mejoró la entrada o solo agrandó el problema: si sube, cada adición te dejó
+   peor. */
+const sMedio = chart.addLineSeries({
+  color: '#ff5c8a', lineWidth: 2, lineStyle: LWC.LineStyle.Dotted,
+  priceLineVisible: false, lastValueVisible: true, title: 'precio medio',
 });
 
 let lineas = [];
@@ -149,6 +156,7 @@ async function abrir(ticker, d) {
   sVelas.setData(r.velas);
   sVol.setData(r.volumen);
   sVwap.setData(ver.vwap ? r.vwap : []);
+  sMedio.setData(ver.trade && r.trade && r.trade.operado ? r.trade.medio : []);
   limpiarLineas();
   nivel(r.niveles.prev_close, '#5c6a85', 'cierre previo');
   nivel(r.niveles.pm_high, '#8e6bd8', 'máx pre-market');
@@ -156,8 +164,16 @@ async function abrir(ticker, d) {
   chart.timeScale().fitContent();
   setTimeout(pintarSombra, 0);
   pintarBarra();
+  pintarTrade();
   pintarPie();
 }
+
+const ICONO_TRADE = {
+  entrada:   { shape: 'arrowDown', color: '#ff5c8a', pos: 'aboveBar', txt: 'ENTRA' },
+  adicion:   { shape: 'arrowDown', color: '#d98a4a', pos: 'aboveBar', txt: '+' },
+  reduccion: { shape: 'arrowUp',   color: '#4ade80', pos: 'belowBar', txt: '−' },
+  salida:    { shape: 'square',    color: '#e6c84a', pos: 'belowBar', txt: 'SALE' },
+};
 
 const COLOR_ET = {
   entrada_short: '#ff5c8a', entrada_long: '#4ade80', no_va: '#8892a6',
@@ -175,6 +191,17 @@ function pintarMarcas() {
     text: '✋ ' + e.tipo.replace('entrada_', '') + (e.nota ? ' · ' + e.nota : ''),
   }));
   if (ver.marcas) m.push(...DATOS.marcas);
+  const tr = DATOS.trade;
+  if (ver.trade && tr && tr.operado) {
+    tr.pasos.forEach((p) => {
+      const ic = ICONO_TRADE[p.tipo] || ICONO_TRADE.salida;
+      m.push({
+        time: p.time, position: ic.pos, color: ic.color, shape: ic.shape,
+        text: `${ic.txt}${p.tipo === 'adicion' || p.tipo === 'reduccion'
+          ? ' ' + p.tramos + '/5' : ''} $${p.precio.toFixed(2)}`,
+      });
+    });
+  }
   if (ver.anom) {
     DATOS.anomalias.forEach((a) => m.push({
       time: a.time,
@@ -269,7 +296,7 @@ $('#bajar').addEventListener('click', async () => {
   abrir(t, d);
 });
 
-const chips = { tgAnom: 'anom', tgVwap: 'vwap', tgMarcas: 'marcas' };
+const chips = { tgAnom: 'anom', tgVwap: 'vwap', tgMarcas: 'marcas', tgTrade: 'trade' };
 Object.entries(chips).forEach(([id, k]) => {
   $('#' + id).addEventListener('click', () => alternar(k));
 });
@@ -279,7 +306,11 @@ function alternar(k) {
   $('#' + id).classList.toggle('on', ver[k]);
   if (!DATOS) return;
   if (k === 'vwap') sVwap.setData(ver.vwap ? DATOS.vwap : []);
-  else pintarMarcas();
+  else if (k === 'trade') {
+    sMedio.setData(ver.trade && DATOS.trade && DATOS.trade.operado
+      ? DATOS.trade.medio : []);
+    pintarMarcas();
+  } else pintarMarcas();
 }
 /* ---- la cuota discrecional: marcar sobre el gráfico ---- */
 
@@ -304,6 +335,32 @@ chart.subscribeClick(async (param) => {
   pintarPie();
 });
 
+function pintarTrade() {
+  const t = DATOS && DATOS.trade;
+  const el = $('#trade');
+  if (!t) { el.innerHTML = ''; return; }
+  if (!t.operado) {
+    el.innerHTML = `<span class="tenue">sin trade — descartado por `
+      + `<b>${t.motivo}</b></span>`;
+    return;
+  }
+  const cls = t.neto > 0 ? 'pos' : 'neg';
+  el.innerHTML =
+    `<span class="paso ${cls}" style="font-weight:700">${t.neto > 0 ? '+' : ''}`
+    + `${t.neto.toFixed(2)}% neto</span>`
+    + `<span class="paso">bruto ${t.bruto > 0 ? '+' : ''}${t.bruto.toFixed(2)}%</span>`
+    + `<span class="paso">salió por ${t.motivo}</span>`
+    + `<span class="paso">MAE ${t.peor.toFixed(1)}%</span>`
+    + `<span class="paso">${t.ejecuciones} ejecuciones</span>`
+    + t.pasos.map((p) => {
+      const h = new Date(p.time * 1000);
+      const hh = String(h.getUTCHours()).padStart(2, '0') + ':'
+        + String(h.getUTCMinutes()).padStart(2, '0');
+      return `<span class="paso" title="${p.nota}">${hh} ${p.tipo} `
+        + `$${p.precio.toFixed(2)} · ${p.tramos}/5</span>`;
+    }).join('');
+}
+
 function pintarPie() {
   const n = (DATOS && DATOS.etiquetas || []).length;
   $('#etiquetas').textContent = n ? `${n} marcas en este día` : 'sin marcas';
@@ -325,6 +382,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'v') alternar('anom');
   if (e.key === 'w') alternar('vwap');
   if (e.key === 'm') alternar('marcas');
+  if (e.key === 't') alternar('trade');
   if (e.key === 's') elegirModo('entrada_short');
   if (e.key === 'l') elegirModo('entrada_long');
   if (e.key === 'n') elegirModo('no_va');

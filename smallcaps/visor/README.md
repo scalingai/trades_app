@@ -48,6 +48,30 @@ paso se cayó sin abrir el código.
 
 Destildando el filtro aparecen todos, para mirar.
 
+## El trade simulado, dibujado sobre las velas
+
+Cada día candidato muestra lo que hizo el motor de `chavineta.py`, ejecución por
+ejecución:
+
+| | |
+|---|---|
+| flecha rosa ↓ | **entrada** — el minuto de agotamiento de volumen |
+| flecha naranja ↓ | **adición** — tocó una resistencia de la escalera |
+| flecha verde ↑ | **reducción** — volvió debajo del nivel desde el que se agregó |
+| cuadrado ámbar | **salida** — reclaim, tope o cierre |
+| línea rosa punteada | **precio medio de la posición** |
+
+La línea del precio medio es la que hay que mirar: si sube con cada adición, la
+construcción te dejó peor. Si el precio la cruza para abajo, el trade se dio
+vuelta. La barra de arriba trae el neto, el bruto, el MAE y la lista completa de
+ejecuciones con la hora.
+
+**Esto no es cosmética.** La reducción intrabar —un tramo que se abría y se
+cerraba en el MISMO minuto, en 646 de 695 trades, cobrando la diferencia entre
+el máximo y el mínimo de la barra— se descubrió mirando los timestamps de este
+panel. En las tablas agregadas era invisible: valía 0,76 puntos de media por
+trade y todo se veía normal.
+
 ## Marcar a mano (la cuota discrecional)
 
 Elegí un tipo abajo —`short` (s), `long` (l), `no va` (n), `patrón`— y clickeá

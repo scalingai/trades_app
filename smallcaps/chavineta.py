@@ -193,9 +193,19 @@ def operar(dia, prev_high, *, costo_accion, tope_perdida, quita_locate,
     if not p0:
         return {"operado": False, "motivo": "sin_precio"}
 
-    abiertos = [(p0, None)]        # (precio de entrada, nivel que lo disparó)
+    # (precio de entrada, nivel que lo disparó, índice de la barra que lo abrió).
+    # El índice existe para impedir que un tramo se abra y se cierre en el mismo
+    # minuto: ver la nota sobre intrabar en la reducción.
+    abiertos = [(p0, None, i0)]
     realizado = 0.0                # dólares por acción, sobre el nominal completo
     ejecuciones = 1
+    # Registro de ejecuciones. No participa del cálculo: existe para poder
+    # DIBUJAR el trade sobre el gráfico y auditar a ojo lo que hizo el motor.
+    # Una simulación que no se puede mirar es una simulación en la que hay que
+    # creer.
+    registro = [{"ts": dia.bars[i0][0], "tipo": "entrada", "precio": p0,
+                 "tramos": 1, "medio": p0,
+                 "nota": f"agotamiento · {len(niveles)} niveles arriba"}]
     peor = 0.0
     techo = (max(niveles) if niveles else p0 * 1.5) * (1 + margen_reclaim / 100)
     pendientes = list(niveles)
@@ -207,7 +217,8 @@ def operar(dia, prev_high, *, costo_accion, tope_perdida, quita_locate,
         alto, bajo, c = b[2], b[3], b[4]
         if not c:
             continue
-        medio = sum(p for p, _ in abiertos) / len(abiertos)
+        i_barra = dia.bars.index(b)
+        medio = sum(p for p, _, _ in abiertos) / len(abiertos)
         if alto:
             peor = max(peor, (alto / medio - 1) * 100 * len(abiertos) / TRAMOS)
 
@@ -224,16 +235,25 @@ def operar(dia, prev_high, *, costo_accion, tope_perdida, quita_locate,
             else:
                 salida = c
                 ejecuciones += len(abiertos)
-            realizado += sum(p - salida for p, _ in abiertos) / TRAMOS
+            realizado += sum(p - salida for p, _, _ in abiertos) / TRAMOS
+            registro.append({"ts": b[0], "tipo": "salida", "precio": salida,
+                             "tramos": len(abiertos), "medio": medio,
+                             "nota": f"reclaim · cerró {minutos_reclaim} min sobre "
+                                     f"{techo:.2f}"})
             return _cerrar(dia, p0, realizado, ejecuciones, peor, "reclaim_vivo",
-                           costo_accion, quita_locate, len(niveles), costo_salida)
+                           costo_accion, quita_locate, len(niveles), costo_salida,
+                           registro)
 
         # Tope duro de pérdida sobre el nominal completo.
         if alto and (alto / medio - 1) * 100 * len(abiertos) / TRAMOS >= tope_perdida:
-            realizado += sum(p - alto for p, _ in abiertos) / TRAMOS
+            realizado += sum(p - alto for p, _, _ in abiertos) / TRAMOS
             ejecuciones += len(abiertos)
+            registro.append({"ts": b[0], "tipo": "salida", "precio": alto,
+                             "tramos": len(abiertos), "medio": medio,
+                             "nota": f"tope de pérdida {tope_perdida:.0f}%"})
             return _cerrar(dia, p0, realizado, ejecuciones, peor, "tope",
-                           costo_accion, quita_locate, len(niveles), costo_salida)
+                           costo_accion, quita_locate, len(niveles), costo_salida,
+                           registro)
 
         # "No se casan con la entrada": si la posición ya se construyó —o sea,
         # el precio fue en contra y hubo que agregar— y después vuelve al precio
@@ -244,40 +264,64 @@ def operar(dia, prev_high, *, costo_accion, tope_perdida, quita_locate,
         if salida_be is not None and len(abiertos) >= 2 and bajo:
             objetivo = medio * (1 - salida_be / 100.0)
             if bajo <= objetivo:
-                realizado += sum(p - objetivo for p, _ in abiertos) / TRAMOS
+                realizado += sum(p - objetivo for p, _, _ in abiertos) / TRAMOS
                 ejecuciones += len(abiertos)
+                registro.append({"ts": b[0], "tipo": "salida", "precio": objetivo,
+                                 "tramos": len(abiertos), "medio": medio,
+                                 "nota": "vuelta al precio medio"})
                 return _cerrar(dia, p0, realizado, ejecuciones, peor, "break_even",
-                               costo_accion, quita_locate, len(niveles), costo_salida)
+                               costo_accion, quita_locate, len(niveles), costo_salida,
+                               registro)
 
         # Adición: el precio subió hasta la próxima resistencia.
         while pendientes and alto and alto >= pendientes[0] and len(abiertos) < TRAMOS:
             nivel = pendientes.pop(0)
-            abiertos.append((nivel, nivel))
+            abiertos.append((nivel, nivel, i_barra))
             ejecuciones += 1
+            registro.append({
+                "ts": b[0], "tipo": "adicion", "precio": nivel,
+                "tramos": len(abiertos),
+                "medio": sum(p for p, _, _ in abiertos) / len(abiertos),
+                "nota": f"tocó resistencia {nivel:.2f}"})
 
         # Reducción: el precio volvió a caer debajo del nivel desde el que se
         # agregó → ese tramo cumplió su función y se cierra.
         if bajo:
             vivos = []
-            for p, niv in abiertos:
-                if niv is not None and bajo < niv and len(abiertos) > 1:
+            for p, niv, i_abre in abiertos:
+                # `i_abre < i_barra` es el arreglo: dentro de un mismo minuto no
+                # se sabe si el máximo vino antes o después del mínimo, y
+                # permitir abrir y cerrar en la misma barra asume la secuencia
+                # más favorable posible. El resto del motor usa la convención
+                # opuesta (ante la duda, gana el stop); esto la alinea.
+                if niv is not None and bajo < niv and len(abiertos) > 1 \
+                        and i_abre < i_barra:
                     realizado += (p - bajo) / TRAMOS
                     ejecuciones += 1
+                    registro.append({
+                        "ts": b[0], "tipo": "reduccion", "precio": bajo,
+                        "tramos": len(abiertos) - 1, "medio": medio,
+                        "nota": f"volvió debajo de {niv:.2f}"})
                 else:
-                    vivos.append((p, niv))
+                    vivos.append((p, niv, i_abre))
             if vivos != abiertos:
                 abiertos = vivos
 
     ultimo = next((x[4] for x in reversed(dia.bars)
                    if hora(x) <= CIERRE_RTH and x[4]), p0)
-    realizado += sum(p - ultimo for p, _ in abiertos) / TRAMOS
+    realizado += sum(p - ultimo for p, _, _ in abiertos) / TRAMOS
     ejecuciones += len(abiertos)
+    b_ult = next((x for x in reversed(dia.bars) if hora(x) <= CIERRE_RTH and x[4]), None)
+    registro.append({"ts": b_ult[0] if b_ult else dia.bars[i0][0], "tipo": "salida",
+                     "precio": ultimo, "tramos": len(abiertos),
+                     "medio": sum(p for p, _, _ in abiertos) / len(abiertos),
+                     "nota": "cierre de la sesión"})
     return _cerrar(dia, p0, realizado, ejecuciones, peor, "cierre",
-                   costo_accion, quita_locate, len(niveles), costo_salida)
+                   costo_accion, quita_locate, len(niveles), costo_salida, registro)
 
 
 def _cerrar(dia, p0, realizado, ejecuciones, peor, motivo, costo_accion,
-            quita_locate, n_niveles, costo_salida=None):
+            quita_locate, n_niveles, costo_salida=None, registro=None):
     bruto = realizado / p0 * 100
     # Las adiciones y las reducciones son órdenes LIMITADAS puestas en el nivel:
     # aportan liquidez, no la cruzan. La salida de emergencia sí cruza. Modelar
@@ -294,6 +338,7 @@ def _cerrar(dia, p0, realizado, ejecuciones, peor, motivo, costo_accion,
         "neto": bruto - comisiones - quita,
         "neto_sin_locate": bruto - comisiones,
         "ejecuciones": ejecuciones, "peor": peor, "niveles": n_niveles,
+        "registro": registro or [],
         "d": dia.d, "ticker": dia.ticker, "precio": p0,
     }
 

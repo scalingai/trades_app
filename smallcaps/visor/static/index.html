@@ -86,6 +86,8 @@
   }
   .paso.si{border-color:var(--verde);color:var(--verde)}
   .paso.no{border-color:var(--rojo);color:var(--rojo);opacity:.75}
+  .paso.pos{border-color:var(--verde);color:var(--verde)}
+  .paso.neg{border-color:var(--rojo);color:var(--rojo)}
 
   /* Ventana angosta: la lista pasa arriba y el gráfico se queda con el resto.
      Sin esto, con menos de 900px el gráfico queda directamente fuera de pantalla. */
@@ -161,6 +163,7 @@
     <div class="tit" id="tit">—</div>
   </div>
   <div class="barra" id="embudo" style="padding:5px 14px;gap:10px"></div>
+  <div class="barra embudo" id="trade" style="padding:5px 14px;gap:6px"></div>
   <div class="lienzo">
     <div id="chart"></div>
     <div id="sombra"></div>
@@ -177,6 +180,7 @@
     <span class="chip on" id="tgAnom">anomalías (v)</span>
     <span class="chip on" id="tgVwap">vwap (w)</span>
     <span class="chip on" id="tgMarcas">estado 10:00 / 12:00 (m)</span>
+    <span class="chip on" id="tgTrade">trade simulado (t)</span>
     <span class="sepv"></span>
     <span class="tenue">marcar:</span>
     <span class="chip" data-tipo="entrada_short">short (s)</span>

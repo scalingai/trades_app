@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 from dias import (APERTURA_RTH, CIERRE_RTH, Dia, cargar,  # noqa: E402
                   dias_del_evento, hora)
-from chavineta import clasificar_apertura  # noqa: E402
+from chavineta import clasificar_apertura, operar  # noqa: E402
 from etiquetas import TIPOS, Etiquetas  # noqa: E402
 
 _ET = Etiquetas()
@@ -263,7 +263,46 @@ def payload_dia(ticker: str, d: str) -> dict | None:
         "anomalias": _anomalias(dia),
         "etiquetas": _con_ts(dia, _ET.de_dia(ticker, d)),
         "tipos": TIPOS,
+        "trade": _simular(dia),
     }
+
+
+def _simular(dia: Dia) -> dict | None:
+    """Corre la Chavineta sobre el día y devuelve el trade listo para dibujar.
+
+    Que el gráfico muestre las ejecuciones no es cosmética: la reducción
+    intrabar —un tramo que se abría y se cerraba en el mismo minuto, en 646 de
+    695 trades— se descubrió mirando los timestamps del registro, no las
+    tablas agregadas.
+    """
+    import sqlite3
+    db = sqlite3.connect(config.bars_db_path())
+    try:
+        prev = db.execute(
+            "SELECT h FROM bars_daily WHERE ticker=? AND d<? ORDER BY d DESC LIMIT 1",
+            (dia.ticker, dia.d)).fetchone()
+        r = operar(dia, prev[0] if prev else None, costo_accion=0.003,
+                   tope_perdida=20.0, quita_locate=0.20, gradual=True,
+                   costo_salida=0.03)
+    except Exception as exc:
+        return {"operado": False, "motivo": f"error: {exc}"}
+    finally:
+        db.close()
+    if not r.get("operado"):
+        return {"operado": False, "motivo": r.get("motivo")}
+    ejec = [{**e, "time": ts(e["ts"])} for e in r["registro"]]
+    for e in ejec:
+        e.pop("ts", None)
+    # Línea escalonada del precio medio: es lo que hay que mirar para entender
+    # si la construcción mejoró la posición o solo agrandó el problema.
+    medio = []
+    for e in ejec:
+        medio.append({"time": e["time"], "value": round(e["medio"], 4)})
+    if ejec:
+        medio.append({"time": ejec[-1]["time"], "value": round(ejec[-1]["medio"], 4)})
+    return {"operado": True, "motivo": r["motivo"], "neto": r["neto"],
+            "bruto": r["bruto"], "peor": r["peor"], "ejecuciones": r["ejecuciones"],
+            "pasos": ejec, "medio": medio}
 
 
 def _con_ts(dia: Dia, marcas: list[dict]) -> list[dict]:
