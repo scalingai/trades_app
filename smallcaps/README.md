@@ -1,8 +1,10 @@
 # Small Caps — sistema semi-automático
 
-> **Estado al 2026-08-13.** Investigación con datos propios, sin operar.
-> Lo que tiene evidencia y lo que no está en [RESEARCH.md](RESEARCH.md).
-> El dimensionamiento de riesgo está en [GESTION-RIESGO.md](GESTION-RIESGO.md).
+> **Estado al 2026-08-29.** Investigación con datos propios, sin operar.
+> **[ESTRATEGIA.md](ESTRATEGIA.md) — las reglas operables, con el semáforo de
+> qué está validado y qué no.** Leer eso primero si venís a operar.
+> La medición completa está en [RESEARCH.md](RESEARCH.md); el dimensionamiento,
+> en [GESTION-RIESGO.md](GESTION-RIESGO.md).
 
 ## Qué hay construido
 
@@ -32,6 +34,7 @@
 | `test_regimen.py` | ¿la 1ª semana del mes anticipa el régimen? (sí, r=0,55) | $0 |
 | `test_reciclaje.py` | escalonar a ciegas: sube el win rate y borra la media | $0 |
 | `chavineta.py` | la técnica emulada de verdad: niveles, agotamiento, reclaim | $0 |
+| `poblacion_observable.py` | descarga el **censo** seleccionado antes de la apertura | $0 |
 | `visor/server.py` | **gráfico de velas local** de cualquier día descargado | $0 |
 
 Todo corre sobre datos locales. Lo único que necesita API key es la descarga
@@ -54,14 +57,17 @@ navegador. Detalle en [visor/README.md](visor/README.md).
 
 ## Lo que sigue
 
-1. **RVOL en dólares** en `detect_events.py`. El de acciones se rompe con los
+1. **Terminar `poblacion_observable.py`** (~6 h con el tier free) y **re-correr
+   todo** sobre el censo. Es lo único que vuelve creíbles los niveles absolutos:
+   la muestra vieja se sorteó por rango del día completo, que a las 09:30 no se
+   conoce. Si el gradiente de expansión sobrevive sin ese sesgo, el edge existe.
+2. **40 días marcados a mano** en el visor, incluidos los que descartás. La
+   pregunta concreta está en §8 de [ESTRATEGIA.md](ESTRATEGIA.md).
+3. **RVOL en dólares** en `detect_events.py`. El de acciones se rompe con los
    reverse splits y deja afuera toda la familia
    "reverse split → float chico → pump" (§4.sexies de RESEARCH.md).
-2. **Resortear la muestra de minutos por criterio observable a las 09:30**
-   (expansión pre-market, volumen pre-market en dólares) en vez de por rango
-   del día completo. Es lo único que vuelve creíbles los niveles absolutos.
-3. Recién ahí: costos, MAE y fuera de muestra sobre la configuración elegida.
-4. Medir el slippage real en los eventos con halt detectado
+4. **Datos de borrow.** Un short sin locate rinde cero, no negativo.
+5. Medir el slippage real en los eventos con halt detectado
 
 ---
 

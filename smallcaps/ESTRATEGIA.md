@@ -1,0 +1,201 @@
+# Estrategia operable — short en micro caps
+
+> **Estado al 2026-08-29. Para papel, no para plata.**
+> Cada regla lleva su evidencia y su semáforo. Las 🔴 no están validadas y están
+> igual porque el sistema necesita una regla en ese lugar — no porque la
+> midamos y funcione.
+>
+> La medición completa está en [RESEARCH.md](RESEARCH.md); el dimensionamiento,
+> en [GESTION-RIESGO.md](GESTION-RIESGO.md).
+
+## Antes que nada: qué está probado y qué no
+
+Esto no es un trámite. Es la diferencia entre operar un edge y operar una
+ilusión.
+
+| | estado |
+|---|---|
+| **La dilución previa separa las distribuciones** | 🟢 gradiente monotónico en 3 baldes, n=2.421, hipótesis pre-registrada |
+| **La expansión pre-market decide la dirección** | 🟢 gradiente monotónico en 5 baldes, replica en P1 y P2 |
+| **El régimen mensual se diagnostica en la semana 1** | 🟢 r=+0,55 sobre 23 meses, 87.943 eventos |
+| **Shortear cerca del máximo es lo peor** | 🟢 −0,310R vs −0,007R del back side, n grande |
+| **El costo decide antes que la señal** | 🟢 debajo de $1 el 79% de los momentos son inoperables |
+| **La Chavineta mecánica** | 🔴 **−0,99% neto, 44% de aciertos.** No es un edge |
+| **Ratios cortos (1:1 o menos)** | 🔴 la esperanza SUBE con el ratio en todas las celdas |
+| **Front-side long** | 🟡 el balde que mejor da es el más contaminado por el sesgo |
+| **Los niveles absolutos de todo lo anterior** | 🔴 **muestra sesgada** — en corrección, ver abajo |
+
+**El sesgo que invalida los niveles absolutos.** Los 1.500 días con minutos se
+sortearon de eventos con rango DIARIO > 40%, que a las 09:30 no se conoce. El
+2026-08-29 se lanzó la descarga de la **población observable completa** (~2.000
+eventos, gap ≥ 25% y liquidez previa ≥ $150k, criterios que sí se conocen antes
+de la apertura). Cuando termine hay que **re-correr todo** y esta tabla se
+reescribe.
+
+Hasta entonces: **las comparaciones entre celdas valen, los niveles no.**
+
+---
+
+## 1. El universo — a qué le mirás la cara
+
+🟢 **Precio de cierre previo entre $3 y $20.**
+Debajo de $3 el costo fijo por acción se come más de un cuarto del riesgo en el
+42% de los momentos; debajo de $1, en el 79%. Es el hallazgo más duro de todos y
+va **en contra** del instinto de buscar lo barato porque "se mueve más". La
+banda de $10+ fue la única con esperanza neta positiva por sí sola (+0,161R).
+
+🟡 **Float bajo ayuda pero no rescata.** Con ≤10M acciones el resultado no
+mejoró. Se sigue registrando porque el mecanismo es real (float chico = spread
+agresivo = movimientos parabólicos), pero no es un filtro que salve un setup
+malo.
+
+🟢 **Dilución 12m previa > 100%** o **≥1 reverse split en 12m**. Son los dos
+features de estructura de papel que discriminan, y no son redundantes entre sí
+(Jaccard 0,23). Salen gratis de EDGAR, point-in-time.
+
+🔴 **Shelf efectivo, runway corto, cadencia de ofertas.** Los cumple más de la
+mitad del universo: describen al asset class, no seleccionan. No los uses de
+filtro.
+
+## 2. El mes — el interruptor que no depende de nada intradía
+
+🟢 **Diagnóstico en la primera semana.** Contá qué fracción de los gaps de los
+días 1–7 cerró por debajo de su apertura.
+
+| semana 1 | qué hacer el resto del mes |
+|---|---|
+| **fadea ≥ 60%** | mes de *fading*: tamaño normal |
+| fadea 50–60% | tamaño mitad |
+| **fadea < 50%** | mes de *reclaims*: **no operar corto** |
+
+Los meses diagnosticados *fading* dieron mediana −4,91% contra −2,75% de los
+*reclaim*. Son 2,16 puntos, no es enorme, pero es gratis y no depende de nada
+que pase durante el día.
+
+## 3. El día — el filtro de apertura, a las 10:00
+
+🟢 **Descarta el 38% de los días y es observable.**
+
+**Reclaim → no se opera.** El papel rompió el máximo de pre-market, cerró arriba
+5 minutos seguidos, y después hizo un nuevo máximo del día. Ahí los cortos
+atrapados tienen que cubrir y eso es un *squeeze*, no un fade.
+
+**Fade → se activa el protocolo.** No logró romper el máximo de pre-market, o
+está debajo del VWAP a las 10:00.
+
+## 4. La dirección — la decide la expansión pre-market
+
+🟢 `expansión = máximo de pre-market ÷ cierre previo − 1`
+
+| expansión | qué es | dirección |
+|---|---|---|
+| **> +100%** | parabólica agotada | **short** (el long muere: 77% stopeado) |
+| +50 a +100% | tierra de nadie | no operar |
+| < +25% | todavía tiene recorrido | short **NO** — acá el short es el que pierde |
+
+Y un control de sanidad que no es opcional: **volumen del día ≥ 3× el del día
+previo.** Sin eso, un reverse split se lee como una expansión de +5.000% (CETX,
++5.049% con el 57% del volumen del día anterior). Pasó, está medido, y envenena
+justo la cola que interesa.
+
+## 5. La entrada
+
+🟡 **Esperá a que el máximo tenga horas.** Shortear a menos del 3% del máximo
+corriente es la peor celda de toda la tabla: −0,310R contra −0,007R del back
+side general. El instinto de "vender el techo" es exactamente lo contrario de lo
+que pagan los datos.
+
+🟡 **Precio debajo del VWAP acumulado** (back side). Con el precio arriba del
+VWAP el short pierde: −0,138R.
+
+🟡 **Volatilidad del minuto > 2,5%** (mediana del rango de las últimas 30
+barras). Es la única celda además de $10+ con bruto positivo, y encima es donde
+el costo pesa menos.
+
+🔴 **Agotamiento de volumen como gatillo.** Definido como el volumen de los
+últimos 5 minutos cayendo por debajo de la mitad del clímax mientras el precio
+no hace máximos. Implementado en `chavineta.py` y **no alcanzó para dar
+positivo**. Está acá porque hace falta un gatillo y este es el que describen los
+operadores, no porque esté validado.
+
+## 6. La gestión
+
+🟢 **Stop entre 8× y 12× la volatilidad del minuto** (≈11% a 16% en un papel
+típico). Stops más ajustados rinden peor: con 3× salta el 72% de las veces.
+
+🔴 **Ratio: sostener hasta el cierre, no poner target corto.** En todas las
+celdas medidas la esperanza SUBE con el ratio, y a 1:2 el target se toca el 3%
+de las veces —o sea que a esa altura el target no participa: lo que produce el
+resultado es el stop más la duración. **Esto contradice lo que querías hacer** y
+es el punto donde más conviene que traigas evidencia en contra.
+
+🟡 **Si escalonás, las adiciones van contra niveles** —máximo de pre-market,
+máximo del día previo, VWAP— y son **órdenes limitadas puestas en el nivel**,
+nunca cruzando el spread. Modelar el cruce en cada ejecución se comía la mitad
+del resultado: −2,43% contra −0,99%.
+
+🟢 **Cortar en el reclaim en vivo.** Si cierra arriba de la resistencia más alta
+dos minutos seguidos, se cierra todo. En la simulación el 100% de los trades que
+llegan a ese punto pierden, promedio −5,23%.
+
+🔴 **Salir por anomalía de volumen durante el trade.** Funciona para lo que se
+pidió —corta la cola izquierda a la mitad, el MAE p90 baja de 41% a 9%— pero se
+lleva la esperanza entera. **Un stop fijo hace lo mismo y deja diez veces la
+media.** No la uses.
+
+## 7. El tamaño
+
+🟢 De [GESTION-RIESGO.md](GESTION-RIESGO.md), derivado por simulación sobre la
+distribución medida:
+
+- **0,25% del buying power por trade.** De 0,25% a 0,50% la probabilidad de
+  perder la cuenta se multiplica por diez.
+- **Máximo 3 trades por día.** No diversifican: son el mismo evento y el mismo
+  régimen.
+- **Después de 3 pérdidas en el día, se cierra la jornada.**
+- **Si la cuenta cae 2% desde su máximo, mitad de tamaño** hasta recuperarlo.
+- **Si en 20 trades no aparece un ganador de más de 20%, parar y revisar.** La
+  estrategia depende de esa cola; si dejó de aparecer, cambió algo.
+
+## 8. Lo que hay que registrar — esta es la parte que no se saltea
+
+**El dataset es el activo, no las reglas.** Las reglas de arriba son
+placeholders con distintos grados de evidencia; lo que las va a corregir es el
+registro de lo que pasó.
+
+Por cada candidato que **mirás** —lo tomes o no—:
+
+- ticker, fecha, hora de la decisión
+- el feature vector completo (sale solo de `momentos.py`)
+- la ficha de papel point-in-time (sale de `join_structure.py`)
+- **qué decidiste y por qué** — con `etiquetas.py`, desde el visor
+- qué pasó después
+
+El campo que más vale es **el de los que NO tomaste**. Hoy la brecha entre lo
+medido (44% de aciertos) y lo que auditan los operadores (77,8%) se explica
+entera por lo que ellos descartan y yo no puedo ver. El número exacto está
+medido:
+
+> **Hay que evitar el 56% de los trades que terminan cortados por reclaim para
+> que la técnica empate.**
+
+Esa es la pregunta que tus marcas tienen que contestar. No hace falta que
+aciertes siempre: más de la mitad alcanza.
+
+## 9. Cómo se pasa de papel a plata
+
+No por convicción. Por estas cuatro, en orden:
+
+1. **Termina la descarga de la población observable y se re-corre todo.** Si el
+   gradiente de expansión sobrevive sin el sesgo de muestreo, el edge existe. Si
+   no sobrevive, no existe y esto se archiva.
+2. **40 días marcados a mano en el visor**, con los que descartaste. Si tus
+   marcas separan los dos baldes, la capa discrecional aporta y se puede
+   automatizar. Si no los separan, no aporta.
+3. **Datos de borrow.** Un short que no consigue locate rinde cero, no
+   negativo, y hoy el backtest los toma todos. Sin esto cualquier resultado del
+   lado corto es optimista por construcción.
+4. **20 trades en papel con esperanza positiva**, y recién ahí el tamaño mínimo.
+
+Mientras tanto lo que se hace es **mirar días, marcarlos y registrar**. Es
+aburrido y es la fase que todos se saltean.
