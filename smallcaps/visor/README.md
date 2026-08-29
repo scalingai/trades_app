@@ -26,6 +26,28 @@ previo, RVOL, volumen en dólares, y de la ficha de EDGAR: dilución 12m, revers
 splits, runway y si el shelf estaba efectivo **a esa fecha** (point-in-time, sin
 look-ahead).
 
+## El embudo — solo candidatos
+
+La lista arranca filtrada a los días que pasan **los cinco filtros** de
+[ESTRATEGIA.md](../ESTRATEGIA.md), todos observables antes de decidir:
+
+1. está en el censo (gap ≥ 25% y liquidez previa ≥ $150k, elegido pre-apertura)
+2. precio ≥ $3 — debajo de eso el costo se come el trade
+3. volumen del día ≥ 3× el previo — saca los reverse splits disfrazados
+4. expansión pre-market ≥ 100% — es lo que define que el short sea la dirección
+5. abrió *fade*, no *reclaim*
+
+**Por qué el filtro está prendido por defecto.** Etiquetar días que nunca fueron
+candidatos ensucia la muestra y gasta tiempo: la pregunta que las marcas tienen
+que contestar es cuál de los días que SÍ califican no hay que tomar. Un día que
+no pasa el embudo ya está descartado por regla y no aporta información nueva.
+
+Arriba del gráfico se ve el embudo completo con cada paso en verde o rojo, así
+que cuando un día que parecía bueno no aparece en la lista se puede ver en qué
+paso se cayó sin abrir el código.
+
+Destildando el filtro aparecen todos, para mirar.
+
 ## Marcar a mano (la cuota discrecional)
 
 Elegí un tipo abajo —`short` (s), `long` (l), `no va` (n), `patrón`— y clickeá

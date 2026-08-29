@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 from dias import (APERTURA_RTH, CIERRE_RTH, Dia, cargar,  # noqa: E402
                   dias_del_evento, hora)
+from chavineta import clasificar_apertura  # noqa: E402
 from etiquetas import TIPOS, Etiquetas  # noqa: E402
 
 _ET = Etiquetas()
@@ -60,9 +61,41 @@ _indice: list[dict] | None = None
 _indice_listo = threading.Event()
 
 
-def _fila_indice(dia: Dia, es_evento: bool = True) -> dict:
+# El embudo de ESTRATEGIA.md, en el orden en que se aplica. Cada paso es
+# observable en el momento en que se aplica — ninguno mira el resultado del día.
+def _embudo(dia: Dia, en_censo: bool) -> dict:
+    """Por qué un día es (o no es) un candidato. Se devuelven TODOS los pasos.
+
+    Devolver solo el booleano final sería peor: cuando un día que parecía bueno
+    no aparece en la lista, hay que poder ver en qué paso se cayó sin abrir el
+    código.
+    """
+    exp = dia.expansion_pct
+    ratio = dia.ratio_volumen
+    p = dia.rth_open
+    try:
+        apertura = clasificar_apertura(dia)
+    except Exception:
+        apertura = None
+    # Prefijo `ok_` a propósito: sin él, la clave booleana `expansion` chocaba
+    # con la numérica del mismo nombre y el badge del panel quedaba siempre en
+    # verde. Un embudo que dice que sí a todo es peor que no tener embudo.
+    pasos = {
+        "ok_censo": en_censo,
+        "ok_precio": bool(p and p >= 3.0),
+        "ok_volumen": bool(ratio and ratio >= 3),
+        "ok_expansion": bool(exp is not None and exp >= 100),
+        "ok_fade": apertura == "fade",
+    }
+    pasos["candidato"] = all(pasos.values())
+    pasos["apertura"] = apertura
+    return pasos
+
+
+def _fila_indice(dia: Dia, es_evento: bool = True, en_censo: bool = False) -> dict:
     o, c = dia.rth_open, dia.rth_close
     return {
+        **_embudo(dia, en_censo),
         "ticker": dia.ticker,
         "d": dia.d,
         "evento": es_evento,
@@ -88,15 +121,18 @@ def construir_indice(forzar: bool = False) -> list[dict]:
             return _indice
         except Exception:
             pass
+    from dias import dias_de_poblacion
     from massive.minutes import MinuteStore
     store = MinuteStore()
     eventos = {(t, d) for t, d in dias_del_evento(store.conn)}
     store.close()
+    censo = dias_de_poblacion()
 
     filas = []
     for i, dia in enumerate(cargar(incluir_vecinos=True), 1):
         try:
-            filas.append(_fila_indice(dia, (dia.ticker, dia.d) in eventos))
+            clave = (dia.ticker, dia.d)
+            filas.append(_fila_indice(dia, clave in eventos, clave in censo))
         except Exception:
             continue
         if i % 500 == 0:
@@ -172,6 +208,12 @@ def _set_eventos() -> frozenset:
         store.close()
 
 
+@lru_cache(maxsize=1)
+def _set_censo() -> frozenset:
+    from dias import dias_de_poblacion
+    return frozenset(dias_de_poblacion())
+
+
 def _es_evento(ticker: str, d: str) -> bool:
     return (ticker, d) in _set_eventos()
 
@@ -215,7 +257,8 @@ def payload_dia(ticker: str, d: str) -> dict | None:
                     "rth_open": dia.rth_open},
         "sesion": {"apertura": ts(b_ap[0]) if b_ap else None,
                    "cierre": ts(b_ci[0]) if b_ci else None},
-        "resumen": _fila_indice(dia, _es_evento(ticker, d)),
+        "resumen": _fila_indice(dia, _es_evento(ticker, d),
+                                (ticker, d) in _set_censo()),
         "ficha": _ficha(ticker, d),
         "anomalias": _anomalias(dia),
         "etiquetas": _con_ts(dia, _ET.de_dia(ticker, d)),

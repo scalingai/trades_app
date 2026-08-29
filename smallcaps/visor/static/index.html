@@ -78,6 +78,14 @@
   .chip{border:1px solid var(--linea);border-radius:3px;padding:1px 6px;cursor:pointer}
   .chip.on{border-color:var(--ambar);color:var(--ambar)}
   .sepv{width:1px;height:14px;background:var(--linea);display:inline-block}
+  /* El embudo: cada paso con su estado, para ver dónde se cae un día. */
+  .embudo{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+  .paso{
+    font-size:10px;padding:1px 6px;border-radius:3px;border:1px solid var(--linea);
+    color:var(--tenue);text-transform:uppercase;letter-spacing:.04em
+  }
+  .paso.si{border-color:var(--verde);color:var(--verde)}
+  .paso.no{border-color:var(--rojo);color:var(--rojo);opacity:.75}
 
   /* Ventana angosta: la lista pasa arriba y el gráfico se queda con el resto.
      Sin esto, con menos de 900px el gráfico queda directamente fuera de pantalla. */
@@ -119,8 +127,14 @@
       </select>
     </div>
     <div class="fila">
-      <label><input type="checkbox" id="soloLimpios" checked> vol ≥ 3× el día previo</label>
-      <label><input type="checkbox" id="soloEventos" checked> solo eventos</label>
+      <label title="pasa los 5 filtros de ESTRATEGIA.md: censo, precio, volumen, expansión, fade">
+        <input type="checkbox" id="soloCandidatos" checked>
+        <b>solo candidatos</b></label>
+      <span id="cuenta" class="tenue"></span>
+    </div>
+    <div class="fila">
+      <label><input type="checkbox" id="soloLimpios"> vol ≥ 3×</label>
+      <label><input type="checkbox" id="soloEventos"> solo eventos</label>
     </div>
     <div class="fila">
       <input id="nvTicker" placeholder="TICKER" style="width:88px;text-transform:uppercase">
@@ -146,6 +160,7 @@
   <div class="barra" id="barra">
     <div class="tit" id="tit">—</div>
   </div>
+  <div class="barra" id="embudo" style="padding:5px 14px;gap:10px"></div>
   <div class="lienzo">
     <div id="chart"></div>
     <div id="sombra"></div>

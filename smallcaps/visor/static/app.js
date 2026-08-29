@@ -92,9 +92,11 @@ function filtrar() {
   const banda = $('#banda').value;
   const limpios = $('#soloLimpios').checked;
   const soloEv = $('#soloEventos').checked;
+  const soloCand = $('#soloCandidatos').checked;
   let v = TODOS.filter((r) => {
     if (q && !r.ticker.includes(q)) return false;
     if (!isNaN(minExp) && (r.expansion == null || r.expansion < minExp)) return false;
+    if (soloCand && !r.candidato) return false;
     if (soloEv && !r.evento) return false;
     if (limpios && (r.ratio_vol == null || r.ratio_vol < 3)) return false;
     if (banda) {
@@ -132,6 +134,8 @@ function render() {
   document.querySelectorAll('.lista th').forEach((th) => {
     th.classList.toggle('orden', th.dataset.col === orden.col);
   });
+  const cand = TODOS.filter((r) => r.candidato).length;
+  $('#cuenta').textContent = `${VISIBLES.length} de ${cand} candidatos`;
 }
 
 async function abrir(ticker, d) {
@@ -214,6 +218,17 @@ function pintarBarra() {
     kpi(st.shelf_effective == null ? '—' : (st.shelf_effective ? 'sí' : 'no'), 'shelf efectivo'),
   ];
   $('#barra').innerHTML = partes.join('');
+  const PASOS = [['ok_censo', 'en el censo'], ['ok_precio', 'precio ≥ $3'],
+    ['ok_volumen', 'vol ≥ 3×'], ['ok_expansion', 'expansión ≥ 100%'],
+    ['ok_fade', 'abrió fade']];
+  $('#embudo').innerHTML =
+    `<span class="tenue" style="font-size:10px">EMBUDO</span><div class="embudo">` +
+    PASOS.map(([k, lab]) =>
+      `<span class="paso ${r[k] ? 'si' : 'no'}">${r[k] ? '✓' : '✗'} ${lab}</span>`).join('') +
+    `<span class="paso ${r.candidato ? 'si' : 'no'}" style="font-weight:700">` +
+    `${r.candidato ? 'CANDIDATO' : 'no candidato'}</span>` +
+    (r.apertura ? `<span class="paso">apertura: ${r.apertura}</span>` : '') +
+    `</div>`;
   $('#detalle').innerHTML =
     `${DATOS.velas.length} barras · ${DATOS.anomalias.length} anomalías (≥5× la mediana ` +
     'de las 30 previas)';
@@ -234,7 +249,7 @@ document.querySelectorAll('.lista th').forEach((th) => {
     render();
   });
 });
-['q', 'minExp', 'banda', 'soloLimpios', 'soloEventos'].forEach((id) =>
+['q', 'minExp', 'banda', 'soloLimpios', 'soloEventos', 'soloCandidatos'].forEach((id) =>
   $('#' + id).addEventListener('input', render));
 $('#orden').addEventListener('change', () => {
   orden = { col: $('#orden').value, desc: true };

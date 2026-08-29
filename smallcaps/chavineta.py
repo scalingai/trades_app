@@ -179,7 +179,7 @@ def salida_gradual(bars, desde_idx, abiertos, disparo, *, minutos=30,
 
 def operar(dia, prev_high, *, costo_accion, tope_perdida, quita_locate,
            minutos_reclaim=2, margen_reclaim=0.0, costo_salida=None,
-           gradual=False):
+           gradual=False, salida_be=None):
     """Un ciclo plano a plano. Devuelve un dict, o None si el día no se opera."""
     lado = clasificar_apertura(dia)
     if lado != "fade":
@@ -234,6 +234,20 @@ def operar(dia, prev_high, *, costo_accion, tope_perdida, quita_locate,
             ejecuciones += len(abiertos)
             return _cerrar(dia, p0, realizado, ejecuciones, peor, "tope",
                            costo_accion, quita_locate, len(niveles), costo_salida)
+
+        # "No se casan con la entrada": si la posición ya se construyó —o sea,
+        # el precio fue en contra y hubo que agregar— y después vuelve al precio
+        # medio, se sale TODO a mercado en break-even o con poco. No se espera
+        # el target. Es el mecanismo que explica un win rate alto con un ratio
+        # riesgo/beneficio nominalmente malo: se rescatan trades que un stop
+        # plano habría dado por perdidos.
+        if salida_be is not None and len(abiertos) >= 2 and bajo:
+            objetivo = medio * (1 - salida_be / 100.0)
+            if bajo <= objetivo:
+                realizado += sum(p - objetivo for p, _ in abiertos) / TRAMOS
+                ejecuciones += len(abiertos)
+                return _cerrar(dia, p0, realizado, ejecuciones, peor, "break_even",
+                               costo_accion, quita_locate, len(niveles), costo_salida)
 
         # Adición: el precio subió hasta la próxima resistencia.
         while pendientes and alto and alto >= pendientes[0] and len(abiertos) < TRAMOS:
@@ -327,6 +341,9 @@ def main(argv=None) -> int:
     ap.add_argument("--pasivo", action="store_true",
                     help="adiciones y reducciones como órdenes limitadas: sin "
                          "cruzar spread, con rebate por aportar liquidez")
+    ap.add_argument("--salida-be", type=float, default=None,
+                    help="salir TODO al volver al precio medio (%% por debajo; "
+                         "0 = break-even exacto). Solo si ya se construyó posición")
     ap.add_argument("--gradual", action="store_true",
                     help="salir del reclaim en retrocesos en vez de liquidar todo")
     ap.add_argument("--rebate", type=float, default=0.002,
@@ -360,7 +377,8 @@ def main(argv=None) -> int:
                    tope_perdida=args.tope_perdida, quita_locate=args.quita_locate,
                    minutos_reclaim=args.minutos_reclaim,
                    margen_reclaim=args.margen_reclaim,
-                   costo_salida=costo_salida, gradual=args.gradual)
+                   costo_salida=costo_salida, gradual=args.gradual,
+                   salida_be=args.salida_be)
         if r.get("operado"):
             r["per"] = "P1" if dia.d < CORTE_PERIODO else "P2"
             res.append(r)
@@ -397,7 +415,7 @@ def main(argv=None) -> int:
 
     print("\n  POR MOTIVO DE SALIDA")
     cabecera()
-    for m in ("cierre", "reclaim_vivo", "tope"):
+    for m in ("cierre", "break_even", "reclaim_vivo", "tope"):
         g = [r["neto"] for r in res if r["motivo"] == m]
         linea(m, resumen(g))
 
