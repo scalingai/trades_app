@@ -692,6 +692,107 @@ Lo que esto va a poder contestar, y hoy no se puede:
 alcanza. El orden natural es marcar mientras se miran los días, no sentarse a
 etiquetar.
 
+## 4.decies. El informe de NotebookLM, contrastado contra los datos
+
+Agus armó un informe con NotebookLM sintetizando a Espes, Vitale, Comas,
+Lloret y Corrales Urrutia. Cuatro módulos: microestructura y sesgo corto,
+reciclaje de posiciones, fricciones, y psicotrading. Contrastado afirmación por
+afirmación con lo que hay medido.
+
+### CONFIRMA — el régimen mensual (Módulo 3) 🟢
+
+**La afirmación más barata de testear del documento y la que mejor salió.** Dice
+que el régimen se diagnostica en la primera semana del mes. Testeado sobre las
+barras diarias —**87.943 eventos**, la prueba con más muestra del proyecto—,
+comparando el % de gaps que fadearon en los días 1-7 contra el resto del mes:
+
+**r = +0,551** sobre 23 meses. Y filtrando por el diagnóstico:
+
+| | n | mediana | % que fadea |
+|---|---|---|---|
+| meses diagnosticados *fading* | 2.084 | **−4,91%** | 61% |
+| meses diagnosticados *reclaim* | 1.559 | −2,75% | 57% |
+
+2,16 puntos de diferencia de mediana, en la dirección predicha. Con 23 meses el
+n es chico, pero es información real y es un interruptor mensual que no depende
+de nada intradía. `test_regimen.py`.
+
+### CONFIRMA — el sesgo corto en gaps grandes y el riesgo de cola 🟢
+
+"Gaps masivos que precipitan colapsos verticales" y el *right tail risk* del
+caso Tenon (+4000%) coinciden con lo medido: expansión pre-market > +100% hace
+que el long muera (77% stopeado) y el short rinda; y el peor caso individual de
+la muestra diaria fue **+530%**, con MAE p90 del short entre 80% y 96%.
+
+### CONFIRMA A MEDIAS — el reciclaje de posiciones (Módulo 2) 🟡
+
+Es la afirmación más importante porque **contradice el modelo con el que
+veníamos midiendo**: todo lo anterior asume una entrada y una salida.
+Implementado en `test_reciclaje.py` (núcleo 20%, adiciones cada `paso ×
+volatilidad` en contra, reducción del tramo más caro en micro-reversiones, stop
+del conjunto), short a las 11:00 sobre 742 días:
+
+| | gana | mediana | media | **desvío** | peor |
+|---|---|---|---|---|---|
+| simple · stop 20% | 36,9% | −7,91% | **+0,72%** | **73,67** | −32,1% |
+| reciclaje 1,5× · stop 20% | **53,4%** | +0,54% | −6,87% | **14,91** | −80,2% |
+
+**El *equity curve smoothing* es real y es enorme: el desvío cae 5×.** El win
+rate sube de 37% a 53%. Las dos cosas que el informe vende, medidas.
+
+Pero: **la media pasa de +0,72% a −6,87%**, y el peor caso empeora de −32% a
+−80% —agregar contra una parabólica es exactamente el riesgo Tenon—. Replica en
+los dos períodos.
+
+Y el 77,8-80% de aciertos **no se reproduce**: da 53%. Dos explicaciones
+posibles y no se puede elegir sin más información:
+
+1. Mi versión agrega a pasos fijos de volatilidad; el humano agrega mirando
+   estructura. Esto refuta "escalonar mecánicamente", no "escalonar con
+   criterio".
+2. **La unidad de medición.** Un win rate cambia según qué se cuente como
+   trade: cada cierre parcial, o el día entero. El reciclaje genera muchos
+   cierres parciales chicos ganadores y una salida grande perdedora.
+
+### NO SE PUEDE APLICAR — el universo (Módulo 1) 🔴
+
+El informe define el universo en **$300M a $2.000M de capitalización** (criterio
+Merrill Edge / Charles Schwab) y propone como benchmark el *MSCI World Small Cap*.
+
+**Eso no es el universo de este proyecto ni el de los operadores que cita.**
+Acá el universo son micro caps con *public float* < $75M, cotizando entre $0,30
+y $20, con 1.459 empresas perfiladas. La diferencia con $300M-$2.000M es de uno
+a dos órdenes de magnitud.
+
+Es una fusión de dos cosas distintas que se llaman igual: la "small cap" de la
+gestión de activos y la "small cap" del day trading. Un benchmark de índice
+mundial no tiene relación con shortear un gapper intradía. **La sección hay que
+descartarla, no ajustarla.**
+
+### DATO NUEVO ÚTIL — el locate al 20% 🟡
+
+El informe afirma que los *locate fees* pueden llegar al 20% del nominal.
+Sensibilidad medida sobre las celdas buenas, neto en R a 1:2:
+
+| costo por acción | $3+ vol alta back | precio ≥ $10 |
+|---|---|---|
+| 2c | +0,176 | +0,241 |
+| 8c | +0,136 | +0,203 |
+| 30c | +0,078 | +0,163 |
+
+Las celdas aguantan hasta 30 centavos por acción. Lo que NO aguanta nada es la
+banda de menos de $3, donde el costo ya se comía el trade con 4 centavos. El
+informe y los datos coinciden en la conclusión operativa aunque lleguen por
+caminos distintos: **el costo decide, y decide antes de entrar.**
+
+### SIN EVIDENCIA POSIBLE ACÁ — Módulo 4
+
+Psicotrading, termostato financiero y protocolos de escalado (Axi Select) no se
+contrastan con datos de mercado. Lo único cruzable es el criterio de invalidez
+por drawdown del 10%, que es más laxo que el 4% de
+[GESTION-RIESGO.md](GESTION-RIESGO.md) — pero los dos números salen de premisas
+distintas y no compiten.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:

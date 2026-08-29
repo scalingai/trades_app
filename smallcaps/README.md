@@ -29,6 +29,8 @@
 | `momentos.py` | un registro **por minuto**: estado + niveles + resultado en R | $0 |
 | `test_ratios.py` | ratios fijos vs target en un nivel × volatilidad × precio | $0 |
 | `etiquetas.py` | la cuota discrecional: marcas a mano desde el visor | $0 |
+| `test_regimen.py` | ¿la 1ª semana del mes anticipa el régimen? (sí, r=0,55) | $0 |
+| `test_reciclaje.py` | escalonar: sube el win rate y borra la media | $0 |
 | `visor/server.py` | **gráfico de velas local** de cualquier día descargado | $0 |
 
 Todo corre sobre datos locales. Lo único que necesita API key es la descarga
