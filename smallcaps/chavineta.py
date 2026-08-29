@@ -138,8 +138,48 @@ def resistencias(dia, i, prev_high):
 
 # ------------------------------------------------------------------ el trade
 
+def salida_gradual(bars, desde_idx, abiertos, disparo, *, minutos=30,
+                   fraccion_inmediata=0.4):
+    """Cierra en retrocesos en vez de liquidar todo al peor precio.
+
+    **Por qué existe.** El modelo anterior liquidaba el 100% al cierre del
+    minuto que confirmaba el reclaim, o sea en el peor precio disponible. Los
+    operadores describen lo contrario: cierran una parte enseguida y el resto
+    "cuando haga un retroceso", escalando la salida. Liquidar de golpe le
+    inventa a la técnica un deslizamiento que la técnica evita.
+
+    Se cubre `fraccion_inmediata` al toque y el resto contra el primer mínimo
+    que mejore el precio de disparo, con `minutos` de plazo. Vencido el plazo,
+    lo que queda sale a mercado — porque esperar indefinidamente sería asumir
+    que siempre hay retroceso, que es justamente el caso WISA.
+    """
+    n = len(abiertos)
+    salidas = [(disparo, fraccion_inmediata)]
+    resto = 1.0 - fraccion_inmediata
+    mejor = disparo
+    t0 = bars[desde_idx][0]
+    for b in bars[desde_idx + 1:]:
+        if resto <= 0:
+            break
+        if (b[0] - t0).total_seconds() / 60.0 > minutos:
+            break
+        if b[3] and b[3] < mejor:
+            # Retroceso: se cubre la mitad de lo que queda a ese precio.
+            mejor = b[3]
+            salidas.append((mejor, resto / 2))
+            resto /= 2
+    if resto > 0:
+        ultimo = next((b[4] for b in bars[desde_idx + 1:]
+                       if b[4] and (b[0] - t0).total_seconds() / 60.0 <= minutos),
+                      disparo)
+        salidas.append((ultimo, resto))
+    # Precio medio de salida ponderado por lo que se cubrió en cada tramo.
+    return sum(p * f for p, f in salidas) / sum(f for _, f in salidas), n
+
+
 def operar(dia, prev_high, *, costo_accion, tope_perdida, quita_locate,
-           minutos_reclaim=2, margen_reclaim=0.0, costo_salida=None):
+           minutos_reclaim=2, margen_reclaim=0.0, costo_salida=None,
+           gradual=False):
     """Un ciclo plano a plano. Devuelve un dict, o None si el día no se opera."""
     lado = clasificar_apertura(dia)
     if lado != "fade":
@@ -177,8 +217,14 @@ def operar(dia, prev_high, *, costo_accion, tope_perdida, quita_locate,
         # que es un artefacto del modelo y no la técnica.
         seguidos_arriba = seguidos_arriba + 1 if c > techo else 0
         if seguidos_arriba >= minutos_reclaim:
-            realizado += sum(p - c for p, _ in abiertos) / TRAMOS
-            ejecuciones += len(abiertos)
+            idx = dia.bars.index(b)
+            if gradual:
+                salida, _ = salida_gradual(dia.bars, idx, abiertos, c)
+                ejecuciones += len(abiertos) + 2   # sale en tramos, paga más
+            else:
+                salida = c
+                ejecuciones += len(abiertos)
+            realizado += sum(p - salida for p, _ in abiertos) / TRAMOS
             return _cerrar(dia, p0, realizado, ejecuciones, peor, "reclaim_vivo",
                            costo_accion, quita_locate, len(niveles), costo_salida)
 
@@ -281,6 +327,8 @@ def main(argv=None) -> int:
     ap.add_argument("--pasivo", action="store_true",
                     help="adiciones y reducciones como órdenes limitadas: sin "
                          "cruzar spread, con rebate por aportar liquidez")
+    ap.add_argument("--gradual", action="store_true",
+                    help="salir del reclaim en retrocesos en vez de liquidar todo")
     ap.add_argument("--rebate", type=float, default=0.002,
                     help="rebate por acción al aportar liquidez (ECN)")
     args = ap.parse_args(argv)
@@ -312,7 +360,7 @@ def main(argv=None) -> int:
                    tope_perdida=args.tope_perdida, quita_locate=args.quita_locate,
                    minutos_reclaim=args.minutos_reclaim,
                    margen_reclaim=args.margen_reclaim,
-                   costo_salida=costo_salida)
+                   costo_salida=costo_salida, gradual=args.gradual)
         if r.get("operado"):
             r["per"] = "P1" if dia.d < CORTE_PERIODO else "P2"
             res.append(r)
