@@ -506,6 +506,11 @@ operados— no está en los 87.943 eventos por eso. Toda la familia
 "reverse split → float chico → pump → derrumbe" está sistemáticamente afuera
 del dataset. Se arregla con RVOL en dólares.
 
+> **CORREGIDO en §4.terdecies C.** Medido: la población que el RVOL en dólares
+> destapa **sube** (+1,94% de mediana) y la que solo ve el de acciones **baja**
+> (−1,96%). El punto ciego existe pero está a favor. Que arreglarlo iba a traer
+> setups era una conclusión mía, y era falsa.
+
 ## 4.septies. Ratios cortos en short — el ratio no es la palanca
 
 Pedido de Agus: **solo short, ratios 1:1 o menos, con el stop atado a la
@@ -965,6 +970,98 @@ Los defaults de `radar.py` son los de ellos; la banda de
 [ESTRATEGIA.md](ESTRATEGIA.md) sigue siendo ≥ $3. **Se decide con el re-corrido
 sobre el censo, no antes** — y es la clase de desacuerdo que conviene tener
 anotado en vez de zanjado por autoridad.
+
+## 4.terdecies. Tres experimentos mientras bajaba el censo
+
+Ninguno depende de la descarga. Uno confirma, uno agranda el hallazgo y **uno me
+desmiente a mí**.
+
+### A. El radar está en una MESETA, no en un pico (`test_sensibilidad.py`)
+
+El reparo que faltaba: los umbrales del protocolo no los calibré yo, pero eso no
+dice nada sobre si el resultado es robusto. Un resultado sano vive en una
+meseta; uno de suerte, en un pico. Se mueve un parámetro por vez y se mira la
+superficie entera.
+
+**Gap mínimo** — monotónico, sin pico:
+
+| gap ≥ | n | mediana | cae |
+|---|---|---|---|
+| 40% | 364 | −10,74% | 68% |
+| 70% ← el del protocolo | 169 | −13,10% | 73% |
+| 100% | 100 | −18,14% | 75% |
+| 130% | 74 | −19,50% | 74% |
+
+**Float máximo** — la banda de 10-30M es claramente peor, así que el corte en
+10M sí discrimina:
+
+| banda de acciones | n | mediana | media |
+|---|---|---|---|
+| < 3M | 72 | −12,71% | −5,14% |
+| 3–10M | 96 | −13,41% | −6,90% |
+| **10–30M** | 122 | **−6,97%** | −2,27% |
+| > 100M | 43 | −2,52% | −0,90% |
+
+**Precio máximo** — plano de $5 a $20: −13,10% con n=169 contra −13,27% con
+n=277. **Ampliar la banda hasta $20 mantiene la mediana y suma 64% de muestra**,
+y de paso resuelve la objeción de costos: más precio, menos costo en R. Es la
+única modificación al protocolo que los datos respaldan.
+
+**Estabilidad trimestral** — funciona en los 7 trimestres con muestra
+suficiente, y sacando el que más aporta el agregado casi no se mueve
+(−13,10% → −12,64%). No depende de un período.
+
+### B. El derrumbe NO termina en el cierre
+
+Desde el cierre del día del evento, sobre los mismos 169 candidatos:
+
+| horizonte | mediana | media | negativos |
+|---|---|---|---|
+| T+1 | **−9,82%** | −8,55% | 73% |
+| T+5 | **−17,41%** | −10,14% | 77% |
+| T+20 | **−31,58%** | −7,76% | **83%** |
+
+Contra la población entera: T+1 −1,28%, T+5 −3,16%.
+
+Encadenado con el intradía (−13,10% de apertura a cierre), un candidato típico
+pierde **~28% de la apertura al cierre de T+5**. Es coherente con la tesis
+central del proyecto: estas empresas diluyen DESPUÉS del pump, y por eso la caída
+continúa.
+
+**El precio de sostener:** el MAE del short a T+5 tiene mediana +7,74% pero
+media **+32,96%** — un tercio se te va en contra fuerte antes de darte la razón.
+Y el borrow se paga todos los días. Es un swing, no una extensión gratis del
+intradía.
+
+### C. El RVOL en dólares: yo estaba equivocado (`test_rvol_dolares.py`)
+
+Vengo diciendo desde §4.sexies que arreglar el RVOL —que se calcula en acciones
+y por eso se rompe con los reverse splits— iba a "destapar una familia entera de
+setups". **Lo medí y es falso.**
+
+| población | n | mediana | cae |
+|---|---|---|---|
+| las ve las dos versiones | 60.711 | +0,07% | 44% |
+| **solo el RVOL en dólares** (el punto ciego) | 7.788 | **+1,94%** | 39% |
+| solo el RVOL en acciones | 3.680 | **−1,96%** | 62% |
+
+El punto ciego existe —3.076 de esos días no están en `events`— pero **esos días
+SUBEN**. Y al revés: los que solo ve el RVOL en acciones son los mejores para el
+short de las tres poblaciones. El detector no tiene un bug que nos cuesta plata:
+tiene un sesgo que resulta estar a favor.
+
+Ni siquiera la firma del reverse split rescata el argumento: filtrando a los que
+tienen RVOL en acciones < 0,5× —los que operaron MENOS acciones que lo normal,
+que es la marca del split— quedan 195 días con mediana −1,10%. Nada.
+
+**Queda como corrección, no como pendiente.** ELPW 2026-08-11 sigue afuera del
+dataset y sigue siendo cierto que el RVOL en acciones no lo ve; lo que era falso
+es mi conclusión de que eso importara.
+
+Un detalle de calidad de dato que salió de paso: VIDA 2026-05-29 da un RVOL en
+dólares de **11.009.692×** porque la mediana de volumen en dólares de sus 20
+días previos es prácticamente cero. Cualquier umbral sobre un ratio necesita un
+piso absoluto en el denominador, o la cola se llena de divisiones por casi cero.
 
 ## 5. Hipótesis a testear (no conclusiones)
 

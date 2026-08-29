@@ -39,6 +39,8 @@
 | `test_historial.py` | ¿el historial de gaps del ticker predice el próximo? (sí, y aparte) | $0 |
 | `radar.py` | las 3 capas del protocolo: régimen, escáner, viabilidad | $0 |
 | `radar_historico.py` | el radar sobre los 61.477 eventos diarios, no solo los que tienen minutos | $0 |
+| `test_sensibilidad.py` | ¿el radar es meseta o pico? (meseta) | $0 |
+| `test_rvol_dolares.py` | el punto ciego del RVOL en acciones (existe, y está a favor) | $0 |
 | `recorrer.py` | re-corre TODO el análisis sobre el censo y guarda la salida | $0 |
 | `visor/server.py` | **gráfico de velas local** de cualquier día descargado | $0 |
 
@@ -68,9 +70,8 @@ navegador. Detalle en [visor/README.md](visor/README.md).
    conoce. Si el gradiente de expansión sobrevive sin ese sesgo, el edge existe.
 2. **40 días marcados a mano** en el visor, incluidos los que descartás. La
    pregunta concreta está en §8 de [ESTRATEGIA.md](ESTRATEGIA.md).
-3. **RVOL en dólares** en `detect_events.py`. El de acciones se rompe con los
-   reverse splits y deja afuera toda la familia
-   "reverse split → float chico → pump" (§4.sexies de RESEARCH.md).
+3. ~~**RVOL en dólares** en `detect_events.py`~~ — **medido y descartado**:
+   la población que destapa sube, no baja (§4.terdecies C).
 4. **Datos de borrow.** Un short sin locate rinde cero, no negativo.
 5. Medir el slippage real en los eventos con halt detectado
 

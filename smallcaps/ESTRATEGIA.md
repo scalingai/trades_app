@@ -21,7 +21,8 @@ ilusión.
 | **Shortear cerca del máximo es lo peor** | 🟢 −0,310R vs −0,007R del back side, n grande |
 | **El costo decide antes que la señal** | 🟢 debajo de $1 el 79% de los momentos son inoperables |
 | **La ventana es 08:30–11:00, no 06:30** | 🟢 replica en P1 y P2; a las 07:00 el MAE p90 es 310% |
-| **El radar de 5 filtros separa 15 puntos** | 🟢 n=169 sobre el universo diario · P1 −12,9% / P2 −13,4% · umbrales NO calibrados por mí |
+| **El radar de 5 filtros separa 15 puntos** | 🟢 n=169 sobre el universo diario · P1 −12,9% / P2 −13,4% · umbrales NO calibrados por mí · **meseta, no pico** |
+| **El derrumbe sigue después del cierre** | 🟢 T+1 −9,8% · T+5 −17,4% · T+20 −31,6% (83% negativos) |
 | **El historial de gaps del ticker** | 🟢 monotónico, y aporta aparte de la dilución |
 | **La Chavineta mecánica** | 🔴 **−0,99% neto, 44% de aciertos.** No es un edge |
 | **Ratios cortos (1:1 o menos)** | 🔴 la esperanza SUBE con el ratio en todas las celdas |
@@ -41,7 +42,12 @@ Hasta entonces: **las comparaciones entre celdas valen, los niveles no.**
 
 ## 1. El universo — a qué le mirás la cara
 
-🟢 **Precio de cierre previo entre $3 y $20.**
+🟢 **Precio de cierre previo entre $3 y $20.** El barrido de sensibilidad lo
+respalda por los dos lados: subir el mínimo mejora levemente (−13,44% en $3) y
+el máximo es **plano de $5 a $20** — ampliar hasta $20 mantiene la mediana y
+suma 64% de muestra. Es la única modificación al protocolo de ellos que los
+datos respaldan.
+
 Debajo de $3 el costo fijo por acción se come más de un cuarto del riesgo en el
 42% de los momentos; debajo de $1, en el 79%. Es el hallazgo más duro de todos y
 va **en contra** del instinto de buscar lo barato porque "se mueve más". La
@@ -163,7 +169,26 @@ no hace máximos. Implementado en `chavineta.py` y **no alcanzó para dar
 positivo**. Está acá porque hace falta un gatillo y este es el que describen los
 operadores, no porque esté validado.
 
-## 7. La gestión
+## 7. Después del cierre — el trade no termina en la campana
+
+🟢 Desde el cierre del día del evento, sobre los candidatos del radar:
+
+| horizonte | mediana | media | negativos |
+|---|---|---|---|
+| T+1 | −9,82% | −8,55% | 73% |
+| T+5 | **−17,41%** | −10,14% | 77% |
+| T+20 | −31,58% | −7,76% | **83%** |
+
+La población entera da −1,28% a T+1. Encadenado con el intradía, un candidato
+típico pierde **~28% de la apertura al cierre de T+5**.
+
+**Y lo que cuesta.** El MAE del short a T+5 tiene mediana +7,74% pero media
+**+32,96%**: a un tercio se le va en contra fuerte antes de darte la razón. Más
+el borrow, que se paga todos los días. Es un swing con su propio
+dimensionamiento, no una extensión gratis del intradía — y hasta que no esté
+medido con costos de overnight, **no se opera**.
+
+## 8. La gestión
 
 🟢 **Stop entre 8× y 12× la volatilidad del minuto** (≈11% a 16% en un papel
 típico). Stops más ajustados rinden peor: con 3× salta el 72% de las veces.
@@ -188,7 +213,7 @@ pidió —corta la cola izquierda a la mitad, el MAE p90 baja de 41% a 9%— per
 lleva la esperanza entera. **Un stop fijo hace lo mismo y deja diez veces la
 media.** No la uses.
 
-## 8. El tamaño
+## 9. El tamaño
 
 🟢 De [GESTION-RIESGO.md](GESTION-RIESGO.md), derivado por simulación sobre la
 distribución medida:
@@ -202,7 +227,7 @@ distribución medida:
 - **Si en 20 trades no aparece un ganador de más de 20%, parar y revisar.** La
   estrategia depende de esa cola; si dejó de aparecer, cambió algo.
 
-## 9. Lo que hay que registrar — esta es la parte que no se saltea
+## 10. Lo que hay que registrar — esta es la parte que no se saltea
 
 **El dataset es el activo, no las reglas.** Las reglas de arriba son
 placeholders con distintos grados de evidencia; lo que las va a corregir es el
@@ -227,7 +252,7 @@ medido:
 Esa es la pregunta que tus marcas tienen que contestar. No hace falta que
 aciertes siempre: más de la mitad alcanza.
 
-## 10. Cómo se pasa de papel a plata
+## 11. Cómo se pasa de papel a plata
 
 No por convicción. Por estas cuatro, en orden:
 
