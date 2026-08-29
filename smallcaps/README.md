@@ -51,6 +51,7 @@
 | `test_construccion.py` | entrada simple vs construir la posición, por hora | $0 |
 | `test_rvol_dolares.py` | el punto ciego del RVOL en acciones (existe, y está a favor) | $0 |
 | `test_extremos.py` | la anatomía del día desde los extremos, no desde el reloj | $0 |
+| `test_swings.py` | ¿cuántas oportunidades hay por día? (5, no 1) | $0 |
 | `sesion.py` | **la jornada como unidad: riesgo en dólares, varios trades** | $0 |
 | `torneo.py` | todas las estrategias contra la misma vara | $0 |
 | `recorrer.py` | re-corre TODO el análisis sobre el censo y guarda la salida | $0 |

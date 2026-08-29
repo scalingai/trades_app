@@ -68,6 +68,41 @@ def señales(dia, *, caida=0.5, sin_maximo=10, separacion=0.5,
     return out
 
 
+def señales_swing(dia, *, rebote=8.0, desde=9.75, hasta=15.5, min_liquidez=2.5e5):
+    """Entradas por SWING: cada vez que el precio rebota y se frena arriba.
+
+    El motivo de que exista: el día ofrece ~5 bajadas de 10% o más
+    (`test_swings.py`), y una regla que abre una vez y sostiene toma una. Esta
+    busca las otras.
+
+    La regla, sin mirar el futuro: se sigue el mínimo corriente; cuando el
+    precio rebota `rebote`% desde ese mínimo se marca un máximo local, y se
+    entra corto en el primer minuto que **cierra por debajo** del mínimo de la
+    barra anterior — o sea, cuando el rebote se frena y se da vuelta. Confirmar
+    con una barra ya girada es lo que la separa de adivinar el techo.
+    """
+    out = []
+    minimo = None
+    armado = False
+    for i, b in enumerate(dia.bars):
+        h = hora(b)
+        if h < APERTURA_RTH or h > hasta:
+            continue
+        bajo, alto, c = b[3], b[2], b[4]
+        if bajo and (minimo is None or bajo < minimo):
+            minimo, armado = bajo, False
+        if minimo and alto and (alto / minimo - 1) * 100 >= rebote:
+            armado = True
+        if armado and h >= desde and i > 0:
+            prev = dia.bars[i - 1]
+            if c and prev[3] and c < prev[3]:
+                if min_liquidez <= 0 or (dia.liquidez_en(h) or 0) >= min_liquidez:
+                    out.append(i)
+                    armado = False
+                    minimo = bajo if bajo else minimo
+    return out
+
+
 def trade(dia, i, *, stop_pct, riesgo, costo_accion):
     """Short con nominal dimensionado por el riesgo. Devuelve (pnl $, motivo)."""
     p = dia.bars[i][4]
@@ -89,11 +124,12 @@ def trade(dia, i, *, stop_pct, riesgo, costo_accion):
 
 
 def jornada(dia, *, riesgo_dia, riesgo_trade, objetivo, stop_pct, costo_accion,
-            max_trades, min_liquidez):
+            max_trades, min_liquidez, modo="agotamiento"):
     """Opera un día completo con presupuesto. Devuelve el resultado de la jornada."""
     if clasificar_apertura(dia) != "fade":
         return None
-    ses = señales(dia, min_liquidez=min_liquidez)
+    ses = (señales_swing(dia, min_liquidez=min_liquidez) if modo == "swing"
+           else señales(dia, min_liquidez=min_liquidez))
     if not ses:
         return None
 
@@ -132,6 +168,8 @@ def main(argv=None) -> int:
                     help="dólares a los que se cierra la jornada (0 = sin objetivo)")
     ap.add_argument("--stop", type=float, default=15.0)
     ap.add_argument("--max-trades", type=int, default=3)
+    ap.add_argument("--modo", choices=("agotamiento", "swing"), default="agotamiento",
+                    help="cómo se generan las entradas")
     ap.add_argument("--min-expansion", type=float, default=100.0)
     ap.add_argument("--min-liquidez", type=float, default=2.5e5)
     ap.add_argument("--costo", type=float, default=0.04,
@@ -149,7 +187,7 @@ def main(argv=None) -> int:
         j = jornada(dia, riesgo_dia=args.riesgo, riesgo_trade=rt,
                     objetivo=args.objetivo, stop_pct=args.stop,
                     costo_accion=args.costo, max_trades=args.max_trades,
-                    min_liquidez=args.min_liquidez)
+                    min_liquidez=args.min_liquidez, modo=args.modo)
         if j:
             jornadas.append(j)
     db.close()
@@ -168,6 +206,7 @@ def main(argv=None) -> int:
     print(f"  riesgo/día ${args.riesgo:.0f} · riesgo/trade ${rt:.0f} · "
           f"objetivo ${args.objetivo:.0f} · stop {args.stop:.0f}% · "
           f"máx {args.max_trades} trades")
+    print(f"  modo de entrada: {args.modo}")
     print(f"  costo ${args.costo:.2f}/acción · liquidez >= "
           f"${args.min_liquidez/1e3:.0f}k/min · expansión >= {args.min_expansion:.0f}%")
     print("=" * 92)
