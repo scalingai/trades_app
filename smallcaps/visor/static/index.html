@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Visor de eventos — small caps</title>
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#121722; --linea:#222938; --texto:#d5dae6;
+    --tenue:#7b8598; --verde:#26a69a; --rojo:#ef5350; --ambar:#e6c84a;
+    --pre:rgba(40,70,140,.20);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--bg); color:var(--texto);
+    font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    display:grid; grid-template-columns:340px 1fr; overflow:hidden;
+  }
+
+  /* ---- panel izquierdo ---- */
+  aside{border-right:1px solid var(--linea);display:flex;flex-direction:column;min-height:0}
+  aside header{padding:12px 14px;border-bottom:1px solid var(--linea)}
+  aside h1{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
+  aside h1 small{display:block;color:var(--tenue);letter-spacing:0;text-transform:none;font-weight:400;margin-top:3px}
+
+  .filtros{padding:10px 14px;border-bottom:1px solid var(--linea);display:grid;gap:8px}
+  .fila{display:flex;gap:8px;align-items:center}
+  input,select,button{
+    background:#0e131d;color:var(--texto);border:1px solid var(--linea);
+    border-radius:4px;padding:5px 8px;font:inherit;font-size:12px;min-width:0
+  }
+  input:focus,select:focus{outline:none;border-color:#3d4a63}
+  button{cursor:pointer}
+  button:hover{border-color:#3d4a63}
+  label{color:var(--tenue);font-size:11px;white-space:nowrap}
+
+  .lista{overflow:auto;flex:1;min-height:0}
+  .lista table{width:100%;border-collapse:collapse}
+  .lista th{
+    position:sticky;top:0;background:var(--panel);color:var(--tenue);
+    font-weight:400;font-size:11px;text-align:right;padding:6px 8px;
+    border-bottom:1px solid var(--linea);cursor:pointer;user-select:none
+  }
+  .lista th:first-child{text-align:left}
+  .lista th.orden{color:var(--texto)}
+  .lista td{padding:5px 8px;text-align:right;border-bottom:1px solid #171d29;font-size:12px}
+  .lista td:first-child{text-align:left;font-weight:600}
+  .lista tr{cursor:pointer}
+  .lista tr:hover{background:#161c28}
+  .lista tr.sel{background:#1c2434}
+  .pos{color:var(--verde)} .neg{color:var(--rojo)} .tenue{color:var(--tenue)}
+
+  /* ---- panel derecho ---- */
+  main{display:flex;flex-direction:column;min-width:0;min-height:0}
+  .barra{
+    display:flex;gap:18px;align-items:center;flex-wrap:wrap;
+    padding:9px 14px;border-bottom:1px solid var(--linea);background:var(--panel)
+  }
+  .barra .tit{font-size:15px;font-weight:700;letter-spacing:.04em}
+  .kpi{display:flex;flex-direction:column;line-height:1.25}
+  .kpi b{font-size:13px;font-weight:600}
+  .kpi span{font-size:10px;color:var(--tenue);text-transform:uppercase;letter-spacing:.05em}
+  .sep{width:1px;align-self:stretch;background:var(--linea)}
+
+  .lienzo{position:relative;flex:1;min-height:0}
+  #chart{position:absolute;inset:0}
+  #sombra{position:absolute;top:0;bottom:0;background:var(--pre);pointer-events:none;display:none}
+  #vacio{
+    position:absolute;inset:0;display:grid;place-items:center;
+    color:var(--tenue);text-align:center;padding:40px;line-height:1.8
+  }
+  .pie{
+    padding:7px 14px;border-top:1px solid var(--linea);color:var(--tenue);
+    font-size:11px;display:flex;gap:16px;flex-wrap:wrap;align-items:center
+  }
+  .pie b{color:var(--texto);font-weight:600}
+  .chip{border:1px solid var(--linea);border-radius:3px;padding:1px 6px;cursor:pointer}
+  .chip.on{border-color:var(--ambar);color:var(--ambar)}
+
+  /* Ventana angosta: la lista pasa arriba y el gráfico se queda con el resto.
+     Sin esto, con menos de 900px el gráfico queda directamente fuera de pantalla. */
+  @media (max-width:900px){
+    body{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+    aside{border-right:none;border-bottom:1px solid var(--linea);max-height:45vh}
+    .barra{gap:12px;font-size:12px}
+  }
+</style>
+</head>
+<body>
+<aside>
+  <header>
+    <h1>Visor de eventos
+      <small>días con barras de 1 minuto descargadas</small>
+    </h1>
+  </header>
+
+  <div class="filtros">
+    <div class="fila">
+      <input id="q" placeholder="ticker…" style="flex:1">
+      <select id="orden" title="ordenar por">
+        <option value="d">fecha</option>
+        <option value="expansion">expansión</option>
+        <option value="intradia">intradía</option>
+        <option value="ratio_vol">vol vs previo</option>
+      </select>
+    </div>
+    <div class="fila">
+      <label>expansión ≥</label>
+      <input id="minExp" type="number" value="" placeholder="—" style="width:70px">
+      <label>precio</label>
+      <select id="banda">
+        <option value="">todo</option>
+        <option value="0,1">&lt; $1</option>
+        <option value="1,3">$1–3</option>
+        <option value="3,10">$3–10</option>
+        <option value="10,99999">$10+</option>
+      </select>
+    </div>
+    <div class="fila">
+      <label><input type="checkbox" id="soloLimpios" checked> vol ≥ 3× el día previo</label>
+      <label><input type="checkbox" id="soloEventos" checked> solo eventos</label>
+    </div>
+    <div class="fila">
+      <input id="nvTicker" placeholder="TICKER" style="width:88px;text-transform:uppercase">
+      <input id="nvFecha" placeholder="AAAA-MM-DD" style="flex:1">
+      <button id="bajar" title="baja los minutos de ese día (1 llamada a la API)">bajar</button>
+    </div>
+  </div>
+
+  <div class="lista">
+    <table>
+      <thead><tr>
+        <th data-col="ticker">ticker</th>
+        <th data-col="d">fecha</th>
+        <th data-col="expansion">exp%</th>
+        <th data-col="intradia">intra%</th>
+      </tr></thead>
+      <tbody id="filas"></tbody>
+    </table>
+  </div>
+</aside>
+
+<main>
+  <div class="barra" id="barra">
+    <div class="tit" id="tit">—</div>
+  </div>
+  <div class="lienzo">
+    <div id="chart"></div>
+    <div id="sombra"></div>
+    <div id="vacio">
+      Elegí un día de la lista.<br>
+      <span style="font-size:11px">
+        La zona sombreada es pre-market · la línea ámbar es el VWAP acumulado<br>
+        Las rayas punteadas son cierre previo y máximo pre-market
+      </span>
+    </div>
+  </div>
+  <div class="pie" id="pie">
+    <span class="chip on" id="tgAnom">anomalías (v)</span>
+    <span class="chip on" id="tgVwap">vwap (w)</span>
+    <span class="chip on" id="tgMarcas">estado 10:00 / 12:00 (m)</span>
+    <span id="detalle"></span>
+  </div>
+</main>
+
+<script src="/static/lightweight-charts.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
