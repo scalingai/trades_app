@@ -384,6 +384,128 @@ día del evento*. Son preguntas distintas.
 
 ---
 
+## 4.quinquies. Tercera ronda — qué LADO, y qué cuesta acotar la pérdida
+
+Dos preguntas de Agus, las dos con respuesta medida. Scripts: `test_lados.py`,
+`test_salidas.py`, `test_frontlong.py`. Muestra: 775 días de evento con minutos
+y volumen ≥ 3× el del día previo (el filtro anti-reverse-split de §4.sexies).
+
+### La expansión pre-market decide de qué lado estás
+
+`expansión = máximo pre-market ÷ cierre previo`. Es observable a las 09:30 y no
+usa nada del futuro. Long a las 10:00 con stop del 15%, neto de costos:
+
+| expansión pre-market | n | mediana | media | gana | te stopean |
+|---|---|---|---|---|---|
+| < +25% | 173 | **+15,5%** | +24,4% | 69% | 23% |
+| +25 a +50% | 55 | +3,1% | +7,6% | 55% | 38% |
+| +50 a +100% | 69 | −12,2% | +2,1% | 38% | 49% |
+| +100 a +200% | 31 | **−15,7%** | −8,3% | 19% | **77%** |
+| > +200% | 28 | −15,3% | −3,5% | 25% | 68% |
+
+Gradiente monotónico y **de signo invertido respecto del short**: el mismo
+balde de expansión extrema donde el long muere 3 de cada 4 veces es donde el
+short rinde. No son dos estrategias, es una variable que decide la dirección.
+
+Replica en los dos períodos dentro de cada balde: `<25%` da +18,9% en P1 y
++8,6% en P2; `>100%` da −15,7% y −15,3%. La tabla total NO replicaba
+(P1 +6,8% / P2 −2,1%) y eso era un efecto de mezcla: P2 tenía más días de
+expansión grande.
+
+### Front side vs back side: el riesgo es la mitad, y es del lado del long
+
+Estado definido por el VWAP acumulado —cero parámetros, el nivel lo pone el
+flujo—. MAE = cuánto se movió en contra antes del cierre:
+
+| entrada | lado | n | long mediana | MAE p50 | MAE p90 | short mediana | MAE p50 | MAE p90 |
+|---|---|---|---|---|---|---|---|---|
+| 10:00 | front | 356 | **+5,7%** | 10,1% | 37,4% | −5,4% | 28,9% | 96,3% |
+| 10:00 | back | 419 | −1,2% | 13,2% | 35,4% | +1,2% | 21,1% | 80,4% |
+| 12:00 | front | 289 | +2,0% | 7,5% | 27,5% | −1,9% | 17,8% | 68,9% |
+| 12:00 | back | 486 | −0,9% | 9,2% | 27,3% | +0,9% | 9,5% | 41,2% |
+
+**La intuición de Agus se confirma, y por dos vías distintas.** El front-long
+tiene 4× la mediana del back-short y la mitad del MAE p90 (37% vs 80%). Y no
+necesita locate: es la primera cosa medida en este proyecto que se puede
+ejecutar sin depender de un recurso escaso.
+
+Con una excepción que importa: en los días de expansión > +100% el front side
+se da vuelta —long mediana −13,8%, MAE p50 23,6%—. Ahí el "front side" no es
+tendencia, es la punta de una parabólica.
+
+### Salir por anomalía durante el trade: acorta la cola y se lleva el edge
+
+Regla: salir cuando el volumen (o el rango) de un minuto supera k× la **mediana
+de las 30 barras previas** y esa barra va en contra. Mediana y no promedio: con
+promedio un pico previo sube la vara y esconde el siguiente.
+
+Back-short 12:00, n=484:
+
+| salida | mediana | media | p10 | peor | MAE p90 | minutos |
+|---|---|---|---|---|---|---|
+| sostener al cierre | +1,05% | **+7,77%** | −17,9% | −56,8% | 41,2% | 240 |
+| stop fijo 15% | −1,86% | +6,14% | −13,0% | −13,0% | 17,5% | 240 |
+| volumen anómalo k=3 | −1,02% | +0,67% | **−6,6%** | **−22,0%** | **8,7%** | **23** |
+| volumen k=5 o VWAP | −1,59% | +1,36% | −7,8% | −25,4% | 10,9% | 34 |
+
+**Funciona para lo que se pidió y no sirve para operar.** La cola izquierda se
+corta a la mitad y el MAE p90 baja de 41% a 9% — la detección es real. Pero la
+media cae de +7,8% a +0,7%: la regla saca del trade a los 23 minutos, y ya
+sabemos desde `test_scalping.py` que a esa escala temporal la señal no predice.
+
+**Tercera vez que aparece el mismo patrón.** Apilar filtros mejoró el trade y
+empeoró el año; acortar el hold multiplicó los trades y destruyó el edge; ahora
+acotar la pérdida acorta la cola y se lleva la media. En los tres casos el
+instinto de controlar más empeora el resultado.
+
+Y para el long el resultado es más duro todavía: el **stop fijo del 15% domina
+a la salida por anomalía** en todo. Stop fijo: media +13,7%, p10 −15,0%.
+Volumen k=3: media +1,2%, p10 −14,2%. Misma protección de cola, una décima
+parte de la media. La anomalía no aporta nada que el stop no dé más barato.
+
+Único caso donde el stop fijo mejora la media además de la cola: el
+front-long. Sostener da +11,1% de media con peor caso −94,9%; con stop 15% da
+**+12,4% con peor caso −18,7%**. Es la primera regla de riesgo medida en este
+proyecto que no se paga.
+
+### El sesgo de esta muestra, dicho con precisión
+
+Los 1.500 eventos se sortearon de días con **rango DIARIO > 40%**, que a las
+10:00 no se conoce. La consecuencia no es pareja entre baldes, y conviene
+tenerlo claro antes de creerle a la tabla:
+
+- En los días de **expansión grande**, el día calificó por el gap de
+  pre-market, que **sí** es observable a las 09:30. El sesgo es menor.
+- En los días de **expansión chica** —el balde donde el front-long da +15,5%—
+  el día calificó porque se movió durante la sesión. Condicionar a "arriba del
+  VWAP a las 10:00" dentro de una muestra pre-seleccionada por rango grande es
+  casi garantizar que agarraste el runner. **Ese balde es el más contaminado y
+  es justo el que mejor da.**
+
+Traducción: el gradiente por expansión y la comparación front/back valen; el
++15,5% del balde bajo, no. Se arregla resorteando una muestra seleccionada solo
+por lo observable a las 09:30.
+
+## 4.sexies. Reverse splits: el mismo error del §4.bis, ahora en el precio
+
+`prev_close` viene sin ajustar (decisión correcta: el ajuste del proveedor usa
+la vista de HOY y mete futuro en el pasado). La consecuencia es que **un
+reverse split se lee como una expansión pre-market gigante**. CETX 2024-10-03
+aparece con +5.049% y operó el **57% del volumen del día previo**: no compró
+nadie, cambió el denominador.
+
+Son 11 de los 107 casos con expansión > +200%. El filtro es
+`volumen del día ≥ 3× el del día previo` — un pump de verdad multiplica el
+volumen por 63 en la mediana. Con el filtro el resultado no se cae, mejora.
+
+**Y el mismo problema tiene una versión más grave, en el detector.** El RVOL de
+`detect_events.py` se calcula en ACCIONES. Un reverse split 1:45 divide el
+volumen por 45, así que el día del pump posterior da RVOL ≈ 1 y **no entra como
+evento**. ELPW 2026-08-11 —reverse split el 8/10, +75% de expansión, $47M
+operados— no está en los 87.943 eventos por eso. Toda la familia
+"reverse split → float chico → pump → derrumbe" está sistemáticamente afuera
+del dataset. Se arregla con RVOL en dólares.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:

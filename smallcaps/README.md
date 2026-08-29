@@ -22,6 +22,10 @@
 | `test_scalping.py` | ¿funcionan los trades cortos? (no) | $0 |
 | `test_correlacion.py` | ¿los trades del mismo día son independientes? | $0 |
 | `riesgo.py` | dimensionamiento por simulación sobre datos reales | $0 |
+| `test_lados.py` | ¿front side es de menor riesgo que back side? (sí) | $0 |
+| `test_salidas.py` | ¿salir por anomalía de volumen acota la pérdida? (sí, y se lleva el edge) | $0 |
+| `test_frontlong.py` | el candidato: front-side long con stop fijo | $0 |
+| `visor/server.py` | **gráfico de velas local** de cualquier día descargado | $0 |
 
 Todo corre sobre datos locales. Lo único que necesita API key es la descarga
 de precio (Massive/Polygon, plan gratis).
@@ -32,11 +36,25 @@ de precio (Massive/Polygon, plan gratis).
 muestra está fija con semilla en la base, así que relanzar continúa con los
 mismos eventos.
 
+## Mirar los días
+
+```bash
+python visor/server.py
+```
+
+Velas de 1 minuto, VWAP, niveles y la ficha de dilución de cada día, en el
+navegador. Detalle en [visor/README.md](visor/README.md).
+
 ## Lo que sigue
 
-1. Reconfirmar todo con la muestra de minutos completa (n al doble)
-2. Medir el slippage real en los eventos con halt detectado
-3. Fuera de muestra sobre la configuración de salida específica
+1. **RVOL en dólares** en `detect_events.py`. El de acciones se rompe con los
+   reverse splits y deja afuera toda la familia
+   "reverse split → float chico → pump" (§4.sexies de RESEARCH.md).
+2. **Resortear la muestra de minutos por criterio observable a las 09:30**
+   (expansión pre-market, volumen pre-market en dólares) en vez de por rango
+   del día completo. Es lo único que vuelve creíbles los niveles absolutos.
+3. Recién ahí: costos, MAE y fuera de muestra sobre la configuración elegida.
+4. Medir el slippage real en los eventos con halt detectado
 
 ---
 
