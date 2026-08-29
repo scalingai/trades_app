@@ -21,6 +21,8 @@ ilusión.
 | **Shortear cerca del máximo es lo peor** | 🟢 −0,310R vs −0,007R del back side, n grande |
 | **El costo decide antes que la señal** | 🟢 debajo de $1 el 79% de los momentos son inoperables |
 | **La ventana es 08:30–11:00, no 06:30** | 🟢 replica en P1 y P2; a las 07:00 el MAE p90 es 310% |
+| **El radar de 5 filtros separa 18 puntos** | 🟢 población +5,4% vs candidatos −12,4%; umbrales NO calibrados por mí |
+| **El historial de gaps del ticker** | 🟢 monotónico, y aporta aparte de la dilución |
 | **La Chavineta mecánica** | 🔴 **−0,99% neto, 44% de aciertos.** No es un edge |
 | **Ratios cortos (1:1 o menos)** | 🔴 la esperanza SUBE con el ratio en todas las celdas |
 | **Front-side long** | 🟡 el balde que mejor da es el más contaminado por el sesgo |

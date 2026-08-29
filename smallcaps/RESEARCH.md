@@ -882,6 +882,90 @@ selección discrecional, que es exactamente lo que
 Y hay un dato de mercado que falta y ahora tiene nombre: **el Level 2 y el Time
 & Sales**. Es lo único que puede decidir cuáles de esos 166 no tomar.
 
+## 4.duodecies. El radar de tres capas — el resultado más fuerte del proyecto
+
+Agus trajo el protocolo de filtrado completo de la Chavineta: régimen mensual,
+escáner cuantitativo con parámetros exactos, y auditoría de viabilidad.
+Implementado en `radar.py` con los umbrales **que ellos declaran**, sin tocar
+ninguno.
+
+**Eso último importa más que el resultado.** Los cinco filtros —precio $0,70–$5,
+gap ≥ 70%, float ≤ 10M acciones, volumen pre-market ≥ 3M, volumen del día ≥ 3×—
+vinieron de afuera y antes de medir. No los busqué yo. Es lo más parecido a una
+hipótesis pre-registrada que tuvo este proyecto desde el gradiente de dilución.
+
+### Apertura → cierre
+
+| | n | mediana | cae |
+|---|---|---|---|
+| toda la población con minutos | 1.357 | **+5,41%** | 43% |
+| **candidatos del radar (5 filtros)** | **39** | **−12,42%** | **74%** |
+| + historial de fallo del ticker ≥ 60% | 14 | **−14,44%** | **93%** |
+| + empresa china | 5 | −36,21% | 80% |
+
+La población **sube** +5,4% de mediana; los candidatos **bajan** 12,4%. Son casi
+18 puntos de separación, y salen de un filtro que no calibré.
+
+**No es efecto de la cola.** Media −8,90%; sacando el 5% superior, −13,62%. La
+cola juega EN CONTRA del short (BAOS +101,3% en un día) y aun así el agregado
+aguanta.
+
+**Replica partido al medio:** primera mitad −13,50% con 70% de caídas, segunda
+mitad −10,50% con 79%.
+
+### Capa 3: el historial del gapeador aporta aparte de la dilución
+
+La afirmación era: si un ticker falló 7 de sus últimos 10 gaps, tenés ventaja en
+*ese* activo. Testeado point-in-time —para cada evento solo los gaps
+anteriores—, sobre gaps ≥ +20%, n=1.007:
+
+| historial previo | n | mediana | falla |
+|---|---|---|---|
+| < 40% | 212 | −5,28% | 60% |
+| 40–60% | 172 | −5,76% | 61% |
+| 60–80% | 352 | −8,96% | 66% |
+| ≥ 80% | 271 | −8,96% | **70%** |
+
+Y el control que hacía falta —si es la dilución con otro nombre—:
+
+| | dil ≤ 100% | dil > 100% |
+|---|---|---|
+| historial < 60% | −3,21% | −8,64% |
+| historial ≥ 60% | −7,77% | −10,83% |
+
+**Las dos dimensiones se mueven por separado.** Dentro de cada columna el
+historial suma 2 a 5 puntos; dentro de cada fila la dilución suma 3 a 5. Son
+features distintos y apilan.
+
+### Origen y sector, gratis y no los teníamos
+
+De EDGAR: `countryCode` del domicilio comercial (F4 = China) y el SIC
+(2834/2836/8731 = biotech). NAMI y ELPW resultan chinas incorporadas en Caimán,
+que es exactamente el perfil que el protocolo marca como hiper-volátil. Cacheado
+en disco, cero costo.
+
+### Los tres reparos, sin los cuales esto no se puede usar
+
+1. **n = 39, y 14 en la mejor celda.** Es poco. La descarga del censo lo va a
+   multiplicar, y hasta que corra eso el número es indicativo.
+2. **Sigue el sesgo de la muestra vieja** (rango diario > 40%). La separación
+   entre población y candidatos es una comparación DENTRO de la misma muestra,
+   que es lo más robusto al sesgo — pero el nivel no.
+3. **No hay dato de borrow.** El propio protocolo pone el locate como criterio
+   de descarte. Un candidato del radar puede ser inoperable y el radar no se
+   entera. Es la frontera del sistema.
+
+### Un conflicto que no se resuelve a favor de nadie
+
+Ellos filtran **$0,70–$5**. Mi medición dice que debajo de $3 el costo se come
+más de un cuarto del riesgo en el 42% de los momentos, y que la única banda con
+esperanza neta positiva por sí sola fue **$10+**.
+
+Los defaults de `radar.py` son los de ellos; la banda de
+[ESTRATEGIA.md](ESTRATEGIA.md) sigue siendo ≥ $3. **Se decide con el re-corrido
+sobre el censo, no antes** — y es la clase de desacuerdo que conviene tener
+anotado en vez de zanjado por autoridad.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:
