@@ -36,6 +36,7 @@
 | `chavineta.py` | la técnica emulada de verdad: niveles, agotamiento, reclaim | $0 |
 | `test_ventana.py` | perfil horario 04:00-16:00 — dónde está la plata en el día | $0 |
 | `poblacion_observable.py` | descarga el **censo** seleccionado antes de la apertura | $0 |
+| `recorrer.py` | re-corre TODO el análisis sobre el censo y guarda la salida | $0 |
 | `visor/server.py` | **gráfico de velas local** de cualquier día descargado | $0 |
 
 Todo corre sobre datos locales. Lo único que necesita API key es la descarga
@@ -58,8 +59,8 @@ navegador. Detalle en [visor/README.md](visor/README.md).
 
 ## Lo que sigue
 
-1. **Terminar `poblacion_observable.py`** (~6 h con el tier free) y **re-correr
-   todo** sobre el censo. Es lo único que vuelve creíbles los niveles absolutos:
+1. **Terminar `poblacion_observable.py`** (~6 h con el tier free) y después
+   `python recorrer.py`, que corre todo sobre el censo con `SMALLCAPS_CENSO=1`. Es lo único que vuelve creíbles los niveles absolutos:
    la muestra vieja se sorteó por rango del día completo, que a las 09:30 no se
    conoce. Si el gradiente de expansión sobrevive sin ese sesgo, el edge existe.
 2. **40 días marcados a mano** en el visor, incluidos los que descartás. La

@@ -7,6 +7,7 @@ definición evita que dos scripts contesten distinto la misma pregunta.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from datetime import date, timedelta
 
@@ -140,6 +141,26 @@ def _armar(store, db, ticker: str, d: str):
     return dia
 
 
+def dias_de_poblacion() -> set[tuple[str, str]]:
+    """El censo observable de `poblacion_observable.py`.
+
+    **Por qué hace falta separarlo.** Cuando termine la descarga del censo, la
+    tabla `minute_log` va a tener MEZCLADOS los 1.500 días de la muestra vieja
+    —sorteada por rango del día completo, o sea con look-ahead en la selección—
+    y los ~2.000 del censo. Correr el análisis sobre `minute_log` a secas sería
+    peor que antes: una muestra contaminada en vez de una sesgada.
+
+    Devuelve vacío si la tabla no existe todavía.
+    """
+    db = sqlite3.connect(config.bars_db_path())
+    try:
+        return {(t, d) for t, d in db.execute("SELECT ticker,d FROM poblacion_obs")}
+    except sqlite3.OperationalError:
+        return set()
+    finally:
+        db.close()
+
+
 def dias_del_evento(conn) -> list[tuple[str, str]]:
     """Los (ticker, día) que son EVENTO — la muestra sorteada, no los vecinos.
 
@@ -171,11 +192,13 @@ def dias_con_barras(conn, *, min_barras: int = 70) -> list[tuple[str, str, bool]
     return [(t, d, (t, d) in ev) for t, d, _ in filas]
 
 
-def cargar(*, solo=None, incluir_vecinos: bool = False):
+def cargar(*, solo=None, incluir_vecinos: bool = False, censo: bool = False):
     """Itera días como objetos `Dia`.
 
-    Por defecto recorre SOLO los días de evento — que es la muestra con la que
-    se mide. `incluir_vecinos` agrega los días siguientes, para mirar.
+    Por defecto recorre los días de evento con minutos bajados.
+    `incluir_vecinos` agrega los días siguientes, para mirar.
+    `censo=True` restringe al censo observable — la única forma de medir sin
+    el sesgo de selección de la muestra vieja.
     """
     store = MinuteStore()
     db = sqlite3.connect(config.bars_db_path())
@@ -186,6 +209,19 @@ def cargar(*, solo=None, incluir_vecinos: bool = False):
             pares = [(t, d) for t, d, _ in dias_con_barras(store.conn)]
         else:
             pares = dias_del_evento(store.conn)
+        # La variable de entorno existe para que NINGÚN script se olvide del
+        # flag: `recorrer.py` la prende una vez y todo el análisis queda sobre
+        # el censo. Olvidarse en un solo script contamina la corrida entera.
+        censo = censo or os.environ.get("SMALLCAPS_CENSO") == "1"
+        if censo and not solo:
+            pob = dias_de_poblacion()
+            if not pob:
+                raise RuntimeError(
+                    "no hay censo todavía: corré `python poblacion_observable.py`")
+            antes = len(pares)
+            pares = [x for x in pares if x in pob]
+            print(f"  [censo observable: {len(pares)} días de {antes} bajados]",
+                  flush=True)
         for t, d in pares:
             dia = _armar(store, db, t, d)
             if dia is not None:
