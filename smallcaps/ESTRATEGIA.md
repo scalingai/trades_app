@@ -301,3 +301,34 @@ No por convicción. Por estas cuatro, en orden:
 
 Mientras tanto lo que se hace es **mirar días, marcarlos y registrar**. Es
 aburrido y es la fase que todos se saltean.
+
+---
+
+## 12. El punto de muerte: el locate al 5% del nominal
+
+Todas las simulaciones cobran el locate como **centavos por acción** (4c dentro
+del costo de ejecución). La industria lo cobra como **fracción del nominal**, y
+en los papeles hard-to-borrow —que son exactamente estos— puede llegar al 10-20%
+del valor de la acción.
+
+Medido sobre la configuración buena (swing + stop estructural, $50 de riesgo
+diario):
+
+| locate, % del nominal | media/jornada | anual | días positivos |
+|---|---|---|---|
+| 0% | +$12,66 | +$2.165 | 58% |
+| 1% | +$10,30 | +$1.760 | 56% |
+| 2% | +$7,93 | +$1.356 | 52% |
+| **5%** | **+$0,84** | **+$144** | 44% |
+| 10% | −$10,97 | −$1.876 | 30% |
+| 20% | −$34,60 | −$5.917 | 14% |
+
+> **Arriba del 5% del nominal no hay negocio.** Toda la pregunta de si esto es
+> una estrategia o un ejercicio se reduce a un solo número que no tenemos.
+
+Y hay una razón para esperar lo peor: **el locate caro y el buen setup son la
+misma cosa.** Lo que hace a un papel difícil de prestar —float chico, +100% en
+un día, todo el mundo queriendo shortearlo— es lo mismo que lo hace candidato.
+La selección adversa acá no es un riesgo teórico: es el mecanismo.
+
+**Nada se opera hasta tener este dato.**
