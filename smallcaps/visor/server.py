@@ -127,12 +127,16 @@ def construir_indice(forzar: bool = False) -> list[dict]:
     eventos = {(t, d) for t, d in dias_del_evento(store.conn)}
     store.close()
     censo = dias_de_poblacion()
+    hist = _historial()
 
     filas = []
     for i, dia in enumerate(cargar(incluir_vecinos=True), 1):
         try:
             clave = (dia.ticker, dia.d)
-            filas.append(_fila_indice(dia, clave in eventos, clave in censo))
+            fila = _fila_indice(dia, clave in eventos, clave in censo)
+            h, n_h = hist.get(clave, (None, 0))
+            fila["hist"], fila["n_hist"] = h, n_h
+            filas.append(fila)
         except Exception:
             continue
         if i % 500 == 0:
@@ -209,6 +213,26 @@ def _set_eventos() -> frozenset:
 
 
 @lru_cache(maxsize=1)
+def _historial() -> dict:
+    """Tasa de fallo previa por (ticker, día). Point-in-time: para cada evento
+    solo cuentan los gaps ANTERIORES. Es el dato de nivel TICKER que el panel
+    agrupado necesita — la ficha del papel, no la del día."""
+    import sqlite3
+    from collections import defaultdict
+    db = sqlite3.connect(config.bars_db_path())
+    previos, out = defaultdict(lambda: [0, 0]), {}
+    for t, d, intra in db.execute(
+        "SELECT ticker, d, intraday_pct FROM events WHERE gap_pct >= 20 "
+        "AND intraday_pct IS NOT NULL ORDER BY ticker, d"
+    ):
+        n, fall = previos[t]
+        out[(t, d)] = (100.0 * fall / n, n) if n else (None, 0)
+        previos[t] = [n + 1, fall + (1 if intra < 0 else 0)]
+    db.close()
+    return out
+
+
+@lru_cache(maxsize=1)
 def _set_censo() -> frozenset:
     from dias import dias_de_poblacion
     return frozenset(dias_de_poblacion())
@@ -257,8 +281,10 @@ def payload_dia(ticker: str, d: str) -> dict | None:
                     "rth_open": dia.rth_open},
         "sesion": {"apertura": ts(b_ap[0]) if b_ap else None,
                    "cierre": ts(b_ci[0]) if b_ci else None},
-        "resumen": _fila_indice(dia, _es_evento(ticker, d),
-                                (ticker, d) in _set_censo()),
+        "resumen": {**_fila_indice(dia, _es_evento(ticker, d),
+                                   (ticker, d) in _set_censo()),
+                    "hist": _historial().get((ticker, d), (None, 0))[0],
+                    "n_hist": _historial().get((ticker, d), (None, 0))[1]},
         "ficha": _ficha(ticker, d),
         "anomalias": _anomalias(dia),
         "etiquetas": _con_ts(dia, _ET.de_dia(ticker, d)),
@@ -372,6 +398,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"error": "parámetros inválidos"}, 400)
             p = payload_dia(t, d)
             return self._json(p) if p else self._json({"error": "sin datos"}, 404)
+
+        if ruta == "/api/marcas":
+            # Cuántas marcas tiene cada día, para el panel agrupado. Se pide
+            # aparte del índice porque cambia todo el tiempo y el índice no.
+            cuenta = {}
+            for e in _ET.todas():
+                k = f"{e['ticker']}|{e['d']}"
+                cuenta[k] = cuenta.get(k, 0) + 1
+            return self._json({"marcas": cuenta})
 
         if ruta == "/api/etiquetar":
             t = (q.get("ticker") or [""])[0].upper()

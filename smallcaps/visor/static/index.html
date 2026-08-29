@@ -49,6 +49,18 @@
   .lista tr{cursor:pointer}
   .lista tr:hover{background:#161c28}
   .lista tr.sel{background:#1c2434}
+  /* El papel es la unidad; los días son lo que le pasó adentro. */
+  .lista tr.grupo td{background:#141a26;font-weight:700;border-top:1px solid var(--linea)}
+  .lista tr.grupo:hover td{background:#1a2130}
+  .lista tr.dia td:first-child{padding-left:22px;font-weight:400;color:var(--tenue)}
+  .flecha{display:inline-block;width:10px;color:var(--tenue)}
+  .tag{font-size:9px;border:1px solid var(--linea);border-radius:3px;padding:0 4px;color:var(--tenue)}
+  .tag.ev{opacity:.6}
+  .lista tr.dia .tag:not(.ev){border-color:var(--verde);color:var(--verde)}
+  .marca{color:var(--ambar);font-size:10px}
+  /* Los vecinos se ven, pero atenuados: son contexto, no candidatos. */
+  .lista tr.dia.vecino td{opacity:.42}
+  .lista tr.dia.vecino:hover td{opacity:.85}
   .pos{color:var(--verde)} .neg{color:var(--rojo)} .tenue{color:var(--tenue)}
 
   /* ---- panel derecho ---- */
@@ -148,9 +160,9 @@
   <div class="lista">
     <table>
       <thead><tr>
-        <th data-col="ticker">ticker</th>
-        <th data-col="d">fecha</th>
-        <th data-col="expansion">exp%</th>
+        <th data-col="ticker">papel / día</th>
+        <th data-col="expansion">qué es</th>
+        <th data-col="d">hist / exp%</th>
         <th data-col="intradia">intra%</th>
       </tr></thead>
       <tbody id="filas"></tbody>

@@ -9,6 +9,8 @@ let VISIBLES = [];     // lo que está en la tabla ahora
 let SEL = null;        // {ticker, d}
 let DATOS = null;      // payload del día abierto
 let orden = { col: 'd', desc: true };
+let abiertos = new Set();   // tickers expandidos en el panel
+let MARCAS = {};            // "TICKER|fecha" -> cantidad de marcas
 const ver = { anom: true, vwap: true, marcas: true, trade: true };
 let modoMarcar = null;   // tipo de etiqueta activo, o null
 
@@ -90,6 +92,9 @@ async function cargarIndice() {
     return setTimeout(cargarIndice, 1200);
   }
   TODOS = r.dias;
+  try {
+    MARCAS = (await fetch('/api/marcas').then((x) => x.json())).marcas || {};
+  } catch (_) { MARCAS = {}; }
   render();
 }
 
@@ -127,26 +132,92 @@ function filtrar() {
 const pct = (v) => (v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(1) + '%');
 const cls = (v) => (v == null ? 'tenue' : v > 0 ? 'pos' : 'neg');
 
+function agrupar(filas) {
+  /* Un papel es la unidad de seguimiento; los días son lo que le pasó adentro.
+     Agrupar así es lo que deja ver de un vistazo que AMIX falló seis gaps
+     seguidos antes del que hizo +262%.
+
+     El filtro elige QUÉ PAPELES aparecen, no qué días se ven adentro: una vez
+     que abrís un papel querés su historia completa, incluidos los días que no
+     califican. Justamente los que no califican son la mitad del contexto. */
+  const m = new Map();
+  filas.forEach((r) => { if (!m.has(r.ticker)) m.set(r.ticker, true); });
+  const porTicker = new Map();
+  TODOS.forEach((r) => {
+    if (!m.has(r.ticker)) return;
+    if (!porTicker.has(r.ticker)) porTicker.set(r.ticker, []);
+    porTicker.get(r.ticker).push(r);
+  });
+  return [...porTicker.entries()].map(([ticker, dias]) => {
+    dias.sort((a, b) => (a.d < b.d ? 1 : -1));
+    const ev = dias.filter((d) => d.evento);
+    const cand = dias.filter((d) => d.candidato);
+    // El resumen del papel se calcula sobre sus EVENTOS, no sobre los vecinos:
+    // el intradía de un día cualquiera no dice nada del comportamiento del papel.
+    const intra = ev.map((d) => d.intradia).filter((x) => x != null).sort((a, b) => a - b);
+    const marcas = dias.reduce((n, d) => n + (MARCAS[`${ticker}|${d.d}`] || 0), 0);
+    return {
+      ticker, dias,
+      n_ev: ev.length, n_cand: cand.length, marcas,
+      med: intra.length ? intra[Math.floor(intra.length / 2)] : null,
+      hist: (dias.find((d) => d.hist != null) || {}).hist,
+      ultimo: dias[0].d,
+    };
+  });
+}
+
 function render() {
   VISIBLES = filtrar();
-  $('#filas').innerHTML = VISIBLES.slice(0, 600).map((r) => `
-    <tr data-t="${r.ticker}" data-d="${r.d}"
-        class="${SEL && SEL.ticker === r.ticker && SEL.d === r.d ? 'sel' : ''}">
-      <td>${r.ticker}</td>
-      <td class="tenue">${r.d.slice(5)}${r.evento ? '' : ' ·'}</td>
-      <td class="${cls(r.expansion)}">${pct(r.expansion)}</td>
-      <td class="${cls(r.intradia)}">${pct(r.intradia)}</td>
-    </tr>`).join('') ||
+  const grupos = agrupar(VISIBLES);
+  const c = orden.col;
+  grupos.sort((a, b) => {
+    if (c === 'ticker') return orden.desc ? b.ticker.localeCompare(a.ticker)
+      : a.ticker.localeCompare(b.ticker);
+    if (c === 'expansion') return b.n_cand - a.n_cand || (b.ultimo < a.ultimo ? -1 : 1);
+    if (c === 'intradia') return (a.med ?? 0) - (b.med ?? 0);
+    return orden.desc ? (a.ultimo < b.ultimo ? 1 : -1) : (a.ultimo > b.ultimo ? 1 : -1);
+  });
+
+  // Con un solo papel a la vista no tiene sentido pedir un clic para abrirlo.
+  if (grupos.length <= 2) grupos.forEach((g) => abiertos.add(g.ticker));
+
+  const html = [];
+  grupos.slice(0, 250).forEach((g) => {
+    const ab = abiertos.has(g.ticker);
+    html.push(`
+      <tr class="grupo" data-grupo="${g.ticker}">
+        <td><span class="flecha">${ab ? '▾' : '▸'}</span> ${g.ticker}</td>
+        <td class="tenue">${g.n_ev} ev${g.n_cand ? ` · <b class="pos">${g.n_cand} cand</b>` : ''}</td>
+        <td class="${g.hist >= 60 ? 'neg' : 'tenue'}">${g.hist != null ? g.hist.toFixed(0) + '%' : '—'}</td>
+        <td class="${cls(g.med)}">${pct(g.med)}${g.marcas ? ` <span class="marca">✋${g.marcas}</span>` : ''}</td>
+      </tr>`);
+    if (!ab) return;
+    // Dentro del papel, primero los que califican; los vecinos van atenuados.
+    g.dias.forEach((r) => {
+      const sel = SEL && SEL.ticker === r.ticker && SEL.d === r.d;
+      const n = MARCAS[`${r.ticker}|${r.d}`] || 0;
+      html.push(`
+        <tr class="dia ${sel ? 'sel' : ''} ${r.evento ? '' : 'vecino'}" data-t="${r.ticker}" data-d="${r.d}">
+          <td class="tenue">${r.d}</td>
+          <td>${r.candidato ? '<span class="tag">CAND</span>'
+            : r.evento ? '<span class="tag ev">ev</span>' : ''}</td>
+          <td class="${cls(r.expansion)}">${pct(r.expansion)}</td>
+          <td class="${cls(r.intradia)}">${pct(r.intradia)}${n ? ` <span class="marca">✋${n}</span>` : ''}</td>
+        </tr>`);
+    });
+  });
+  $('#filas').innerHTML = html.join('') ||
     '<tr><td colspan="4" class="tenue">nada con esos filtros</td></tr>';
   document.querySelectorAll('.lista th').forEach((th) => {
     th.classList.toggle('orden', th.dataset.col === orden.col);
   });
   const cand = TODOS.filter((r) => r.candidato).length;
-  $('#cuenta').textContent = `${VISIBLES.length} de ${cand} candidatos`;
+  $('#cuenta').textContent = `${grupos.length} papeles · ${VISIBLES.length} días · ${cand} candidatos`;
 }
 
 async function abrir(ticker, d) {
   SEL = { ticker, d };
+  abiertos.add(ticker);
   render();
   const r = await fetch(`/api/dia?ticker=${ticker}&d=${d}`).then((x) => x.json());
   if (r.error) { $('#detalle').textContent = r.error; return; }
@@ -264,6 +335,12 @@ function pintarBarra() {
 /* ------------------------------------------------------------------ eventos */
 
 $('#filas').addEventListener('click', (e) => {
+  const g = e.target.closest('tr[data-grupo]');
+  if (g) {
+    const t = g.dataset.grupo;
+    if (abiertos.has(t)) abiertos.delete(t); else abiertos.add(t);
+    return render();
+  }
   const tr = e.target.closest('tr[data-t]');
   if (tr) abrir(tr.dataset.t, tr.dataset.d);
 });
@@ -331,8 +408,10 @@ chart.subscribeClick(async (param) => {
   const r = await fetch(u).then((x) => x.json());
   if (r.error) return alert(r.error);
   DATOS.etiquetas.push({ id: r.id, time: param.time, hora: h, tipo: modoMarcar, nota });
+  MARCAS[`${DATOS.ticker}|${DATOS.d}`] = (MARCAS[`${DATOS.ticker}|${DATOS.d}`] || 0) + 1;
   pintarMarcas();
   pintarPie();
+  render();
 });
 
 function pintarTrade() {
@@ -388,8 +467,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'n') elegirModo('no_va');
   if (e.key === 'Escape') elegirModo(null);
   if (e.key === 'j' || e.key === 'k') {
-    const i = VISIBLES.findIndex((r) => SEL && r.ticker === SEL.ticker && r.d === SEL.d);
-    const n = VISIBLES[Math.max(0, Math.min(VISIBLES.length - 1, i + (e.key === 'j' ? 1 : -1)))];
+    const vis = [...document.querySelectorAll('#filas tr[data-t]')]
+      .map((el) => ({ ticker: el.dataset.t, d: el.dataset.d }));
+    const i = vis.findIndex((r) => SEL && r.ticker === SEL.ticker && r.d === SEL.d);
+    const n = vis[Math.max(0, Math.min(vis.length - 1, i + (e.key === 'j' ? 1 : -1)))];
     if (n) abrir(n.ticker, n.d);
   }
 });

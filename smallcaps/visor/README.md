@@ -26,6 +26,36 @@ previo, RVOL, volumen en dólares, y de la ficha de EDGAR: dilución 12m, revers
 splits, runway y si el shelf estaba efectivo **a esa fecha** (point-in-time, sin
 look-ahead).
 
+## El panel: el papel es la unidad, los días van adentro
+
+La lista agrupa por **ticker**. Cada fila de papel trae, de un vistazo:
+
+```
+▾ AMIX   5 ev · 2 cand   86%   −5,2%
+    · 2026-08-07              +2,7%    −13,8%     ← vecino (atenuado)
+    · 2026-08-06             +16,2%     −8,6%
+      2026-08-04   CAND     +101,6%   +256,1%     ← candidato
+      2025-12-30   ev        +68,1%    −32,3%     ← evento
+```
+
+| columna | qué es |
+|---|---|
+| `5 ev · 2 cand` | eventos del papel · cuántos pasan el embudo |
+| `86%` | **tasa de fallo histórica**, point-in-time — qué fracción de sus gaps ANTERIORES cerró en rojo |
+| `−5,2%` | mediana del intradía **de sus eventos** (los vecinos no cuentan: el intradía de un martes cualquiera no dice nada del papel) |
+| `✋3` | marcas a mano que ya tiene |
+
+**El filtro elige qué PAPELES aparecen, no qué días se ven adentro.** Una vez que
+abrís un papel querés su historia completa, incluidos los días que no califican
+— justamente esos son la mitad del contexto. Los vecinos se ven atenuados.
+
+Por qué agrupado y no una lista plana: porque así se ve de un vistazo lo que una
+lista plana esconde. AMIX falló **seis gaps seguidos** y el séptimo hizo +262%.
+En filas sueltas eso son siete líneas separadas entre miles; agrupado es la
+ficha del papel.
+
+`j` / `k` se mueven por los días visibles. Abrir un día expande su papel solo.
+
 ## El embudo — solo candidatos
 
 La lista arranca filtrada a los días que pasan **los cinco filtros** de
