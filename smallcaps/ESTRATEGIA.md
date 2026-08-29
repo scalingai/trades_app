@@ -20,7 +20,9 @@ ilusión.
 | **El régimen mensual se diagnostica en la semana 1** | 🟢 r=+0,55 sobre 23 meses, 87.943 eventos |
 | **Shortear cerca del máximo es lo peor** | 🟢 −0,310R vs −0,007R del back side, n grande |
 | **El costo decide antes que la señal** | 🟢 debajo de $1 el 79% de los momentos son inoperables |
-| **La ventana es 08:30–11:00, no 06:30** | 🟢 replica en P1 y P2; a las 07:00 el MAE p90 es 310% |
+| **La ventana es 08:30–11:00 para entrada simple** | 🟢 replica en P1 y P2 |
+| **Antes de 08:30 hay que ESCALONAR, no entrar** | 🟢 07:00 simple −5,5% vs escalonado +4,0%; MAE p90 240% → 142% |
+| **Shelf efectivo dentro de los candidatos** | 🟢 −13,70% vs −6,41% sin shelf — el mecanismo causal, medido |
 | **El radar de 5 filtros separa 15 puntos** | 🟢 n=169 sobre el universo diario · P1 −12,9% / P2 −13,4% · umbrales NO calibrados por mí · **meseta, no pico** |
 | **El derrumbe sigue después del cierre** | 🟢 T+1 −9,8% · T+5 −17,4% · T+20 −31,6% (83% negativos) |
 | **El historial de gaps del ticker** | 🟢 monotónico, y aporta aparte de la dilución |
@@ -150,7 +152,14 @@ suba, que es justamente la Chavineta. Una entrada sola a las 07:00 no es lo
 mismo que un núcleo del 20% a las 07:00 con adiciones hasta las 09:30. Pero
 medido como entrada simple, temprano es peor y es mucho más peligroso.
 
-**La regla operable: no abrir antes de las 08:30.** Y el mejor momento del día
+**La regla operable, corregida el 2026-08-29: temprano se CONSTRUYE, tarde se
+ENTRA.** Antes de las 08:30 no se abre posición completa — núcleo del 20% y
+adiciones contra los máximos. Medido a las 07:00: entrada simple −5,49% con MAE
+p90 del 240%; escalonado **+4,03% con MAE p90 del 142%**. El escalonado da
+vuelta la entrada temprana. A las 09:00 pasa lo contrario (simple +8,44% contra
+escalonado +4,00%): ya no hay máximos nuevos contra los cuales agregar.
+
+**Lo que decía antes:** Y el mejor momento del día
 es entre 09:15 y 10:00, que además es cuando aparece el volumen ($40M por día en
 la franja de 09:30 contra $2,7M a las 06:30).
 

@@ -1112,6 +1112,86 @@ paga por sí solo: reincidentes −13,43% contra primerizos −12,99%, o sea nad
 Lo que paga es **haber fallado antes**, no haber aparecido antes. Son dos cosas
 distintas y conviene no confundirlas: la capa 3 mide la primera.
 
+## 4.quindecies. La entrada temprana NECESITA el escalonado — y ahí se reconcilia todo
+
+Quedaba pendiente el reparo más grande contra el informe: ellos dicen que operan
+desde las 06:30 y que ahí sale el 85% del profit, y yo había medido que shortear
+a las 07:00 pierde −5,15% con un MAE p90 del 310%.
+
+La hipótesis de reconciliación era que **ellos no entran, construyen**: núcleo
+del 20% temprano y adiciones contra la suba hasta la apertura. Medido sobre 316
+días de expansión ≥ 100%, salida a las 11:30:
+
+| entrada | método | n | mediana | media | gana | MAE p90 |
+|---|---|---|---|---|---|---|
+| **07:00** | entrada simple | 264 | **−5,49%** | −6,37% | 45% | **240,6%** |
+| **07:00** | **escalonado** | 264 | **+4,03%** | +1,94% | **66%** | **141,7%** |
+| 08:00 | simple | 300 | +0,10% | −0,45% | 50% | 193,0% |
+| 08:00 | escalonado | 300 | +4,55% | +4,30% | 69% | 94,7% |
+| 09:00 | simple | 316 | **+8,44%** | +8,12% | 67% | 93,8% |
+| 09:00 | escalonado | 316 | +4,00% | +6,38% | **78%** | **33,1%** |
+
+**El escalonado da vuelta la entrada temprana.** A las 07:00 pasa de −5,49% a
++4,03% y el MAE p90 baja de 240% a 142%. Yo estaba midiendo una entrada sola
+donde ellos construyen una posición, y por eso el resultado no cerraba.
+
+**Y a las 09:00 pasa lo contrario.** La entrada simple da +8,44% y el escalonado
++4,00%: cuando entrás tarde el papel ya no hace máximos nuevos, así que no se
+agregan tramos y quedás con el 20% del nominal puesto. El escalonado no
+"funciona mejor" — funciona **cuando hay contra qué escalonar**.
+
+La regla que sale de acá, y es la primera que reconcilia las dos operativas:
+
+> **Temprano se construye, tarde se entra.** Antes de las 08:30 no se abre
+> posición completa: núcleo del 20% y adiciones contra los máximos. Después de
+> las 09:00 el escalonado ya no aporta y sí cuesta mediana.
+
+*(Cómo está contabilizado: el resultado del escalonado se escala por el nominal
+efectivamente usado —`tramos abiertos / 5`—, así que un día donde solo se abrió
+el núcleo cuenta como un quinto del movimiento. Es la contabilidad honesta y
+explica parte de por qué la mediana del escalonado a las 09:00 es menor: se
+desplegó menos capital. La comparación de win rate y de MAE sí es directa,
+porque el riesgo máximo comprometido es el mismo en las dos.)*
+
+## 4.sexdecies. Estructura de papel DENTRO de los candidatos
+
+Sobre los 277 candidatos del radar (precio hasta $20), retorno apertura→cierre:
+
+| | n | mediana | cae |
+|---|---|---|---|
+| todos los candidatos | 277 | −13,27% | 73% |
+| **shelf efectivo** | 212 | **−13,70%** | 75% |
+| shelf NO efectivo | 65 | **−6,41%** | 65% |
+| ≥ 1 pricing en 12m | 213 | −14,45% | 76% |
+| **pricing hace < 90 días** | 96 | **−15,50%** | 74% |
+| runway < 6 meses | 126 | −12,48% | 75% |
+| reverse split en 12m | 186 | −13,26% | 73% |
+
+**El shelf efectivo vuelve a aparecer, y confirma la corrección de §4.quater.**
+Descartado en la Etapa A por no discriminar *qué empresas son micro caps* (lo
+cumple el 54% del universo), acá separa 7 puntos: **con el registro efectivo la
+empresa puede vender contra la fuerza, y lo hace.** Es el mecanismo causal de la
+tesis del proyecto, medido dentro de la población que importa.
+
+**Un pricing reciente (< 90 días) suma otro punto y medio.** También
+mecanismo-consistente: la empresa ya demostró en el trimestre que está vendiendo
+papel.
+
+Runway y reverse split, en cambio, **no separan dentro de los candidatos**
+—−12,48% y −13,26% contra −13,27% de base—. Siguen siendo buenos para describir
+al asset class y no aportan al día del evento.
+
+### Un feature que NO se puede usar y conviene decir por qué
+
+`close_pos` —dónde cerró dentro de su rango— separa brutalmente: los que
+cerraron en el cuarto bajo dan −24,32% con 93% de caídas, y los que cerraron
+arriba dan **+16,57%**.
+
+**Es circular y no es un hallazgo.** Cerrar abajo del rango *es* haber caído: el
+feature y el resultado son la misma medición con dos nombres. Se anota
+únicamente para que nadie lo redescubra dentro de tres semanas y lo confunda con
+una señal.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:
