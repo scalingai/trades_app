@@ -793,6 +793,95 @@ por drawdown del 10%, que es más laxo que el 4% de
 [GESTION-RIESGO.md](GESTION-RIESGO.md) — pero los dos números salen de premisas
 distintas y no compiten.
 
+## 4.undecies. La Chavineta emulada de verdad — y qué queda sin explicar
+
+Con las definiciones que trajo Agus se pudo reemplazar la caricatura de
+`test_reciclaje.py` por `chavineta.py`, que emula la técnica como la describen.
+
+### Lo que cambió respecto de la versión de juguete
+
+| | antes | ahora |
+|---|---|---|
+| días operados | todos | solo los que **fallan** en la apertura |
+| entrada | hora fija (11:00) | **agotamiento de volumen** |
+| adiciones | pasos fijos de volatilidad | **niveles**: máx pre-market, máx día previo, VWAP, HOD |
+| reducciones | pullback fijo | el precio vuelve **debajo del nivel** desde el que se agregó |
+| corte | tope de pérdida | **reclaim en vivo**: cierra arriba del techo estructural |
+| ejecución | cruzando el spread siempre | limitadas en el nivel, con rebate |
+
+Confirmado además que **el win rate es plano a plano en las dos partes**, así
+que el 53% de la versión anterior y el 77,8% de ellos sí eran comparables.
+
+### El filtro de apertura descarta el 38% de los días
+
+Clasificando cada día a las 10:00 —rompe el máximo de pre-market, lo sostiene y
+hace nuevo máximo = *reclaim*; no lo rompe o se queda debajo del VWAP = *fade*—
+**el 38% de los días de evento son reclaim y no se operan**. Es un filtro real y
+observable, no una racionalización posterior.
+
+### El resultado, universo $0,20–$10
+
+| | n | gana | mediana | media | desvío | peor |
+|---|---|---|---|---|---|---|
+| bruto | 426 | 45,8% | −0,60% | −0,58% | 6,11 | −59,6% |
+| neto, cruzando el spread siempre | 426 | 39,9% | −1,86% | −2,43% | 6,46 | −61,5% |
+| **neto, adiciones pasivas + rebate** | 426 | 44,3% | −1,01% | **−0,99%** | 4,75 | −18,3% |
+
+En el universo que declaran (≤10M acciones, n=140) da lo mismo: **−0,99% neto,
+44% de aciertos**. El float bajo no lo rescata.
+
+**La ejecución pasiva se comió la mitad del déficit** (−2,43% → −0,99%). Es la
+corrección de modelado más grande de toda la ronda: cobrar spread en cada
+ejecución castiga a la técnica por algo que la técnica no hace — las adiciones
+son limitadas puestas EN la resistencia, que es literalmente aportar liquidez.
+Queda el reparo de siempre: una limitada tiene selección adversa, te llenan
+cuando el mercado sigue en contra.
+
+### Dónde está todo el resultado
+
+| motivo de salida | n | gana | media |
+|---|---|---|---|
+| llega al cierre | 254 | **72,8%** | **+1,50%** |
+| cortado por reclaim | 166 | **0%** | **−5,23%** |
+
+Los que sobreviven ganan casi 3 de cada 4 veces. Los que se cortan pierden
+todos. **El resultado entero es la proporción entre esos dos baldes**, y hoy es
+254 contra 166.
+
+### El número que cierra la discusión
+
+> **Hay que evitar el 56% de los trades que terminan cortados por reclaim para
+> que la técnica empate.**
+
+Ese es el trabajo exacto que tiene que hacer la lectura de Level 2 y Time &
+Sales que ellos describen y que no está en los datos de barras. No es una
+diferencia de calibración: es una capa de información que el minuto no tiene.
+
+Con eso queda explicada la brecha entre el 44% medido y el 77,8% auditado sin
+tener que acusar a nadie de nada. **Ellos no operan todos los días que pasan el
+filtro: descartan con el tape.** Y ese descarte, para que los números cierren,
+tiene que acertar más de la mitad de las veces sobre los que van a fallar.
+
+### La contradicción del locate, resuelta por aritmética
+
+El resumen dice "20% del nominal" y el ejemplo del mismo módulo dice "10% bruto
+→ 8% real", que es una quita del 20% **sobre la ganancia**. Se implementaron las
+dos: la quita sobre la ganancia mueve la media de −0,60% a −0,99%; la lectura
+literal la manda a **−21%** y deja **cero** trades ganadores en 426. La lectura
+literal no puede ser la correcta, y no hace falta discutirlo: la muestra lo
+muestra.
+
+### Lo que este resultado NO dice
+
+No dice que la técnica no funcione. Dice que **la parte mecánica de la técnica
+no alcanza**: filtro de apertura + agotamiento de volumen + adiciones en niveles
++ corte por reclaim da ~cero. Todo lo que la separa de un negocio está en la
+selección discrecional, que es exactamente lo que
+[etiquetas.py](etiquetas.py) existe para poder medir.
+
+Y hay un dato de mercado que falta y ahora tiene nombre: **el Level 2 y el Time
+& Sales**. Es lo único que puede decidir cuáles de esos 166 no tomar.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:
