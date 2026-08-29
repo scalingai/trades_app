@@ -12,6 +12,56 @@ let orden = { col: 'd', desc: true };
 let abiertos = new Set();   // tickers expandidos en el panel
 let MARCAS = {};            // "TICKER|fecha" -> cantidad de marcas
 const ver = { anom: true, vwap: true, marcas: true, trade: true };
+let TF = 1;   // temporalidad en minutos. El dato base es 1m: no hay nada más fino.
+
+/* ------------------------------------------------ temporalidad
+   Las barras del proveedor son agregados de 1 minuto. Todo lo que se ve arriba
+   de eso se compone acá, en el navegador, a partir de las mismas velas — no hay
+   una descarga distinta por temporalidad ni la puede haber. Bajar de 1 minuto
+   necesita datos de TRADES, que es otro plan del proveedor. */
+
+const bucket = (t) => Math.floor(t / (TF * 60)) * (TF * 60);
+
+function agregarVelas(velas) {
+  if (TF === 1) return velas;
+  const out = [];
+  let cur = null;
+  velas.forEach((v) => {
+    const k = bucket(v.time);
+    if (!cur || cur.time !== k) {
+      cur = { time: k, open: v.open, high: v.high, low: v.low, close: v.close };
+      out.push(cur);
+    } else {
+      cur.high = Math.max(cur.high, v.high);
+      cur.low = Math.min(cur.low, v.low);
+      cur.close = v.close;
+    }
+  });
+  return out;
+}
+
+function agregarVolumen(vol, velas) {
+  if (TF === 1) return vol;
+  const cierre = new Map(agregarVelas(velas).map((v) => [v.time, v.close >= v.open]));
+  const m = new Map();
+  vol.forEach((v) => {
+    const k = bucket(v.time);
+    m.set(k, (m.get(k) || 0) + v.value);
+  });
+  return [...m.entries()].map(([time, value]) => ({
+    time, value,
+    color: cierre.get(time) ? 'rgba(38,166,154,.5)' : 'rgba(239,83,80,.5)',
+  }));
+}
+
+function agregarLinea(linea) {
+  /* Dedupe SIEMPRE, no solo cuando se agrega: dos puntos con el mismo `time`
+     dejan la serie mal formada y el eje de tiempo deja de aceptar zoom, sin
+     tirar ningún error. Costó una tarde encontrarlo. */
+  const m = new Map();
+  linea.forEach((p) => m.set(bucket(p.time), p.value));   // gana el último del bucket
+  return [...m.entries()].map(([time, value]) => ({ time, value }));
+}
 let modoMarcar = null;   // tipo de etiqueta activo, o null
 
 /* ------------------------------------------------------------------ chart */
@@ -75,13 +125,13 @@ function pintarSombra() {
   el.style.width = Math.max(0, x1 - a) + 'px';
 }
 chart.timeScale().subscribeVisibleTimeRangeChange(pintarSombra);
-/* `autoSize` cubre el caso normal, pero si el contenedor todavía medía 0 al
-   crear el gráfico las canvas quedan en 0×2 y no se recuperan solas. */
-new ResizeObserver(() => {
-  const el = $('#chart');
-  if (el.clientWidth && el.clientHeight) chart.resize(el.clientWidth, el.clientHeight);
-  pintarSombra();
-}).observe($('#chart'));
+/* El observer SOLO reposiciona la sombra. Antes también llamaba a
+   `chart.resize()` como salvavidas de cuando el contenedor medía 0 al crear el
+   gráfico — pero con `autoSize: true` esa llamada pelea con el resize interno
+   de la librería y deja el eje de tiempo CONGELADO: `setVisibleRange` y hasta
+   `fitContent` se ignoran en silencio. El síntoma es que el zoom no responde y
+   no hay ningún error en consola. */
+new ResizeObserver(() => pintarSombra()).observe($('#chart'));
 
 /* ------------------------------------------------------------------ datos */
 
@@ -224,16 +274,11 @@ async function abrir(ticker, d) {
   DATOS = r;
   $('#vacio').style.display = 'none';
 
-  sVelas.setData(r.velas);
-  sVol.setData(r.volumen);
-  sVwap.setData(ver.vwap ? r.vwap : []);
-  sMedio.setData(ver.trade && r.trade && r.trade.operado ? r.trade.medio : []);
+  redibujar();
   limpiarLineas();
   nivel(r.niveles.prev_close, '#5c6a85', 'cierre previo');
   nivel(r.niveles.pm_high, '#8e6bd8', 'máx pre-market');
-  pintarMarcas();
-  chart.timeScale().fitContent();
-  setTimeout(pintarSombra, 0);
+  requestAnimationFrame(() => { encuadrar(); pintarSombra(); });
   pintarBarra();
   pintarTrade();
   pintarPie();
@@ -250,6 +295,38 @@ const COLOR_ET = {
   entrada_short: '#ff5c8a', entrada_long: '#4ade80', no_va: '#8892a6',
   salida: '#e6c84a', patron: '#a78bfa',
 };
+
+function redibujar() {
+  if (!DATOS) return;
+  sVelas.setData(agregarVelas(DATOS.velas));
+  sVol.setData(agregarVolumen(DATOS.volumen, DATOS.velas));
+  sVwap.setData(ver.vwap ? agregarLinea(DATOS.vwap) : []);
+  sMedio.setData(ver.trade && DATOS.trade && DATOS.trade.operado
+    ? agregarLinea(DATOS.trade.medio) : []);
+  pintarMarcas();
+}
+
+/* El encuadre por defecto: pre-market tardío + sesión completa. `fitContent`
+   mostraba de 04:00 a 20:00 y dejaba el día aplastado contra el medio; lo que
+   interesa mirar es cómo se armó el setup y cómo terminó, no las cuatro horas
+   de after hours sin volumen. */
+function encuadrar(todo = false) {
+  if (!DATOS || !DATOS.velas.length) return;
+  const v = DATOS.velas;
+  if (todo) return chart.timeScale().fitContent();
+  const ap = DATOS.sesion.apertura, ci = DATOS.sesion.cierre;
+  let from = ap ? ap - 90 * 60 : v[0].time;
+  let to = ci ? ci + 10 * 60 : v[v.length - 1].time;
+  const t = DATOS.trade;
+  if (t && t.operado && t.pasos.length) {
+    from = Math.min(from, t.pasos[0].time - 20 * 60);
+    to = Math.max(to, t.pasos[t.pasos.length - 1].time + 20 * 60);
+  }
+  chart.timeScale().setVisibleRange({
+    from: Math.max(from, v[0].time),
+    to: Math.min(to, v[v.length - 1].time),
+  });
+}
 
 function pintarMarcas() {
   if (!DATOS) return;
@@ -282,6 +359,7 @@ function pintarMarcas() {
       text: a.texto,
     }));
   }
+  m.forEach((x) => { x.time = bucket(x.time); });
   m.sort((a, b) => a.time - b.time);
   sVelas.setMarkers(m);
 }
@@ -382,12 +460,7 @@ function alternar(k) {
   const id = Object.keys(chips).find((x) => chips[x] === k);
   $('#' + id).classList.toggle('on', ver[k]);
   if (!DATOS) return;
-  if (k === 'vwap') sVwap.setData(ver.vwap ? DATOS.vwap : []);
-  else if (k === 'trade') {
-    sMedio.setData(ver.trade && DATOS.trade && DATOS.trade.operado
-      ? DATOS.trade.medio : []);
-    pintarMarcas();
-  } else pintarMarcas();
+  redibujar();
 }
 /* ---- la cuota discrecional: marcar sobre el gráfico ---- */
 
@@ -456,12 +529,26 @@ document.querySelectorAll('[data-tipo]').forEach((el) => {
   el.addEventListener('click', () => elegirModo(el.dataset.tipo));
 });
 
+$('#tf').addEventListener('change', () => {
+  TF = parseInt($('#tf').value, 10) || 1;
+  redibujar();
+  encuadrar();
+});
+$('#verTodo').addEventListener('click', () => encuadrar(true));
+
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
   if (e.key === 'v') alternar('anom');
   if (e.key === 'w') alternar('vwap');
   if (e.key === 'm') alternar('marcas');
   if (e.key === 't') alternar('trade');
+  if (e.key === 'z') encuadrar();
+  if (e.key === 'Z') encuadrar(true);
+  if (e.key >= '1' && e.key <= '4') {
+    TF = [1, 2, 5, 15][+e.key - 1];
+    $('#tf').value = String(TF);
+    redibujar(); encuadrar();
+  }
   if (e.key === 's') elegirModo('entrada_short');
   if (e.key === 'l') elegirModo('entrada_long');
   if (e.key === 'n') elegirModo('no_va');

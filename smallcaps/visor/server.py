@@ -321,11 +321,16 @@ def _simular(dia: Dia) -> dict | None:
         e.pop("ts", None)
     # Línea escalonada del precio medio: es lo que hay que mirar para entender
     # si la construcción mejoró la posición o solo agrandó el problema.
-    medio = []
+    # Un punto por ejecución, con tiempos ESTRICTAMENTE crecientes y únicos.
+    # Dos puntos con el mismo `time` dejan la serie mal formada, y el síntoma no
+    # es un error: es que el eje de tiempo del gráfico deja de aceptar zoom.
+    medio, visto = [], set()
     for e in ejec:
+        if e["time"] in visto:
+            medio[-1]["value"] = round(e["medio"], 4)
+            continue
+        visto.add(e["time"])
         medio.append({"time": e["time"], "value": round(e["medio"], 4)})
-    if ejec:
-        medio.append({"time": ejec[-1]["time"], "value": round(ejec[-1]["medio"], 4)})
     return {"operado": True, "motivo": r["motivo"], "neto": r["neto"],
             "bruto": r["bruto"], "peor": r["peor"], "ejecuciones": r["ejecuciones"],
             "pasos": ejec, "medio": medio}

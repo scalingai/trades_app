@@ -117,10 +117,33 @@ etiquetar.
 
 `Esc` sale del modo marcar.
 
+## Temporalidad
+
+**El dato base son velas de 1 minuto** — es lo más fino que hay, porque las
+barras del proveedor son agregados de 1 minuto. Bajar de ahí necesita datos de
+**trades** (tick), que es otro plan.
+
+Las de 2, 5 y 15 minutos se componen **en el navegador** a partir de las mismas
+velas: no hay una descarga distinta por temporalidad ni la puede haber. El
+volumen se suma, el VWAP toma el último valor del bucket, y las marcas se
+enganchan a la vela que las contiene.
+
+Selector abajo a la derecha, o teclas `1` `2` `3` `4`.
+
+## Encuadre
+
+Al abrir un día el gráfico se para en **pre-market tardío + sesión completa**
+(08:00–16:10), no en las 16 horas de 04:00 a 20:00. Lo que interesa mirar es
+cómo se armó el setup y cómo terminó, no las horas muertas del after hours.
+
+Si el trade simulado se sale de esa ventana, el encuadre se estira para
+incluirlo. `z` reencuadra, `Z` muestra el día completo.
+
 ## Atajos
 
 `j` / `k` siguiente y anterior de la lista · `v` anomalías · `w` VWAP ·
-`m` marcas de estado.
+`m` marcas de estado · `t` trade simulado · `z` reencuadrar · `Z` día completo ·
+`1`–`4` temporalidad · `s`/`l`/`n` modo de marcado · `Esc` salir del marcado.
 
 ## La lista
 
