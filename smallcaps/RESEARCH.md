@@ -506,6 +506,89 @@ operados— no está en los 87.943 eventos por eso. Toda la familia
 "reverse split → float chico → pump → derrumbe" está sistemáticamente afuera
 del dataset. Se arregla con RVOL en dólares.
 
+## 4.septies. Ratios cortos en short — el ratio no es la palanca
+
+Pedido de Agus: **solo short, ratios 1:1 o menos, con el stop atado a la
+volatilidad del día**. Se construyó `momentos.py`: **50.330 momentos** (uno cada
+5 minutos de sesión, sobre 775 días), cada uno con su estado observable y el
+resultado del short en **múltiplos de riesgo**, no en porcentaje.
+
+El stop es `m × rango típico del minuto` (mediana de las últimas 30 barras). El
+rango típico mediano de la muestra es **1,38%**, así que m=5 es un stop del ~7%.
+
+### La aritmética que decide antes que cualquier tabla
+
+| ratio | hay que acertar |
+|---|---|
+| 1:0,25 | **80%** |
+| 1:0,5 | **67%** |
+| 1:1 | 50% |
+| 1:2 | 33% |
+| 1:3 | 25% |
+
+Un ratio corto no es más seguro: **es un préstamo**. Cambia riesgo de ruina por
+exigencia de puntería, y el umbral sube más rápido de lo que baja el ratio.
+
+### Lo que dicen los datos: la esperanza SUBE con el ratio, no baja
+
+Celda más robusta por cantidad de días — precio ≥ $3, volatilidad > 2,5%/min,
+debajo del VWAP, stop 8× (n=2.678 momentos en **289 días**), neto de 4 centavos
+por acción:
+
+| ratio | acierta | neto (R) | P1 | P2 |
+|---|---|---|---|---|
+| 1:0,5 | 54% | +0,069 | +0,112 | +0,022 |
+| 1:1 | 20% | +0,130 | +0,191 | +0,063 |
+| 1:2 | 3% | +0,167 | +0,224 | +0,106 |
+| 1:3 | 0% | +0,172 | +0,231 | +0,107 |
+
+**En ninguna combinación probada el ratio corto rinde más que el largo.** Y el
+motivo se lee en la columna "acierta": con 1:2 el target se toca el 3% de las
+veces y con 1:3 nunca. O sea que a esos ratios el target **es irrelevante** —
+lo que produce el resultado es el stop más sostener hasta el cierre.
+
+Cuarta aparición del mismo hallazgo: **el edge está en la duración**. Acortar
+el ratio es otra forma de acortar el hold.
+
+Agregado por día (que es el n honesto, porque los momentos del mismo día se
+solapan): **+0,072R por día a 1:1, con el 59% de los días en positivo.**
+
+### Dónde está y dónde no está el patrón
+
+Esperanza BRUTA del short por corte, stop 8×, ratio 1:1:
+
+| corte | bruto (R) | veredicto |
+|---|---|---|
+| precio ≥ $10 | **+0,196** | lo único neto positivo por sí solo |
+| volatilidad > 2,5%/min | +0,020 | ayuda |
+| expansión pre-market > +100% | +0,007 | ayuda |
+| debajo del VWAP (back side) | −0,007 | neutro |
+| arriba del VWAP (front side) | −0,138 | **en contra** |
+| expansión < +25% | −0,143 | en contra |
+| **a menos de 3% del máximo** | **−0,310** | **el peor de todos** |
+
+**Shortear cerca del máximo es la peor celda de la tabla.** El instinto de
+"vender el techo" es exactamente lo contrario de lo que pagan los datos: paga
+esperar a que el máximo tenga horas y el papel esté abajo del VWAP.
+
+### El costo es el muro, y se puede ver dónde está
+
+El costo fijo por acción convertido a R depende del precio y del ancho del
+stop. Con 4 centavos por acción:
+
+| banda | % de momentos donde el costo supera 0,25R | neto a 1:1 (stop 8×) |
+|---|---|---|
+| $0,50–1 | **79%** | −1,010 |
+| $1–3 | 42% | −0,252 |
+| $3–10 | 8% | −0,135 |
+| **$10+** | **4%** | **+0,161** |
+
+Debajo de $1 el costo se come más de un cuarto del riesgo en 4 de cada 5
+momentos: ahí no hay trade, hay una donación. **Este es el argumento
+cuantitativo más fuerte que salió hasta ahora para subir la banda de precio** —
+y va en contra del instinto de buscar los papeles baratos porque "se mueven
+más".
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:
