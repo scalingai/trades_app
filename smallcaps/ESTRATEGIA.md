@@ -73,7 +73,12 @@ features de estructura de papel que discriminan, y no son redundantes entre sí
 mitad del universo: describen al asset class, no seleccionan. No los uses de
 filtro.
 
-## 2. El mes — el interruptor que no depende de nada intradía
+## 2. El mes — para DIMENSIONAR, no para descartar
+
+> **Corregido el 2026-08-29.** Esta sección decía "no operar corto" en los meses
+> *reclaim*. Medido: apilar el filtro de régimen sobre el escáner mejora el trade
+> (−13,27% → −15,87%) y **empeora el año 1,8 veces**, porque se lleva puesta la
+> mitad de la frecuencia. El régimen es una perilla de tamaño, no un interruptor.
 
 🟢 **Diagnóstico en la primera semana.** Contá qué fracción de los gaps de los
 días 1–7 cerró por debajo de su apertura.
@@ -82,7 +87,7 @@ días 1–7 cerró por debajo de su apertura.
 |---|---|
 | **fadea ≥ 60%** | mes de *fading*: tamaño normal |
 | fadea 50–60% | tamaño mitad |
-| **fadea < 50%** | mes de *reclaims*: **no operar corto** |
+| **fadea < 50%** | mes de *reclaims*: **cuarto de tamaño** (no cero) |
 
 Los meses diagnosticados *fading* dieron mediana −4,91% contra −2,75% de los
 *reclaim*. Son 2,16 puntos, no es enorme, pero es gratis y no depende de nada

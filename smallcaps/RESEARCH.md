@@ -1063,6 +1063,55 @@ dólares de **11.009.692×** porque la mediana de volumen en dólares de sus 20
 días previos es prácticamente cero. Cualquier umbral sobre un ratio necesita un
 piso absoluto en el denominador, o la cola se llena de divisiones por casi cero.
 
+## 4.quaterdecies. Las capas componen para el trade y destruyen el año
+
+El protocolo asume que las tres capas se apilan. Medido en las dos monedas a la
+vez —por trade y por año—, apilarlas hace lo de siempre:
+
+| | n | por trade | frecuencia | **por año** |
+|---|---|---|---|---|
+| capa 2 sola (el escáner) | 277 | −13,27% | 147,6/año | **−1.959%** |
+| + capa 1 (meses *fading*) | 128 | −15,87% | 68,2/año | −1.082% |
+| + capa 3 (historial ≥ 60%) | 100 | −13,39% | 53,3/año | −713% |
+| **las tres juntas** | 39 | **−20,28%** | 20,8/año | **−421%** |
+| las tres + dilución > 100% | 18 | −19,84% | 9,6/año | −190% |
+
+El trade mejora un 53% (−13,27 → −20,28). El año empeora **4,6 veces**.
+
+**Cuarta aparición del mismo hallazgo.** Ya había pasado con los filtros
+técnicos, con la duración del hold, y con el control de pérdida. Ahora con las
+capas del protocolo. En los cuatro casos el instinto de seleccionar más produce
+un trade más lindo y un negocio peor.
+
+La lectura operativa no es "no filtres": es que **la capa 2 es el filtro, y las
+capas 1 y 3 son para dimensionar, no para descartar.** Un mes *reclaim* o un
+ticker sin historial de fallo son razones para ir con medio tamaño, no para
+mirar de afuera.
+
+*(Caveat de la cuenta: `mediana × frecuencia` no es una suma de medianas y no
+pretende ser el P&L. Sirve como comparación entre filas, que es para lo que está.
+Con 148 eventos al año el capital no es la restricción, así que la frecuencia se
+puede tomar como aprovechable.)*
+
+### El otro número que sale de acá: 148 candidatos por año
+
+Menos de uno cada dos semanas. Los operadores del informe hacen **12 a 30 trades
+por día** sobre 2 a 4 tickers.
+
+Aun multiplicando por las re-entradas —4 ciclos por evento serían ~600 al año—
+queda lejos de los ~3.000 anuales que implica su frecuencia. **O su filtro real
+es bastante más laxo que el que describe el informe, o operan muchos setups que
+no cumplen las cinco condiciones.** Es una pregunta abierta y vale la pena
+hacerla: no cambia lo medido, cambia cuánto de su operativa cubre este radar.
+
+### Reincidentes vs primerizos: no es lo mismo que el historial
+
+Con 185 tickers distintos para 277 candidatos, el 34% repite. Pero repetir no
+paga por sí solo: reincidentes −13,43% contra primerizos −12,99%, o sea nada.
+
+Lo que paga es **haber fallado antes**, no haber aparecido antes. Son dos cosas
+distintas y conviene no confundirlas: la capa 3 mide la primera.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:

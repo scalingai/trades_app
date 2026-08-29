@@ -40,6 +40,7 @@
 | `radar.py` | las 3 capas del protocolo: régimen, escáner, viabilidad | $0 |
 | `radar_historico.py` | el radar sobre los 61.477 eventos diarios, no solo los que tienen minutos | $0 |
 | `test_sensibilidad.py` | ¿el radar es meseta o pico? (meseta) | $0 |
+| `test_capas.py` | ¿las 3 capas componen? (para el trade sí, para el año no) | $0 |
 | `test_rvol_dolares.py` | el punto ciego del RVOL en acciones (existe, y está a favor) | $0 |
 | `recorrer.py` | re-corre TODO el análisis sobre el censo y guarda la salida | $0 |
 | `visor/server.py` | **gráfico de velas local** de cualquier día descargado | $0 |
