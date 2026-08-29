@@ -20,6 +20,7 @@ ilusión.
 | **El régimen mensual se diagnostica en la semana 1** | 🟢 r=+0,55 sobre 23 meses, 87.943 eventos |
 | **Shortear cerca del máximo es lo peor** | 🟢 −0,310R vs −0,007R del back side, n grande |
 | **El costo decide antes que la señal** | 🟢 debajo de $1 el 79% de los momentos son inoperables |
+| **La ventana es 08:30–11:00, no 06:30** | 🟢 replica en P1 y P2; a las 07:00 el MAE p90 es 310% |
 | **La Chavineta mecánica** | 🔴 **−0,99% neto, 44% de aciertos.** No es un edge |
 | **Ratios cortos (1:1 o menos)** | 🔴 la esperanza SUBE con el ratio en todas las celdas |
 | **Front-side long** | 🟡 el balde que mejor da es el más contaminado por el sesgo |
@@ -98,7 +99,42 @@ previo.** Sin eso, un reverse split se lee como una expansión de +5.000% (CETX,
 +5.049% con el 57% del volumen del día anterior). Pasó, está medido, y envenena
 justo la cola que interesa.
 
-## 5. La entrada
+## 5. La hora — el hallazgo que corrige todo lo anterior
+
+🟢 **La ventana es 08:30–11:00 ET, y el mejor momento es la apertura.**
+
+Short en días de expansión ≥ +100%, retorno a la campana:
+
+| entrada | mediana | gana | P1 | P2 | MAE p90 |
+|---|---|---|---|---|---|
+| 07:00 | **−5,15%** | 45% | +2,55% | **−9,12%** | **310%** |
+| 08:00 | −0,03% | 49% | +8,14% | −4,03% | 253% |
+| 08:30 | +6,03% | 55% | +8,49% | +1,73% | 156% |
+| **09:30** | **+8,97%** | 61% | +13,23% | +2,34% | 99% |
+| 10:00 | +8,14% | 64% | +10,19% | +6,06% | 71% |
+| 11:00 | +3,97% | 56% | +5,07% | +2,36% | 50% |
+
+Dos correcciones de una:
+
+**A lo que veníamos haciendo.** Todas las mediciones previas entraban a las
+10:00 o al mediodía. El pico está en la apertura y se decae toda la tarde: a las
+13:00 ya no queda nada.
+
+**A la ventana del informe.** Dicen 06:30–11:30. La mitad temprana de esa
+ventana **pierde**: shortear a las 07:00 da −5,15% de mediana, no replica
+(P1 +2,55 / P2 −9,12) y tiene un MAE p90 del **310%**. Ahí no se está fadeando
+un colapso, se está adelante de la parabólica.
+
+La reconciliación probable: ellos entran temprano **y escalonan** contra la
+suba, que es justamente la Chavineta. Una entrada sola a las 07:00 no es lo
+mismo que un núcleo del 20% a las 07:00 con adiciones hasta las 09:30. Pero
+medido como entrada simple, temprano es peor y es mucho más peligroso.
+
+**La regla operable: no abrir antes de las 08:30.** Y el mejor momento del día
+es entre 09:15 y 10:00, que además es cuando aparece el volumen ($40M por día en
+la franja de 09:30 contra $2,7M a las 06:30).
+
+## 6. La entrada
 
 🟡 **Esperá a que el máximo tenga horas.** Shortear a menos del 3% del máximo
 corriente es la peor celda de toda la tabla: −0,310R contra −0,007R del back
@@ -118,7 +154,7 @@ no hace máximos. Implementado en `chavineta.py` y **no alcanzó para dar
 positivo**. Está acá porque hace falta un gatillo y este es el que describen los
 operadores, no porque esté validado.
 
-## 6. La gestión
+## 7. La gestión
 
 🟢 **Stop entre 8× y 12× la volatilidad del minuto** (≈11% a 16% en un papel
 típico). Stops más ajustados rinden peor: con 3× salta el 72% de las veces.
@@ -143,7 +179,7 @@ pidió —corta la cola izquierda a la mitad, el MAE p90 baja de 41% a 9%— per
 lleva la esperanza entera. **Un stop fijo hace lo mismo y deja diez veces la
 media.** No la uses.
 
-## 7. El tamaño
+## 8. El tamaño
 
 🟢 De [GESTION-RIESGO.md](GESTION-RIESGO.md), derivado por simulación sobre la
 distribución medida:
@@ -157,7 +193,7 @@ distribución medida:
 - **Si en 20 trades no aparece un ganador de más de 20%, parar y revisar.** La
   estrategia depende de esa cola; si dejó de aparecer, cambió algo.
 
-## 8. Lo que hay que registrar — esta es la parte que no se saltea
+## 9. Lo que hay que registrar — esta es la parte que no se saltea
 
 **El dataset es el activo, no las reglas.** Las reglas de arriba son
 placeholders con distintos grados de evidencia; lo que las va a corregir es el
@@ -182,7 +218,7 @@ medido:
 Esa es la pregunta que tus marcas tienen que contestar. No hace falta que
 aciertes siempre: más de la mitad alcanza.
 
-## 9. Cómo se pasa de papel a plata
+## 10. Cómo se pasa de papel a plata
 
 No por convicción. Por estas cuatro, en orden:
 

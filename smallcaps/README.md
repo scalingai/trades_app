@@ -34,6 +34,7 @@
 | `test_regimen.py` | ¿la 1ª semana del mes anticipa el régimen? (sí, r=0,55) | $0 |
 | `test_reciclaje.py` | escalonar a ciegas: sube el win rate y borra la media | $0 |
 | `chavineta.py` | la técnica emulada de verdad: niveles, agotamiento, reclaim | $0 |
+| `test_ventana.py` | perfil horario 04:00-16:00 — dónde está la plata en el día | $0 |
 | `poblacion_observable.py` | descarga el **censo** seleccionado antes de la apertura | $0 |
 | `visor/server.py` | **gráfico de velas local** de cualquier día descargado | $0 |
 
