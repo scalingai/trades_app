@@ -21,7 +21,7 @@ ilusión.
 | **Shortear cerca del máximo es lo peor** | 🟢 −0,310R vs −0,007R del back side, n grande |
 | **El costo decide antes que la señal** | 🟢 debajo de $1 el 79% de los momentos son inoperables |
 | **La ventana es 08:30–11:00, no 06:30** | 🟢 replica en P1 y P2; a las 07:00 el MAE p90 es 310% |
-| **El radar de 5 filtros separa 18 puntos** | 🟢 población +5,4% vs candidatos −12,4%; umbrales NO calibrados por mí |
+| **El radar de 5 filtros separa 15 puntos** | 🟢 n=169 sobre el universo diario · P1 −12,9% / P2 −13,4% · umbrales NO calibrados por mí |
 | **El historial de gaps del ticker** | 🟢 monotónico, y aporta aparte de la dilución |
 | **La Chavineta mecánica** | 🔴 **−0,99% neto, 44% de aciertos.** No es un edge |
 | **Ratios cortos (1:1 o menos)** | 🔴 la esperanza SUBE con el ratio en todas las celdas |
@@ -46,6 +46,13 @@ Debajo de $3 el costo fijo por acción se come más de un cuarto del riesgo en e
 42% de los momentos; debajo de $1, en el 79%. Es el hallazgo más duro de todos y
 va **en contra** del instinto de buscar lo barato porque "se mueve más". La
 banda de $10+ fue la única con esperanza neta positiva por sí sola (+0,161R).
+
+🟢 **Biotech sí, chinas con cuidado.** Sobre los candidatos del radar, biotech
+da mediana −18,89% Y media −18,10% (n=55): consistente, sin cola. Las chinas dan
+mediana −12,42% pero **media +3,88%** (n=30) — buena mediana y cola derecha
+letal, que es exactamente lo que el protocolo advierte cuando dice que atrapan
+cortos de forma irracional. **La china es un papel para bajar tamaño, no para
+subirlo.**
 
 🟡 **Float bajo ayuda pero no rescata.** Con ≤10M acciones el resultado no
 mejoró. Se sigue registrando porque el mecanismo es real (float chico = spread
