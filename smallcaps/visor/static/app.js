@@ -416,8 +416,19 @@ $('#filas').addEventListener('click', (e) => {
   const g = e.target.closest('tr[data-grupo]');
   if (g) {
     const t = g.dataset.grupo;
-    if (abiertos.has(t)) abiertos.delete(t); else abiertos.add(t);
-    return render();
+    const cerrando = abiertos.has(t);
+    if (cerrando) abiertos.delete(t); else abiertos.add(t);
+    render();
+    /* Al abrir un papel, además de expandirlo se carga su día más relevante:
+       el candidato más reciente, o el evento más reciente. Expandir y no
+       mostrar nada obligaba a un segundo clic para ver de qué se trata. */
+    if (!cerrando) {
+      const dias = TODOS.filter((r) => r.ticker === t)
+        .sort((a, b) => (a.d < b.d ? 1 : -1));
+      const elegido = dias.find((r) => r.candidato) || dias.find((r) => r.evento) || dias[0];
+      if (elegido) abrir(t, elegido.d);
+    }
+    return;
   }
   const tr = e.target.closest('tr[data-t]');
   if (tr) abrir(tr.dataset.t, tr.dataset.d);
@@ -508,10 +519,25 @@ function pintarTrade() {
       const h = new Date(p.time * 1000);
       const hh = String(h.getUTCHours()).padStart(2, '0') + ':'
         + String(h.getUTCMinutes()).padStart(2, '0');
-      return `<span class="paso" title="${p.nota}">${hh} ${p.tipo} `
+      return `<span class="paso saltar" data-time="${p.time}" title="${p.nota} `
+        + `— clic para ir a este minuto">${hh} ${p.tipo} `
         + `$${p.precio.toFixed(2)} · ${p.tramos}/5</span>`;
     }).join('');
 }
+
+/* Ir a un minuto concreto sin perder el contexto: se centra una ventana de
+   ~90 minutos alrededor de la ejecución en vez de saltar al tick pelado. */
+$('#trade').addEventListener('click', (e) => {
+  const el = e.target.closest('.saltar');
+  if (!el || !DATOS) return;
+  const t = parseInt(el.dataset.time, 10);
+  const v = agregarVelas(DATOS.velas);
+  chart.timeScale().setVisibleRange({
+    from: Math.max(v[0].time, t - 45 * 60),
+    to: Math.min(v[v.length - 1].time, t + 45 * 60),
+  });
+  setTimeout(pintarSombra, 0);
+});
 
 function pintarPie() {
   const n = (DATOS && DATOS.etiquetas || []).length;

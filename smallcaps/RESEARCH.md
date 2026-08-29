@@ -1364,6 +1364,85 @@ que es distinto de pre-registrado. Lo que lo vuelve creíble no es el n del test
 es que el mecanismo se entiende —shortear una parabólica que todavía acelera es
 pararse adelante— y que Agus lo hizo antes de ver ninguna tabla.
 
+## 4.novodecies. El Gap and Go, y la toma de ganancia corta
+
+### Primero, el vocabulario — porque cambia qué se busca
+
+En el informe, **Gap and Go es el RECLAIM**: el papel rompe el máximo de
+pre-market, lo sostiene como soporte y hace nuevos máximos, obligando a cubrir a
+los cortos atrapados. Es un **squeeze al alza**.
+
+Lo que este proyecto viene persiguiendo es lo contrario — el **Gap and Crap**:
+el gap que falla en sostener el máximo de pre-market y se desinfla.
+`chavineta.py` descarta el 38% de los días **por ser Gap and Go**.
+
+O sea que "buscar el gap and go" no es afinar lo que hay: es operar el otro lado.
+Nunca se había medido. Ahora sí.
+
+### El Gap and Go como long: no está
+
+79 de 412 días (19%) confirman reclaim antes del mediodía —cinco cierres
+seguidos sobre el máximo de pre-market—. Long desde ese minuto:
+
+| horizonte | mediana | gana |
+|---|---|---|
+| +30 min | −2,87% | 42% |
+| +60 min | −6,72% | 43% |
+| hasta el cierre | **−16,50%** | 32% |
+
+Con target y stop, recorriendo minuto a minuto (si en el mismo minuto se tocan
+los dos, gana el stop):
+
+| target | stop | media | gana | %target | %stop |
+|---|---|---|---|---|---|
+| +5% | 10% | +0,82% | 72% | 72% | 28% |
+| **+10%** | **10%** | **+1,39%** | 57% | 57% | 43% |
+| +20% | 10% | +0,63% | 35% | 35% | 65% |
+| +10% | 25% | −0,62% | 68% | 68% | 29% |
+
+**La mejor celda da +1,39% y la peor −2,4%: es cero.** El reclaim es violento
+para los dos lados y no deja nada. Se confirma que descartar esos días no es
+tirar plata a la basura.
+
+*(Nota metodológica: la primera versión de este test usaba MFE y MAE en vez de
+recorrer las barras, y daba −10% en vez de ~0. Aproximar "¿qué tocó primero?"
+con los extremos del recorrido es un error grande, no un detalle: si el MAE
+llegó al stop se asumía que saltó siempre antes del target. El recorrido barra
+por barra es la única forma.)*
+
+### La toma de ganancia corta, medida donde importa
+
+La pregunta era si conviene cobrar antes en vez de sostener. Probado sobre el
+setup que sí funciona —short con entrada por extensión de +50%, n=73 días—:
+
+| target | stop | media | mediana | gana | %target |
+|---|---|---|---|---|---|
+| +5% | 40% | −1,78% | +5,00% | **85%** | 85% |
+| +10% | 40% | −1,29% | +10,00% | 75% | 75% |
+| +20% | 40% | −2,37% | +20,00% | 63% | 53% |
+| **sin target** | 40% | **+7,85%** | +10,50% | 59% | — |
+
+**Con un target de +5% ganás el 85% de las veces y perdés plata.** La mediana
+dice +5,00% y la media dice −1,78%: el 15% que se stopea a −40% se come todo.
+
+Es la quinta vez que aparece el mismo patrón en este proyecto —apilar filtros,
+acortar el hold, acotar la pérdida, apurar el ratio, y ahora cobrar antes—. En
+las cinco, el instinto de asegurar produce un trade más lindo y un negocio peor.
+
+### Y acá se explica el 77,8% del informe
+
+Esa celda —85% de aciertos con esperanza negativa— **es exactamente el perfil
+que describe la Chavineta**: win rate alto aceptando una relación
+riesgo-beneficio "técnicamente negativa".
+
+Lo cual reconcilia las dos cosas sin que ninguna esté mintiendo: **el target
+corto no es el problema, es un multiplicador.** Sobre una población mediocre da
+85% de aciertos y esperanza negativa; sobre una población buena daría 85% de
+aciertos y esperanza positiva. Lo que hay que mejorar no es la salida: es qué
+días se toman.
+
+Que es, otra vez, el 56% de descartes.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:
