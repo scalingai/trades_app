@@ -6,6 +6,7 @@ El día que pases a un plan pago, cambiás ese número y nada más.
 
 from __future__ import annotations
 
+import http.client
 import json
 import threading
 import time
@@ -80,7 +81,15 @@ class MassiveClient:
                             "401: la API key no es válida. Revisá POLYGON_API_KEY en el .env"
                         ) from exc
                     last_err = MassiveError(f"HTTP {exc.code} en {path}: {body}")
-                except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+                except (urllib.error.URLError, TimeoutError, json.JSONDecodeError,
+                        http.client.HTTPException, ConnectionError, OSError) as exc:
+                    #  NO es subclase de URLError
+                    # —hereda de ConnectionResetError y BadStatusLine— así que se
+                    # escapaba del except y mataba el proceso entero. Costó una
+                    # descarga de seis horas cortada en el evento 720 de 1.767.
+                    # La lista es amplia a propósito: cualquier fallo de red es
+                    # reintentable, y perder un backfill largo por no atrapar una
+                    # excepción es mucho más caro que reintentar de más.
                     last_err = MassiveError(f"{type(exc).__name__} en {path}: {exc}")
             time.sleep(2 ** attempt)
 
