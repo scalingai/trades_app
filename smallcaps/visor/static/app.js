@@ -10,6 +10,7 @@ let SEL = null;        // {ticker, d}
 let DATOS = null;      // payload del día abierto
 let orden = { col: 'd', desc: true };
 const ver = { anom: true, vwap: true, marcas: true };
+let modoMarcar = null;   // tipo de etiqueta activo, o null
 
 /* ------------------------------------------------------------------ chart */
 
@@ -151,11 +152,24 @@ async function abrir(ticker, d) {
   chart.timeScale().fitContent();
   setTimeout(pintarSombra, 0);
   pintarBarra();
+  pintarPie();
 }
+
+const COLOR_ET = {
+  entrada_short: '#ff5c8a', entrada_long: '#4ade80', no_va: '#8892a6',
+  salida: '#e6c84a', patron: '#a78bfa',
+};
 
 function pintarMarcas() {
   if (!DATOS) return;
   const m = [];
+  (DATOS.etiquetas || []).forEach((e) => m.push({
+    time: e.time,
+    position: e.tipo === 'entrada_long' ? 'belowBar' : 'aboveBar',
+    color: COLOR_ET[e.tipo] || '#fff',
+    shape: e.tipo === 'no_va' ? 'circle' : 'square',
+    text: '✋ ' + e.tipo.replace('entrada_', '') + (e.nota ? ' · ' + e.nota : ''),
+  }));
   if (ver.marcas) m.push(...DATOS.marcas);
   if (ver.anom) {
     DATOS.anomalias.forEach((a) => m.push({
@@ -252,11 +266,54 @@ function alternar(k) {
   if (k === 'vwap') sVwap.setData(ver.vwap ? DATOS.vwap : []);
   else pintarMarcas();
 }
+/* ---- la cuota discrecional: marcar sobre el gráfico ---- */
+
+function horaDesdeTs(t) {
+  /* El servidor manda los ts corridos al huso de Nueva York (ver server.ts),
+     así que la hora ET sale de leerlos como UTC. */
+  const d = new Date(t * 1000);
+  return d.getUTCHours() + d.getUTCMinutes() / 60;
+}
+
+chart.subscribeClick(async (param) => {
+  if (!modoMarcar || !DATOS || !param.time) return;
+  const nota = prompt(`Nota para "${modoMarcar}" (opcional):`, '');
+  if (nota === null) return;
+  const h = horaDesdeTs(param.time);
+  const u = `/api/etiquetar?ticker=${DATOS.ticker}&d=${DATOS.d}` +
+    `&hora=${h.toFixed(5)}&tipo=${modoMarcar}&nota=${encodeURIComponent(nota)}`;
+  const r = await fetch(u).then((x) => x.json());
+  if (r.error) return alert(r.error);
+  DATOS.etiquetas.push({ id: r.id, time: param.time, hora: h, tipo: modoMarcar, nota });
+  pintarMarcas();
+  pintarPie();
+});
+
+function pintarPie() {
+  const n = (DATOS && DATOS.etiquetas || []).length;
+  $('#etiquetas').textContent = n ? `${n} marcas en este día` : 'sin marcas';
+}
+
+function elegirModo(tipo) {
+  modoMarcar = modoMarcar === tipo ? null : tipo;
+  document.querySelectorAll('[data-tipo]').forEach((el) => {
+    el.classList.toggle('on', el.dataset.tipo === modoMarcar);
+  });
+  $('#chart').style.cursor = modoMarcar ? 'crosshair' : '';
+}
+document.querySelectorAll('[data-tipo]').forEach((el) => {
+  el.addEventListener('click', () => elegirModo(el.dataset.tipo));
+});
+
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
   if (e.key === 'v') alternar('anom');
   if (e.key === 'w') alternar('vwap');
   if (e.key === 'm') alternar('marcas');
+  if (e.key === 's') elegirModo('entrada_short');
+  if (e.key === 'l') elegirModo('entrada_long');
+  if (e.key === 'n') elegirModo('no_va');
+  if (e.key === 'Escape') elegirModo(null);
   if (e.key === 'j' || e.key === 'k') {
     const i = VISIBLES.findIndex((r) => SEL && r.ticker === SEL.ticker && r.d === SEL.d);
     const n = VISIBLES[Math.max(0, Math.min(VISIBLES.length - 1, i + (e.key === 'j' ? 1 : -1)))];

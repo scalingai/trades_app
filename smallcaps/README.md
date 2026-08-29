@@ -25,8 +25,10 @@
 | `test_lados.py` | ¿front side es de menor riesgo que back side? (sí) | $0 |
 | `test_salidas.py` | ¿salir por anomalía de volumen acota la pérdida? (sí, y se lleva el edge) | $0 |
 | `test_frontlong.py` | el candidato: front-side long con stop fijo | $0 |
-| `momentos.py` | un registro cada 5 min: estado + resultado en múltiplos de R | $0 |
-| `test_ratios.py` | ratios cortos en short × volatilidad × precio (el ratio no es la palanca) | $0 |
+| `indicadores.py` | EMAs, RSI, perfil de volumen, estructura — todos acumulativos | $0 |
+| `momentos.py` | un registro **por minuto**: estado + niveles + resultado en R | $0 |
+| `test_ratios.py` | ratios fijos vs target en un nivel × volatilidad × precio | $0 |
+| `etiquetas.py` | la cuota discrecional: marcas a mano desde el visor | $0 |
 | `visor/server.py` | **gráfico de velas local** de cualquier día descargado | $0 |
 
 Todo corre sobre datos locales. Lo único que necesita API key es la descarga

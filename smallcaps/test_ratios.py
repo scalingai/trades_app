@@ -34,21 +34,58 @@ import statistics
 import sys
 
 import config
-from momentos import MULTIPLOS
+from momentos import COLUMNAS, MULTIPLOS, NIVELES
 
 for _s in (sys.stdout, sys.stderr):
     if hasattr(_s, "reconfigure"):
         _s.reconfigure(encoding="utf-8", errors="replace")
 
 RATIOS = (0.5, 0.75, 1.0, 1.5, 2.0, 3.0)
-COLS = (["ticker", "d", "hora", "precio", "exp_premarket", "dist_vwap",
-         "dist_max", "edad_max", "volatilidad", "vol_rel"] +
-        [f"m{m}_{k}" for m in MULTIPLOS for k in ("stop", "mfe", "cierre")])
+CORTE_PERIODO = "2025-08-17"
+COLS = COLUMNAS
 
 
 def cargar_momentos(conn):
     q = f"SELECT {','.join(COLS)} FROM momentos"
     return [dict(zip(COLS, r)) for r in conn.execute(q)]
+
+
+def evaluar_nivel(filas, m, nivel, costo_accion, costo_max=0.25):
+    """Target = un NIVEL estructural. El ratio sale de dónde está el nivel.
+
+    No es lo mismo que un ratio fijo: acá el ratio cambia minuto a minuto
+    porque el nivel se mueve. Es lo que hace un discrecional cuando dice
+    "acá tengo 1:1 y allá tengo 1:3".
+    """
+    netos, ratios, gan, descartados, todos = [], [], 0, 0, 0
+    for f in filas:
+        d = f[nivel]
+        k = costo_r(f, m, costo_accion)
+        if d is None or k is None:
+            continue
+        todos += 1
+        if k > costo_max:
+            descartados += 1
+            continue
+        r_imp = d / (m * f["volatilidad"])
+        if r_imp <= 0:
+            continue
+        ratios.append(r_imp)
+        if f[f"m{m}_mfe"] >= r_imp:
+            b = r_imp
+            gan += 1
+        elif f[f"m{m}_stop"]:
+            b = -1.0
+        else:
+            b = f[f"m{m}_cierre"]
+        netos.append(b - k)
+    if len(netos) < 200:
+        return None
+    return {"n": len(netos), "acierta": 100 * gan / len(netos),
+            "ratio_med": statistics.median(ratios),
+            "neto": statistics.mean(netos),
+            "dias": len({(f["ticker"], f["d"]) for f in filas}),
+            "descartado": 100 * descartados / todos if todos else 0}
 
 
 def bruto(fila, m, ratio):
@@ -144,6 +181,33 @@ def main(argv=None) -> int:
     print("=" * 96)
 
     tabla("TODOS LOS MOMENTOS", filas, costo)
+
+    print(chr(10) + "=" * 96)
+    print("  TARGET EN UN NIVEL, EN VEZ DE UN RATIO ELEGIDO")
+    print("  El ratio deja de ser un número nuestro y pasa a ser consecuencia de")
+    print("  dónde está la estructura. Cambia minuto a minuto porque el nivel se mueve.")
+    print("=" * 96)
+    for m in (5, 8):
+        print(f"{chr(10)}  stop = {m}x volatilidad")
+        print(f"  {'target':18} {'n':>8} {'días':>5} {'ratio med':>10} {'acierta':>8} "
+              f"{'NETO (R)':>9} {'P1':>8} {'P2':>8}")
+        print("  " + "-" * 84)
+        for niv in NIVELES:
+            v = evaluar_nivel(filas, m, niv, costo)
+            if not v:
+                print(f"  {niv:18}  (n insuficiente)")
+                continue
+            per = []
+            for p1 in (True, False):
+                sub = [f for f in filas if (f["d"] < CORTE_PERIODO) == p1]
+                w = evaluar_nivel(sub, m, niv, costo)
+                per.append(f"{w['neto']:+.3f}" if w else "     —")
+            print(f"  {niv:18} {v['n']:>8,} {v['dias']:>5} 1:{v['ratio_med']:>8.2f} "
+                  f"{v['acierta']:>7.0f}% {v['neto']:>+9.3f} {per[0]:>8} {per[1]:>8}")
+        print(f"  El n cambia por nivel: para servir de target de un short el nivel tiene")
+        print(f"  que estar DEBAJO del precio. El VWAP lo está el 30% de los minutos; el")
+        print(f"  mínimo del día, siempre. Comparar netos entre filas compara poblaciones")
+        print(f"  distintas, no solo targets distintos.")
 
     secciones = [
         ("POR BANDA DE PRECIO — donde el costo decide", [

@@ -77,6 +77,7 @@
   .pie b{color:var(--texto);font-weight:600}
   .chip{border:1px solid var(--linea);border-radius:3px;padding:1px 6px;cursor:pointer}
   .chip.on{border-color:var(--ambar);color:var(--ambar)}
+  .sepv{width:1px;height:14px;background:var(--linea);display:inline-block}
 
   /* Ventana angosta: la lista pasa arriba y el gráfico se queda con el resto.
      Sin esto, con menos de 900px el gráfico queda directamente fuera de pantalla. */
@@ -152,7 +153,8 @@
       Elegí un día de la lista.<br>
       <span style="font-size:11px">
         La zona sombreada es pre-market · la línea ámbar es el VWAP acumulado<br>
-        Las rayas punteadas son cierre previo y máximo pre-market
+        Las rayas punteadas son cierre previo y máximo pre-market<br>
+        Para marcar a mano: elegí un tipo abajo (s / l / n) y clickeá el gráfico
       </span>
     </div>
   </div>
@@ -160,6 +162,13 @@
     <span class="chip on" id="tgAnom">anomalías (v)</span>
     <span class="chip on" id="tgVwap">vwap (w)</span>
     <span class="chip on" id="tgMarcas">estado 10:00 / 12:00 (m)</span>
+    <span class="sepv"></span>
+    <span class="tenue">marcar:</span>
+    <span class="chip" data-tipo="entrada_short">short (s)</span>
+    <span class="chip" data-tipo="entrada_long">long (l)</span>
+    <span class="chip" data-tipo="no_va">no va (n)</span>
+    <span class="chip" data-tipo="patron">patrón</span>
+    <span id="etiquetas" class="tenue"></span>
     <span id="detalle"></span>
   </div>
 </main>

@@ -32,6 +32,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import config  # noqa: E402
 from dias import (APERTURA_RTH, CIERRE_RTH, Dia, cargar,  # noqa: E402
                   dias_del_evento, hora)
+from etiquetas import TIPOS, Etiquetas  # noqa: E402
+
+_ET = Etiquetas()
 
 AQUI = Path(__file__).resolve().parent
 ESTATICOS = AQUI / "static"
@@ -215,7 +218,25 @@ def payload_dia(ticker: str, d: str) -> dict | None:
         "resumen": _fila_indice(dia, _es_evento(ticker, d)),
         "ficha": _ficha(ticker, d),
         "anomalias": _anomalias(dia),
+        "etiquetas": _con_ts(dia, _ET.de_dia(ticker, d)),
+        "tipos": TIPOS,
     }
+
+
+def _con_ts(dia: Dia, marcas: list[dict]) -> list[dict]:
+    """Le agrega a cada etiqueta el timestamp de la barra que le corresponde.
+
+    La etiqueta se guarda por HORA decimal, no por timestamp: así sobrevive a
+    que se rebaje el día con otra granularidad. El visor necesita el ts para
+    dibujarla, y ese sí depende de las barras.
+    """
+    out = []
+    for m in marcas:
+        i = dia.idx_en(m["hora"])
+        if i is None:
+            continue
+        out.append({**m, "time": ts(dia.bars[i][0])})
+    return out
 
 
 # ---------------------------------------------------------------- HTTP
@@ -269,6 +290,32 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"error": "parámetros inválidos"}, 400)
             p = payload_dia(t, d)
             return self._json(p) if p else self._json({"error": "sin datos"}, 404)
+
+        if ruta == "/api/etiquetar":
+            t = (q.get("ticker") or [""])[0].upper()
+            d = (q.get("d") or [""])[0]
+            tipo = (q.get("tipo") or [""])[0]
+            nota = (q.get("nota") or [""])[0][:500]
+            try:
+                h = float((q.get("hora") or ["-1"])[0])
+            except ValueError:
+                h = -1.0
+            if not _RE_TICKER.match(t) or not _RE_FECHA.match(d) or not 0 <= h <= 24:
+                return self._json({"error": "parámetros inválidos"}, 400)
+            try:
+                return self._json({"id": _ET.marcar(t, d, h, tipo, nota)})
+            except ValueError as exc:
+                return self._json({"error": str(exc)}, 400)
+
+        if ruta == "/api/desetiquetar":
+            try:
+                _ET.borrar(int((q.get("id") or ["0"])[0]))
+            except ValueError:
+                return self._json({"error": "id inválido"}, 400)
+            return self._json({"ok": True})
+
+        if ruta == "/api/etiquetas":
+            return self._json({"etiquetas": _ET.todas(), "resumen": _ET.resumen()})
 
         if ruta == "/api/bajar":
             t = (q.get("ticker") or [""])[0].upper()

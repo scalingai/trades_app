@@ -26,6 +26,21 @@ previo, RVOL, volumen en dólares, y de la ficha de EDGAR: dilución 12m, revers
 splits, runway y si el shelf estaba efectivo **a esa fecha** (point-in-time, sin
 look-ahead).
 
+## Marcar a mano (la cuota discrecional)
+
+Elegí un tipo abajo —`short` (s), `long` (l), `no va` (n), `patrón`— y clickeá
+el gráfico. Queda una fila en `etiquetas.sqlite` con `(ticker, día, hora, tipo,
+nota)`. La hora es la misma clave que usa `momentos.py`, así que cada marca se
+cruza con su feature vector sin trabajo extra.
+
+Para qué: el sistema mide los features que elegimos nosotros. Lo que ves vos en
+el gráfico no está en ninguna columna, y mientras no esté no se puede saber si
+aporta o es una historia. Marcando se puede medir — pero hace falta **volumen
+de marcas**, con veinte no alcanza. Marcá mientras mirás, no te sientes a
+etiquetar.
+
+`Esc` sale del modo marcar.
+
 ## Atajos
 
 `j` / `k` siguiente y anterior de la lista · `v` anomalías · `w` VWAP ·

@@ -589,6 +589,109 @@ cuantitativo más fuerte que salió hasta ahora para subir la banda de precio** 
 y va en contra del instinto de buscar los papeles baratos porque "se mueven
 más".
 
+## 4.octies. Un minuto, no cinco — y el target atado a la estructura
+
+Dos objeciones de Agus, las dos correctas.
+
+### "¿Cada cuánto probaste?"
+
+Cada 5 minutos, y estaba mal. Cinco minutos es una elección arbitraria y
+descarta 4 de cada 5 momentos de decisión. Rehecho **cada 1 minuto**:
+**233.512 momentos** sobre los mismos 775 días, 73 segundos de construcción.
+
+Un minuto es el piso de lo que tenemos: las barras son agregados de 1 minuto.
+Bajar de ahí necesita datos de **trades** (tick), que es otro plan del
+proveedor. Vale la pena decir qué se ganaría: dentro del minuto está el orden
+real entre stop y target, que hoy se resuelve con la convención conservadora de
+que gana el stop. Con ratios cortos esa convención pesa más que con ratios
+largos, porque el stop está más cerca.
+
+### "El ratio no debe ser fijo, sino por patrón de dato"
+
+También correcto, y es la crítica más de fondo: un target de "1:1" es un número
+nuestro. Un target **en un nivel** lo pone el mercado, y el ratio sale como
+consecuencia de dónde está la estructura. Es lo que hace un discrecional cuando
+dice "acá tengo 1:1 y allá tengo 1:3".
+
+Se agregaron seis niveles como candidatos a target, todos calculados
+acumulativamente hacia adelante. El ratio implícito mediano, con stop de 8× la
+volatilidad:
+
+| target | disponible | ratio que impone |
+|---|---|---|
+| EMA20 | 49% de los minutos | 1:0,13 |
+| VWAP | 37% | 1:0,51 |
+| POC del perfil de volumen | 32% | 1:0,53 |
+| mínimo del día | 100% | 1:2,21 |
+| mínimo de pre-market | 90% | 1:2,30 |
+| cierre previo | 91% | 1:2,52 |
+
+**Los "ratios cortos" que buscaba Agus tienen nombre: son el VWAP y el POC.**
+Los ratios largos son el mínimo del día y el cierre previo. Y el "disponible"
+importa tanto como el ratio: un nivel sirve de target de un short solo si está
+DEBAJO del precio, y el VWAP lo está apenas un tercio del tiempo.
+
+### El resultado, incluido el que se dio vuelta
+
+Sobre toda la población los seis niveles dan neto negativo, igual que los
+ratios fijos. En la celda buena —precio ≥ $3, volatilidad > 2,5%/min, debajo
+del VWAP, stop 8×— el POC parecía la mejor combinación encontrada hasta ahora:
+
+| | n | días | ratio | acierta | neto | P1 | P2 |
+|---|---|---|---|---|---|---|---|
+| target = POC | 1.280 | 85 | 1:0,26 | 65% | +0,172 | **+0,321** | **−0,007** |
+| fijo 1:3 | 12.534 | 302 | 1:3 | 0% | +0,168 | +0,226 | +0,104 |
+
+**No replica.** El POC dio +0,32 en el primer período y −0,01 en el segundo, y
+encima el nivel está disponible en 85 días contra 302. Agregando por día
+—que es el n honesto— el POC da **−0,007R** y el ratio fijo largo **+0,082R**.
+
+O sea: el target estructural es la idea correcta y **este** target estructural
+no aguantó. Queda registrado como probado y fallado, no como pendiente.
+
+### Indicadores agregados al estado
+
+Cada minuto lleva ahora, además de lo anterior: distancia a EMA9 y EMA20, RSI
+de 14, distancia al POC, **fracción del volumen del día operada ARRIBA del
+precio actual** (el papel atrapado, que es distinto de la distancia al POC), y
+cuántos tramos de 15 minutos vienen haciendo máximos decrecientes.
+
+El perfil de volumen es el histograma verde que se ve a la izquierda en DAS:
+antes lo miraba Agus a ojo y el sistema no lo tenía.
+
+## 4.nonies. La cuota discrecional — cómo entra sin ensuciar todo
+
+El sistema mide los features que elegí yo. Lo que ve un operador mirando el
+gráfico —"esto es un short", "esto es una trampa"— no está en ninguna columna,
+y **mientras no esté no se puede saber si aporta información o si es una
+historia que uno se cuenta**.
+
+La única forma honesta de meterlo es la misma regla que ya rige para el LLM en
+la Capa 1: **que emita una ETIQUETA, no un número**, y después medir esa
+etiqueta contra el resultado.
+
+Implementado en el visor: se elige un tipo (`entrada_short`, `entrada_long`,
+`no_va`, `salida`, `patron`), se clickea el gráfico, y queda una fila en
+`etiquetas.sqlite` con `(ticker, día, hora, tipo, nota)`. La hora es la misma
+clave que usa `momentos`, así que cada marca se cruza con su feature vector sin
+trabajo extra.
+
+Vocabulario **cerrado** a propósito: un campo de texto libre se llena de
+sinónimos en dos semanas y deja de ser agrupable. La nota libre está aparte.
+Tabla **append-only**: una marca equivocada se corrige agregando otra.
+
+Lo que esto va a poder contestar, y hoy no se puede:
+
+1. ¿Los minutos marcados a mano rinden mejor que los que el modelo elegiría
+   solo? Si sí, la discreción aporta y hay que buscar qué feature la aproxima.
+   Si dan igual, no aporta — y eso también es un resultado.
+2. ¿Qué features separan lo marcado de lo no marcado? Esa es la vía para
+   convertir la intuición en una columna.
+
+**Hace falta volumen de marcas antes de poder medir nada**: con veinte no
+alcanza. El orden natural es marcar mientras se miran los días, no sentarse a
+etiquetar.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:
