@@ -101,6 +101,10 @@ def main(argv=None) -> int:
     client = MassiveClient()
     t0 = time.time()
     barras = ok = vacios = err = 0
+    # El ETA se estima con las últimas 25, no con el promedio acumulado: un solo
+    # stall de la API (429 con backoff, o un timeout) envenena el promedio para
+    # siempre y el número deja de servir para decidir si seguir esperando.
+    t_tramo = t0
     for i, (t, d) in enumerate(pend, 1):
         nb, st = fetch_event(client, store, t, date.fromisoformat(d))
         barras += nb
@@ -108,10 +112,14 @@ def main(argv=None) -> int:
         vacios += st == "empty"
         err += st not in ("ok", "empty")
         if i % 25 == 0 or i == len(pend):
-            el = time.time() - t0
+            ahora = time.time()
+            por_evento = (ahora - t_tramo) / 25
+            t_tramo = ahora
             print(f"  [{i:>5}/{len(pend)}] {barras:>9,} barras · ok {ok:,} · "
                   f"vacíos {vacios:,} · errores {err:,} · "
-                  f"faltan ~{(el/i)*(len(pend)-i)/3600:.1f} h", flush=True)
+                  f"{por_evento:.0f} s/evento · "
+                  f"faltan ~{por_evento*(len(pend)-i)/3600:.1f} h "
+                  f"(acumulado {(ahora-t0)/3600:.1f} h)", flush=True)
 
     print(f"\n  {barras:,} barras en {(time.time()-t0)/3600:.1f} h")
     store.close()
