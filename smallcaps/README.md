@@ -40,6 +40,7 @@
 | `test_ventana.py` | perfil horario 04:00-16:00 — dónde está la plata en el día | $0 |
 | `poblacion_observable.py` | descarga el **censo** seleccionado antes de la apertura | $0 |
 | `test_historial.py` | ¿el historial de gaps del ticker predice el próximo? (sí, y aparte) | $0 |
+| `fichas.py` | país, SIC y sector de EDGAR, en lote y cacheado | $0 |
 | `radar.py` | las 3 capas del protocolo: régimen, escáner, viabilidad | $0 |
 | `radar_historico.py` | el radar sobre los 61.477 eventos diarios, no solo los que tienen minutos | $0 |
 | `test_sensibilidad.py` | ¿el radar es meseta o pico? (meseta) | $0 |
