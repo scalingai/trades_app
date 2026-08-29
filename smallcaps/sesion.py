@@ -103,6 +103,26 @@ def señales_swing(dia, *, rebote=8.0, desde=9.75, hasta=15.5, min_liquidez=2.5e
     return out
 
 
+def stop_estructural(dia, i, *, colchon=1.0, minimo=3.0, maximo=40.0):
+    """Distancia al máximo del día vigente, en %. El nivel lo pone el mercado.
+
+    La idea, que es de Agus: si el stop va arriba del máximo del día, sabés
+    exactamente dónde estás equivocado. Y como el tamaño sale del riesgo
+    dividido por la distancia al stop, **una invalidación cerca significa
+    posición grande**. Entrar pegado al máximo deja de ser peligroso y pasa a
+    ser eficiente, siempre que el máximo aguante.
+
+    Se acota entre `minimo` y `maximo`: un stop del 0,5% lo barre cualquier
+    mecha y uno del 80% no es un stop, es una esperanza.
+    """
+    p = dia.bars[i][4]
+    hod = dia.max_corriente[i]
+    if not p or not hod or hod <= p:
+        return None
+    d = (hod * (1 + colchon / 100.0) / p - 1) * 100
+    return max(minimo, min(maximo, d))
+
+
 def trade(dia, i, *, stop_pct, riesgo, costo_accion):
     """Short con nominal dimensionado por el riesgo. Devuelve (pnl $, motivo)."""
     p = dia.bars[i][4]
@@ -124,7 +144,8 @@ def trade(dia, i, *, stop_pct, riesgo, costo_accion):
 
 
 def jornada(dia, *, riesgo_dia, riesgo_trade, objetivo, stop_pct, costo_accion,
-            max_trades, min_liquidez, modo="agotamiento"):
+            max_trades, min_liquidez, modo="agotamiento",
+            stop_modo="fijo", colchon=1.0, tope_stop=40.0):
     """Opera un día completo con presupuesto. Devuelve el resultado de la jornada."""
     if clasificar_apertura(dia) != "fade":
         return None
@@ -133,7 +154,7 @@ def jornada(dia, *, riesgo_dia, riesgo_trade, objetivo, stop_pct, costo_accion,
     if not ses:
         return None
 
-    pnl, n, motivos = 0.0, 0, []
+    pnl, n, motivos, stops = 0.0, 0, [], []
     for i in ses:
         if n >= max_trades:
             break
@@ -141,20 +162,26 @@ def jornada(dia, *, riesgo_dia, riesgo_trade, objetivo, stop_pct, costo_accion,
         if pnl - riesgo_trade < -riesgo_dia:
             motivos.append("limite")
             break
-        r = trade(dia, i, stop_pct=stop_pct, riesgo=riesgo_trade,
+        sp = stop_pct
+        if stop_modo == "estructural":
+            sp = stop_estructural(dia, i, colchon=colchon, maximo=tope_stop)
+            if sp is None:
+                continue
+        r = trade(dia, i, stop_pct=sp, riesgo=riesgo_trade,
                   costo_accion=costo_accion)
         if not r:
             continue
         pnl += r[0]
         n += 1
         motivos.append(r[1])
+        stops.append(sp)
         if objetivo > 0 and pnl >= objetivo:
             motivos.append("objetivo")
             break
     if n == 0:
         return None
     return {"ticker": dia.ticker, "d": dia.d, "pnl": pnl, "trades": n,
-            "cierre_por": motivos[-1],
+            "cierre_por": motivos[-1], "stops": stops,
             "per": "P1" if dia.d < CORTE_PERIODO else "P2"}
 
 
@@ -168,6 +195,12 @@ def main(argv=None) -> int:
                     help="dólares a los que se cierra la jornada (0 = sin objetivo)")
     ap.add_argument("--stop", type=float, default=15.0)
     ap.add_argument("--max-trades", type=int, default=3)
+    ap.add_argument("--stop-modo", choices=("fijo", "estructural"), default="fijo",
+                    help="fijo = %% desde la entrada; estructural = arriba del máximo del día")
+    ap.add_argument("--tope-stop", type=float, default=40.0,
+                    help="tope al stop estructural; arriba de esto no es un stop")
+    ap.add_argument("--colchon", type=float, default=1.0,
+                    help="%% por encima del máximo del día donde va el stop estructural")
     ap.add_argument("--modo", choices=("agotamiento", "swing"), default="agotamiento",
                     help="cómo se generan las entradas")
     ap.add_argument("--min-expansion", type=float, default=100.0)
@@ -187,7 +220,9 @@ def main(argv=None) -> int:
         j = jornada(dia, riesgo_dia=args.riesgo, riesgo_trade=rt,
                     objetivo=args.objetivo, stop_pct=args.stop,
                     costo_accion=args.costo, max_trades=args.max_trades,
-                    min_liquidez=args.min_liquidez, modo=args.modo)
+                    min_liquidez=args.min_liquidez, modo=args.modo,
+                    stop_modo=args.stop_modo, colchon=args.colchon,
+                    tope_stop=args.tope_stop)
         if j:
             jornadas.append(j)
     db.close()
@@ -206,7 +241,9 @@ def main(argv=None) -> int:
     print(f"  riesgo/día ${args.riesgo:.0f} · riesgo/trade ${rt:.0f} · "
           f"objetivo ${args.objetivo:.0f} · stop {args.stop:.0f}% · "
           f"máx {args.max_trades} trades")
-    print(f"  modo de entrada: {args.modo}")
+    print(f"  modo de entrada: {args.modo} · stop: {args.stop_modo}"
+          + (f" (máx del día +{args.colchon:.0f}%)" if args.stop_modo == "estructural"
+             else f" ({args.stop:.0f}%)"))
     print(f"  costo ${args.costo:.2f}/acción · liquidez >= "
           f"${args.min_liquidez/1e3:.0f}k/min · expansión >= {args.min_expansion:.0f}%")
     print("=" * 92)
