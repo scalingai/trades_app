@@ -1192,6 +1192,87 @@ feature y el resultado son la misma medición con dos nombres. Se anota
 únicamente para que nadie lo redescubra dentro de tres semanas y lo confunda con
 una señal.
 
+## 4.septendecies. El torneo — todas contra la misma vara
+
+Cada estrategia se había medido con su propio script, su propia población y su
+propio modelo de costos. Los números convivían en el mismo documento sin ser
+comparables: el −13,27% del radar no tiene stop, el −0,99% de la Chavineta paga
+comisión por ejecución, el +8,39% de la entrada simple no paga nada. Poner tres
+números así en una tabla es peor que no tenerla.
+
+`torneo.py` las corre a todas contra la misma población (329 días de expansión
+≥ 100%), el mismo costo (4c por acción por ejecución) y el mismo riesgo máximo
+comprometido.
+
+| estrategia | n | med | media | gana | MAE p90 | media÷MAE | media×año |
+|---|---|---|---|---|---|---|---|
+| short simple 09:30 → cierre | 329 | +7,92% | **+14,64%** | 61% | **98,6%** | +0,15 | +2.565% |
+| short simple 09:30 → 11:30 | 329 | +7,28% | +7,36% | 59% | 76,4% | +0,10 | +1.289% |
+| short 09:30, stop 8× vol | 316 | −11,76% | +3,56% | 38% | 31,8% | +0,11 | +599% |
+| **short 09:30, stop 15%** | 329 | −16,13% | +3,70% | 36% | **23,1%** | **+0,16** | +648% |
+| short 10:00, stop 8× vol | 327 | +2,15% | +1,95% | 53% | 42,5% | +0,05 | +339% |
+| escalonado 06:30 → 11:30 | 260 | +0,68% | −6,22% | 53% | 163,2% | −0,04 | −861% |
+| escalonado 08:30 → cierre | 325 | +3,27% | +7,49% | 62% | 76,5% | +0,10 | +1.295% |
+| **swing: cierre → T+5** | 329 | **+12,83%** | +9,55% | **71%** | 70,0% | +0,14 | +1.674% |
+| chavineta completa | 274 | −2,33% | −6,21% | 36% | **10,9%** | **−0,57** | −907% |
+
+### Patrón 1 — la que gana el ranking es la que no se puede operar
+
+`short simple 09:30 → cierre` sale primera por negocio anual (+2.565%) y tiene
+un **MAE p90 del 98,6%**: uno de cada diez trades te duplica la posición en
+contra antes del cierre. Con cualquier dimensionamiento realista eso no es una
+estrategia, es una liquidación esperando fecha.
+
+Su ventaja viene entera de **no cortar nunca**: las que llevan stop pierden en
+mediana (−11,76% y −16,13%) porque el stop realiza las pérdidas que la versión
+sin stop deja recuperarse. Es el perfil clásico de una expectativa que se
+sostiene sobre no reconocer pérdidas.
+
+### Patrón 2 — el retorno por unidad de peor caso es casi constante
+
+Entre las que tienen esperanza positiva, la relación `media ÷ MAE p90` vive en
+una banda angosta: **+0,05 a +0,16**. Cuatro veces más retorno cuesta cuatro
+veces más excursión adversa.
+
+Traducido: **entre estas estrategias no hay una mejor, hay una recta y elegís
+dónde pararte.** La pregunta deja de ser "cuál gana" y pasa a ser "cuánto
+drawdown aguantás sin cambiar de tamaño". Que es exactamente para lo que existe
+[GESTION-RIESGO.md](GESTION-RIESGO.md).
+
+Con una excepción que importa:
+
+### Patrón 3 — la Chavineta no está en la recta, está abajo
+
+Con un MAE p90 de **10,9%** —de lejos el más bajo de la tabla, la mitad que el
+stop del 15%— da **−6,21% de media**. Ratio −0,57.
+
+No es "más segura": es **dominada**. Controla el riesgo mejor que ninguna y aun
+así pierde. Lo mismo, en menor grado, el escalonado desde las 06:30: MAE p90 de
+163% con media −6,22%, o sea el peor de los dos mundos.
+
+Eso ordena la conclusión que veníamos arrastrando: **la parte mecánica de la
+Chavineta no es una versión conservadora de las otras, es peor en las dos
+dimensiones a la vez.** Todo lo que la haría competitiva está en la selección
+discrecional que no está modelada.
+
+### Patrón 4 — el swing es el mejor compromiso de la tabla
+
+`cierre → T+5` da la mejor mediana (+12,83%), el mejor win rate (71%) y un ratio
+de +0,14, con MAE p90 del 70%. Es la única fila que combina mediana alta con
+consistencia alta.
+
+Y es la que menos infraestructura necesita: se decide con barras diarias, no
+hace falta mirar el minuto. **Pero acumula costo de borrow todas las noches y no
+está medido**, y el 70% de MAE p90 con posición abierta durante cinco días es
+otra clase de problema que el mismo número intradía.
+
+### El reparo, otra vez
+
+La población sale de la muestra de minutos sesgada. Las comparaciones **entre
+filas** valen porque comparten población; **los niveles no**. El +14,64% de la
+primera fila está inflado por una selección que a las 09:30 no se conoce, y hay
+que asumir que el ordenamiento sobrevive mejor que las magnitudes.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:
