@@ -1532,6 +1532,88 @@ la parte automatizable —agregar contra niveles— es adversa por construcción
 que lo que la salvaría tendría que ser una regla para agregar **a favor**, que
 es otra técnica.
 
+## 4.unvigies. Desde los extremos, y la jornada como unidad
+
+Tres pedidos de Agus, los tres correctos, y el tercero es una objeción de método
+que valía toda la ronda.
+
+### A. "Habría que medir desde los extremos, no tan ligados al tiempo"
+
+Todo lo medido hasta acá entra a una hora fija. Un papel que hace su máximo a las
+11:40 y otro que lo hace a las 14:10 tienen la misma forma y caen en baldes
+distintos solo por el reloj. `test_extremos.py` describe el día por su
+estructura. Sobre 438 días de expansión ≥ 100%:
+
+| | p10 | mediana | p75 | p90 |
+|---|---|---|---|---|
+| rango del día | 35,6% | **67,5%** | 103,5% | 161,4% |
+| del máximo al mínimo posterior | 24,1% | **57,3%** | 83,4% | 125,0% |
+| minutos entre uno y otro | 24 | **166** | 268 | 356 |
+
+| | p10 | mediana | p75 | p90 |
+|---|---|---|---|---|
+| hora del máximo | 09:30 | **09:49** | 11:24 | 14:54 |
+| hora del mínimo | 09:33 | 11:40 | 14:11 | 15:48 |
+
+**El máximo llega antes que el mínimo en el 66% de los días, y la mediana lo pone
+a las 09:49.** Y cuanto más temprano, más queda:
+
+| el máximo se hace | n | caída posterior | % del rango que queda |
+|---|---|---|---|
+| **09:30–10:00** | **243 (55%)** | **63,7%** | 100% |
+| 10:00–11:00 | 71 | 67,4% | 100% |
+| 11:00–13:00 | 50 | 50,1% | 88% |
+| después de 13:00 | 74 | 24,8% | 53% |
+
+**El techo del short perfecto es 57,3% de mediana. Las estrategias medidas
+capturan entre 1% y 10%.** O sea que el problema nunca fue que faltara
+movimiento: hay 57 puntos sobre la mesa. El problema es la captura, y la captura
+la definen dónde entrás y cuánto nominal tenés puesto.
+
+### B. La jornada como unidad, con presupuesto en dólares
+
+`sesion.py`: se arriesga $R en el día, nominal completo en cada entrada, varias
+entradas permitidas, y la jornada se cierra por objetivo o por límite. El tamaño
+sale del riesgo — con stop del 15% y $17 por trade la posición vale $113,
+independientemente de si el papel cotiza $1 o $12.
+
+Con $50 de riesgo diario, stop 15%, liquidez ≥ $250k/min, hasta 5 trades:
+
+| | media/jornada | acumulado anual | desvío |
+|---|---|---|---|
+| **sin objetivo** | **+$3,34** | **+$585** | $43,14 |
+| objetivo de $50 | +$0,81 | +$143 | $37,01 |
+
+**Cerrar al llegar al objetivo divide el resultado por cuatro y baja la
+volatilidad apenas un 14%.** Es la sexta aparición del mismo patrón en este
+proyecto —apilar filtros, acortar el hold, acotar la pérdida, apurar el ratio,
+cobrar antes, y ahora cerrar la jornada—. En las seis, asegurar produce algo más
+lindo de mirar y un negocio peor.
+
+Cómo cierra la jornada sin objetivo:
+
+| motivo | n | media |
+|---|---|---|
+| llega al cierre de mercado | 193 (57%) | **+$27,52** |
+| toca el límite diario | 104 (31%) | **−$38,66** |
+| un stop y se acabó el día | 39 (12%) | −$4,38 |
+
+### C. Y el número que ordena todo
+
+175 jornadas operables al año, $3,34 de media, $43,14 de desvío por jornada:
+
+> **$584 por año con $571 de volatilidad anual. Ratio 1,02.**
+
+Un ratio de 1 no es despreciable — pero hay que decir contra qué. Son $584 al año
+arriesgando $50 por día, y **sin descontar borrow**, que en estos papeles no es
+un ajuste al margen. Con la muestra sesgada encima, lo honesto es leerlo como
+"no está roto", no como "es un negocio".
+
+Lo que sí queda establecido, y es lo que hacía falta: **el esquema de riesgo por
+jornada funciona como marco de medición.** La unidad ahora es el día y el número
+está en dólares, que es como se vive. Todo lo que venga después se puede
+comparar contra estos $3,34.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:

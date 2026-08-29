@@ -50,7 +50,9 @@
 | `test_ventana.py` | perfil horario del short, 04:00 a 16:00 | $0 |
 | `test_construccion.py` | entrada simple vs construir la posición, por hora | $0 |
 | `test_rvol_dolares.py` | el punto ciego del RVOL en acciones (existe, y está a favor) | $0 |
-| `torneo.py` | **todas las estrategias contra la misma vara** | $0 |
+| `test_extremos.py` | la anatomía del día desde los extremos, no desde el reloj | $0 |
+| `sesion.py` | **la jornada como unidad: riesgo en dólares, varios trades** | $0 |
+| `torneo.py` | todas las estrategias contra la misma vara | $0 |
 | `recorrer.py` | re-corre TODO el análisis sobre el censo y guarda la salida | $0 |
 | `visor/server.py` | **gráfico de velas local** de cualquier día descargado | $0 |
 
