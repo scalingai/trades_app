@@ -6,7 +6,9 @@
 > midamos y funcione.
 >
 > La medición completa está en [RESEARCH.md](RESEARCH.md); el dimensionamiento,
-> en [GESTION-RIESGO.md](GESTION-RIESGO.md).
+> en [GESTION-RIESGO.md](GESTION-RIESGO.md); y **qué es exactamente cada número,
+> en [COMO-SE-MIDE.md](COMO-SE-MIDE.md)** — importa, porque la mitad de los
+> resultados son mediciones de movimiento y no simulaciones de trade.
 
 ## Antes que nada: qué está probado y qué no
 

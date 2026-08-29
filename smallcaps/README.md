@@ -3,6 +3,9 @@
 > **Estado al 2026-08-29.** Investigación con datos propios, sin operar.
 > **[ESTRATEGIA.md](ESTRATEGIA.md) — las reglas operables, con el semáforo de
 > qué está validado y qué no.** Leer eso primero si venís a operar.
+> **[COMO-SE-MIDE.md](COMO-SE-MIDE.md) — qué es exactamente cada número.**
+> Empezar por ahí antes de creerle a una tabla: la mitad de los resultados del
+> proyecto son mediciones de movimiento, no simulaciones de trade.
 > La medición completa está en [RESEARCH.md](RESEARCH.md); el dimensionamiento,
 > en [GESTION-RIESGO.md](GESTION-RIESGO.md).
 
@@ -41,7 +44,8 @@
 | `radar_historico.py` | el radar sobre los 61.477 eventos diarios, no solo los que tienen minutos | $0 |
 | `test_sensibilidad.py` | ¿el radar es meseta o pico? (meseta) | $0 |
 | `test_capas.py` | ¿las 3 capas componen? (para el trade sí, para el año no) | $0 |
-| `test_ventana.py` | perfil horario + entrada simple vs escalonada | $0 |
+| `test_ventana.py` | perfil horario del short, 04:00 a 16:00 | $0 |
+| `test_construccion.py` | entrada simple vs construir la posición, por hora | $0 |
 | `test_rvol_dolares.py` | el punto ciego del RVOL en acciones (existe, y está a favor) | $0 |
 | `recorrer.py` | re-corre TODO el análisis sobre el censo y guarda la salida | $0 |
 | `visor/server.py` | **gráfico de velas local** de cualquier día descargado | $0 |
