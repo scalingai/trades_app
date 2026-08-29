@@ -1443,6 +1443,95 @@ días se toman.
 
 Que es, otra vez, el 56% de descartes.
 
+## 4.vigies. Faltaba el filtro de liquidez — y el sizing estaba al revés
+
+Dos observaciones de Agus mirando gráficos, las dos correctas, las dos con
+consecuencias grandes.
+
+### A. "Veo gráficos que parecen poco líquidos"
+
+Auditado: el piso de liquidez estaba en `poblacion_observable.py` y en
+`radar_historico.py`, pero **el embudo del visor y `chavineta.py` filtraban por
+RATIO, no por nivel** — `ratio_volumen >= 3` deja pasar un papel que va de $30k
+a $120k por día.
+
+Y hay un problema más profundo que el umbral: **el volumen del día no dice si se
+puede operar en el minuto que entrás.** TC 2025-01-27 operó **$39,6M en la
+jornada** y **$412 por minuto** cuando el motor entró.
+
+Medida honesta: dólares por minuto en los **10 minutos anteriores** a la entrada
+—solo previos, que es lo que se ve en la cinta al decidir—. Sobre 952 trades:
+
+| $ por minuto | n | % | mediana | media | gana | MAE p90 |
+|---|---|---|---|---|---|---|
+| < $20k | 117 | 12% | −2,96% | −4,58% | **17%** | 16,0% |
+| $20–100k | 122 | 13% | −1,26% | −2,57% | 30% | 12,2% |
+| $100–500k | 200 | 21% | +0,07% | −0,95% | 50% | 10,8% |
+| $500k–2M | 336 | 35% | +0,90% | +0,15% | 63% | 7,7% |
+| > $2M | 177 | 19% | **+1,33%** | +0,88% | 66% | 8,1% |
+
+**Monotónico en cinco baldes, y un cuarto de los trades caía en los dos peores.**
+Con piso de $250k/min la media de la Chavineta pasa de **−1,14% a +0,09%**, y el
+peor caso de −59,7% a −28,6%. Es el primer filtro que la saca de terreno
+negativo, y descarta el 24% de los días.
+
+El mecanismo no admite discusión: **no se puede operar lo que no opera.**
+Incorporado como `Dia.liquidez_en()` y como `--min-liquidez` (default $250k/min).
+
+### B. "¿Nunca tomó ganancia del short? Era puro profit ese día"
+
+AUUD 2026-05-19: el motor entró a $2,31 y salió a $1,63 —el papel cayó 29%— y el
+resultado fue **+4,42%**. Porque tenía **1 tramo de 5**: el 20% del nominal.
+
+Eso llevó a la pregunta que faltaba hacerse: **¿la escalera pone más capital
+cuando acierta o cuando falla?**
+
+| | n | tramos medios | % que agregó | movimiento del precio |
+|---|---|---|---|---|
+| ganadores | 392 | **1,33** | 32% | +16,3% |
+| perdedores | 234 | **1,84** | 76% | −11,3% |
+
+**Despliega 38% más capital en los perdedores que en los ganadores.** Y por
+cantidad de tramos:
+
+| tramos abiertos | n | media | gana |
+|---|---|---|---|
+| 1/5 | 322 (51%) | **+2,10%** | **83%** |
+| 2/5 | 285 (46%) | −1,49% | 43% |
+| 3/5 | 17 (3%) | −6,84% | 18% |
+
+**Cada adición empeora el trade, monotónicamente.**
+
+Y el costo de eso: en los ganadores el precio se mueve +16,3% a favor y la
+técnica captura +2,16%. **Se queda con el 13% del movimiento.**
+
+### La comparación que lo cierra
+
+Misma entrada, mismo filtro de liquidez, mismos días. Lo único que cambia es el
+sizing:
+
+| | n | mediana | media | gana | MAE p90 | media÷MAE |
+|---|---|---|---|---|---|---|
+| escalera 20% + adiciones | 627 | +0,98% | +0,21% | 63% | **8,3%** | 0,025 |
+| **nominal completo de entrada** | 627 | +3,74% | **+10,05%** | 58% | 56,0% | **0,18** |
+
+Siete veces mejor retorno por unidad de peor caso.
+
+**No es que la escalera arriesgue menos y gane menos en proporción: es que
+arriesga menos y gana desproporcionadamente menos.** El motivo es estructural y
+no depende de la calibración: **una escalera de adiciones contra resistencias
+solo puede construir posición cuando el precio va en contra.** El día que
+acertás de entrada, te quedás con el núcleo.
+
+Esto explica por fin por qué la Chavineta mecánica venía negativa en todas las
+variantes probadas. No era el filtro de apertura, ni el gatillo, ni la salida, ni
+el locate. **Era el sizing, y está al revés.**
+
+Lo que NO dice: que la técnica no funcione en manos de quien la opera. Dice que
+la parte automatizable —agregar contra niveles— es adversa por construcción, y
+que lo que la salvaría tendría que ser una regla para agregar **a favor**, que
+es otra técnica.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:

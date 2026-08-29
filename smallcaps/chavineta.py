@@ -179,7 +179,7 @@ def salida_gradual(bars, desde_idx, abiertos, disparo, *, minutos=30,
 
 def operar(dia, prev_high, *, costo_accion, tope_perdida, quita_locate,
            minutos_reclaim=2, margen_reclaim=0.0, costo_salida=None,
-           gradual=False, salida_be=None):
+           gradual=False, salida_be=None, min_liquidez=0.0):
     """Un ciclo plano a plano. Devuelve un dict, o None si el día no se opera."""
     lado = clasificar_apertura(dia)
     if lado != "fade":
@@ -187,6 +187,13 @@ def operar(dia, prev_high, *, costo_accion, tope_perdida, quita_locate,
     i0 = agotamiento(dia)
     if i0 is None:
         return {"operado": False, "motivo": "sin_agotamiento"}
+    # Piso de liquidez EN EL MOMENTO, no del día. Un papel que operó $39M en la
+    # jornada puede estar moviendo $400 por minuto cuando toca entrar, y ahí no
+    # hay trade: hay un gráfico. Se mide con los 10 minutos previos.
+    if min_liquidez > 0:
+        liq = dia.liquidez_en(hora(dia.bars[i0]))
+        if liq is None or liq < min_liquidez:
+            return {"operado": False, "motivo": "sin_liquidez"}
 
     p0 = dia.bars[i0][4]
     niveles = resistencias(dia, i0, prev_high)
@@ -386,6 +393,9 @@ def main(argv=None) -> int:
     ap.add_argument("--pasivo", action="store_true",
                     help="adiciones y reducciones como órdenes limitadas: sin "
                          "cruzar spread, con rebate por aportar liquidez")
+    ap.add_argument("--min-liquidez", type=float, default=2.5e5,
+                    help="dólares por minuto mínimos en los 10 min previos a la "
+                         "entrada (0 = sin filtro)")
     ap.add_argument("--salida-be", type=float, default=None,
                     help="salir TODO al volver al precio medio (%% por debajo; "
                          "0 = break-even exacto). Solo si ya se construyó posición")
@@ -423,7 +433,7 @@ def main(argv=None) -> int:
                    minutos_reclaim=args.minutos_reclaim,
                    margen_reclaim=args.margen_reclaim,
                    costo_salida=costo_salida, gradual=args.gradual,
-                   salida_be=args.salida_be)
+                   salida_be=args.salida_be, min_liquidez=args.min_liquidez)
         if r.get("operado"):
             r["per"] = "P1" if dia.d < CORTE_PERIODO else "P2"
             res.append(r)

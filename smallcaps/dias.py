@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
+import statistics
 from datetime import date, timedelta
 
 import config
@@ -104,6 +105,23 @@ class Dia:
     def precio_en(self, h: float):
         i = self.idx_en(h)
         return self.bars[i][4] if i is not None else None
+
+    def liquidez_en(self, h: float, ventana: int = 10):
+        """Dólares por minuto operados en los `ventana` minutos ANTERIORES.
+
+        Solo minutos previos: es lo que se ve en la cinta al decidir. Incluir el
+        minuto de la entrada o los posteriores mete look-ahead en un filtro que
+        parece inofensivo.
+
+        Es la medida honesta de si el papel se puede operar EN ESE MOMENTO. El
+        volumen del día entero no sirve: TC 2025-01-27 operó $39,6M en el día y
+        $412 por minuto cuando el motor entró.
+        """
+        i = self.idx_en(h)
+        if i is None or i < ventana:
+            return None
+        v = [(b[5] or 0) * (b[4] or 0) for b in self.bars[i - ventana:i]]
+        return statistics.median(v) if v else None
 
     def estado_en(self, h: float):
         """`front` / `back` según el VWAP. Cero parámetros: el nivel lo pone el flujo."""

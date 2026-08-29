@@ -377,6 +377,8 @@ function pintarBarra() {
     '<div class="sep"></div>',
     kpi(pct(r.expansion), 'expansión pre-mkt', cls(r.expansion)),
     kpi(n(r.ratio_vol, 1, '×'), 'vol vs día previo'),
+    kpi(r.liq_min ? '$' + (r.liq_min / 1e3).toFixed(0) + 'k' : '—', '$/min a las 10:00',
+      r.liq_min >= 250e3 ? 'pos' : 'neg'),
     kpi(pct(r.intradia), 'apertura→cierre', cls(r.intradia)),
     kpi(r.estado10 || '—', 'estado 10:00',
       r.estado10 === 'front' ? 'pos' : r.estado10 ? 'neg' : ''),
@@ -394,7 +396,8 @@ function pintarBarra() {
     kpi(st.shelf_effective == null ? '—' : (st.shelf_effective ? 'sí' : 'no'), 'shelf efectivo'),
   ];
   $('#barra').innerHTML = partes.join('');
-  const PASOS = [['ok_censo', 'en el censo'], ['ok_precio', 'precio ≥ $3'],
+  const PASOS = [['ok_liquidez', '≥ $250k/min'], ['ok_censo', 'en el censo'],
+    ['ok_precio', 'precio ≥ $3'],
     ['ok_volumen', 'vol ≥ 3×'], ['ok_expansion', 'expansión ≥ 100%'],
     ['ok_fade', 'abrió fade']];
   $('#embudo').innerHTML =

@@ -28,6 +28,8 @@ ilusión.
 | **El radar de 5 filtros separa 15 puntos** | 🟢 n=169 sobre el universo diario · P1 −12,9% / P2 −13,4% · umbrales NO calibrados por mí · **meseta, no pico** |
 | **El derrumbe sigue después del cierre** | 🟢 T+1 −9,8% · T+5 −17,4% · T+20 −31,6% (83% negativos) |
 | **El historial de gaps del ticker** | 🟢 monotónico, y aporta aparte de la dilución |
+| **Liquidez ≥ $250k/min al entrar** | 🟢 gradiente monotónico en 5 baldes · saca a la Chavineta de terreno negativo |
+| **La escalera de adiciones** | 🔴 **EL SIZING ESTÁ AL REVÉS**: 1,84 tramos en los perdedores contra 1,33 en los ganadores |
 | **La Chavineta mecánica** | 🔴 **DOMINADA**: el MAE p90 más bajo de la tabla (10,9%) y media −6,21%. No es la versión conservadora: es peor en las dos dimensiones |
 | **Ratios cortos (1:1 o menos)** | 🔴 la esperanza SUBE con el ratio en todas las celdas |
 | **Front-side long** | 🟡 el balde que mejor da es el más contaminado por el sesgo |

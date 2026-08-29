@@ -80,7 +80,11 @@ def _embudo(dia: Dia, en_censo: bool) -> dict:
     # Prefijo `ok_` a propósito: sin él, la clave booleana `expansion` chocaba
     # con la numérica del mismo nombre y el badge del panel quedaba siempre en
     # verde. Un embudo que dice que sí a todo es peor que no tener embudo.
+    # Liquidez en el minuto de decisión (10 min previos), no del día entero:
+    # un papel puede operar $39M en la jornada y $400 por minuto cuando entrás.
+    liq = dia.liquidez_en(10.0)
     pasos = {
+        "ok_liquidez": bool(liq and liq >= 2.5e5),
         "ok_censo": en_censo,
         "ok_precio": bool(p and p >= 3.0),
         "ok_volumen": bool(ratio and ratio >= 3),
@@ -101,6 +105,7 @@ def _fila_indice(dia: Dia, es_evento: bool = True, en_censo: bool = False) -> di
         "evento": es_evento,
         "expansion": round(dia.expansion_pct, 1) if dia.expansion_pct is not None else None,
         "ratio_vol": round(dia.ratio_volumen, 1) if dia.ratio_volumen else None,
+        "liq_min": round(dia.liquidez_en(10.0) or 0),
         "prev_close": dia.prev_close,
         "open": o,
         "close": c,
