@@ -179,7 +179,19 @@ VWAP el short pierde: −0,138R.
 barras). Es la única celda además de $10+ con bruto positivo, y encima es donde
 el costo pesa menos.
 
-🔴 **Agotamiento de volumen como gatillo.** Definido como el volumen de los
+🟢 **No shortear la PRIMERA señal: esperar extensión.** Salió de las marcas a
+mano de Agus y se validó sobre 406 días. Poniendo una limitada 50% por encima
+del primer agotamiento, sobre los días que llegan a llenarla:
+
+| | mediana | gana | MAE p90 |
+|---|---|---|---|
+| entrar en la 1ª señal | −18,71% | 18% | 187,7% |
+| esperar la extensión | **+21,94%** | **69%** | 91,8% |
+
+Llena en el 18% de los días. Cobra menos veces y no tiene la cola que rompe la
+cuenta del año.
+
+🔴 **Agotamiento de volumen como gatillo INMEDIATO.** Definido como el volumen de los
 últimos 5 minutos cayendo por debajo de la mitad del clímax mientras el precio
 no hace máximos. Implementado en `chavineta.py` y **no alcanzó para dar
 positivo**. Está acá porque hace falta un gatillo y este es el que describen los

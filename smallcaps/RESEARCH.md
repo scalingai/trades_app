@@ -1273,6 +1273,97 @@ filas** valen porque comparten población; **los niveles no**. El +14,64% de la
 primera fila está inflado por una selección que a las 09:30 no se conoce, y hay
 que asumir que el ordenamiento sobrevive mejor que las magnitudes.
 
+## 4.octodecies. Las primeras marcas a mano — y la regla que sacaron
+
+Agus marcó 14 entradas en 3 días y su observación fue: *"veo muchos trades, vos
+no los tomás como los hubiera tomado yo"*. Tenía razón dos veces.
+
+### Primero, una diferencia estructural que no era de calibración
+
+| día | el motor | Agus |
+|---|---|---|
+| AMIX 2026-08-04 | 1 ciclo, entró 09:47 a $5,67 | 3 entradas, la primera 15:55 a **$19,85** |
+| AUUD 2026-05-15 | 1 ciclo, entró 09:45 a $2,02 | **6 entradas** entre 09:34 y 10:12 |
+| LABT 2026-07-22 | 1 ciclo, entró 09:45 a $4,97 | 2 entradas, la primera 09:31 a $6,08 |
+
+**El motor hace UN ciclo plano a plano por día. Él hace entre 2 y 6.** Es
+exactamente la brecha de frecuencia que ya estaba medida —148 candidatos al año
+contra los 12-30 trades diarios que declaran los operadores— pero acá se ve el
+mecanismo: no operan más papeles, operan **el mismo papel varias veces**.
+
+### Y segundo: en AMIX entró a 3,5× el precio del motor, y ganó
+
+El motor entró a las 09:47 a $5,67 y salió por reclaim a −15,89%. Agus shorteó a
+las 15:55 a **$19,85** y a las 16:05 a $19,92, después de que el papel corriera
++256%. Las dos a favor: +14,7% y +8,4% a quince minutos.
+
+Eso sugiere una regla concreta: **no shortear la primera señal de agotamiento;
+esperar a que el precio se extienda por encima de ella.** Se puede testear.
+
+### El test, sobre 406 días de expansión ≥ 100%
+
+Entrada por *n*-ésima señal de agotamiento, sostenida al cierre de RTH:
+
+| señal | n | mediana | gana | MAE p90 | precio vs la 1ª |
+|---|---|---|---|---|---|
+| 1ª | 406 | +9,72% | 68% | 85,2% | 1,00× |
+| 2ª | 406 | +6,29% | 64% | 62,0% | 0,97× |
+| 5ª | 406 | +2,39% | 56% | 43,1% | 0,93× |
+
+Esperar señales posteriores **empeora**: en el día típico el precio ya está más
+abajo cuando llega la segunda. O sea que "esperar" a secas no es la regla.
+
+**La regla correcta es esperar EXTENSIÓN, no tiempo.** Poniendo una limitada a
+X% por encima de la primera señal:
+
+| espera | n | % de días que llenan | mediana | gana | MAE p90 |
+|---|---|---|---|---|---|
+| +0% (la 1ª señal) | 406 | 100% | +9,72% | 68% | 85,2% |
+| +25% | 142 | 35% | +11,60% | 70% | 96,7% |
+| **+50%** | 72 | 18% | **+21,94%** | 69% | 91,8% |
+
+### El número que lo cierra
+
+Comparando las dos entradas **sobre los mismos días** — los que llegaron a
+extenderse:
+
+| días que llegaron a +50% (n=72) | mediana | gana | MAE p90 | peor |
+|---|---|---|---|---|
+| entrar en la 1ª señal | **−18,71%** | **18%** | **187,7%** | −70,4% |
+| esperar la extensión de +50% | **+21,94%** | **69%** | 91,8% | −55,6% |
+
+**Cuarenta puntos de diferencia, y el MAE p90 se parte a la mitad.**
+
+En los días que siguen corriendo, entrar en la primera señal es un desastre:
+gana 18 de cada 100 y la excursión adversa al p90 es del 188%. Esperar la
+extensión da +21,94% ganando 7 de cada 10.
+
+Y esos son exactamente los días que rompen la cuenta del año. AMIX 2026-08-04 es
+uno de los 72.
+
+### Lo que esto NO dice
+
+Por año la primera señal sigue acumulando más —9,72% × 406 contra 21,94% × 72—
+porque llenar una limitada un 50% arriba pasa en el 18% de los días. Lo que
+cambia la regla no es el total: es **de dónde sale**. La primera señal cobra
+seguido y devuelve todo en la cola; la extensión no cobra casi nunca y no tiene
+esa cola.
+
+Es la misma disyuntiva del torneo —retorno contra excursión adversa— pero por
+primera vez con un movimiento que **no es sobre la recta**: mismo MAE, el doble
+de mediana, en el subconjunto que importa.
+
+### Y la parte honesta
+
+Son **14 marcas en 3 días**. La regla que salió de ahí se testeó sobre 406 días,
+así que el test es serio; pero la HIPÓTESIS salió de mirar tres gráficos, y eso
+es exactamente la clase de búsqueda que este proyecto viene evitando.
+
+Queda registrado como **generado por el operador y validado sobre la población**,
+que es distinto de pre-registrado. Lo que lo vuelve creíble no es el n del test:
+es que el mecanismo se entiende —shortear una parabólica que todavía acelera es
+pararse adelante— y que Agus lo hizo antes de ver ninguna tabla.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:

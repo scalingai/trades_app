@@ -34,6 +34,7 @@
 | `momentos.py` | un registro **por minuto**: estado + niveles + resultado en R | $0 |
 | `test_ratios.py` | ratios fijos vs target en un nivel × volatilidad × precio | $0 |
 | `etiquetas.py` | la cuota discrecional: marcas a mano desde el visor | $0 |
+| `test_marcas.py` | mide las marcas a mano contra lo que pasó después | $0 |
 | `test_regimen.py` | ¿la 1ª semana del mes anticipa el régimen? (sí, r=0,55) | $0 |
 | `test_reciclaje.py` | escalonar a ciegas: sube el win rate y borra la media | $0 |
 | `chavineta.py` | la técnica emulada de verdad: niveles, agotamiento, reclaim | $0 |
