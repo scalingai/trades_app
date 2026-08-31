@@ -1614,6 +1614,96 @@ jornada funciona como marco de medición.** La unidad ahora es el día y el núm
 está en dólares, que es como se vive. Todo lo que venga después se puede
 comparar contra estos $3,34.
 
+## 4.duovigies. El censo — la validación que faltaba
+
+**La pregunta que este proyecto arrastraba desde la primera ronda.** Todos los
+resultados salían de 1.500 días sorteados de eventos con rango DIARIO > 40%, algo
+que a las 09:30 no se conoce. El caveat estaba abajo de cada tabla y no se podía
+sacar, sólo declarar.
+
+El censo son **1.997 eventos, 1.985 con barras (99%)**, seleccionados sólo por lo
+observable antes de la campana: gap ≥ 25% contra el cierre previo y liquidez
+mediana de los 20 días previos ≥ $150k. No hay muestreo, así que no hay sesgo de
+muestreo.
+
+**Lo que se declaró ANTES de mirar** (§ mensaje del 2026-08-31): sobrevive si el
+gradiente de expansión sigue monotónico, si la ventana sigue en 08:30–11:00 con
+pico en la apertura, si la liquidez sigue ordenando, y si la jornada sigue
+positiva. Y la expectativa explícita fue: *"que los niveles bajen bastante y las
+direcciones aguanten"*.
+
+### Las direcciones aguantaron
+
+**Gradiente de expansión** (long 10:00, stop 15%, neto de costos):
+
+| expansión | n | mediana | gana | te stopean |
+|---|---|---|---|---|
+| +25 a +50% | 195 | −0,55% | 47% | 14% |
+| +50 a +100% | 191 | −8,39% | 33% | 43% |
+| +100 a +200% | 82 | **−15,66%** | 17% | **76%** |
+| > +200% | 64 | −15,41% | 17% | 81% |
+
+Monotónico. Idéntico a la muestra vieja (−15,66% / −15,33%). El balde de
+expansión < 25% —el que estaba marcado como el más contaminado— **desaparece
+solo**, porque el censo exige gap ≥ 25%.
+
+**Ventana horaria** (short en expansión ≥ 100%, al cierre de RTH), n=543 contra
+235 antes:
+
+| entrada | censo | muestra vieja |
+|---|---|---|
+| 08:00 | −2,60% | −0,03% |
+| 08:30 | +0,12% | +6,03% |
+| 09:15 | +7,38% | +7,61% |
+| **09:30** | **+8,37%** | +8,97% |
+| 10:00 | +4,03% | +8,14% |
+| 11:30 | +1,60% | — |
+| 12:00 | +0,80% | — |
+
+Mismo pico, misma forma, misma pérdida antes de las 08:30.
+
+**Liquidez**, monotónica en los cinco baldes:
+
+| $/min previos | n | mediana | gana |
+|---|---|---|---|
+| < $20k | 21 | −2,89% | 24% |
+| $20–100k | 101 | −0,45% | 33% |
+| $100–500k | 301 | −0,06% | 47% |
+| $500k–2M | 466 | +0,65% | 61% |
+| > $2M | 257 | **+0,96%** | 62% |
+
+### Y los niveles NO bajaron: subieron un poco
+
+| | muestra vieja | **censo** |
+|---|---|---|
+| media por jornada | +$12,81 | **+$13,06** |
+| mediana | +$4,89 | +$4,67 |
+| días positivos | 57% | 58% |
+| jornadas por año | 171 | **214** |
+| acumulado anual | $2.199 | **$2.800** |
+| ratio anual | 3,64 | **3,71** |
+| réplica P1 / P2 | +12,71 / +12,91 | +11,89 / **+14,09** |
+
+**Mi predicción estaba equivocada y conviene entender por qué**, no festejarlo.
+
+El censo **no es una población neutra**: está seleccionado por gap ≥ 25% y
+liquidez previa ≥ $150k, y esos dos criterios están alineados con lo que la
+estrategia necesita. La muestra vieja seleccionaba por rango del día completo,
+que incluye días que se movieron sin gapear — y esos son peores para este setup.
+
+O sea: **el censo saca el look-ahead pero no saca la selección.** Lo que quedó
+demostrado es que los resultados no dependían de conocer el rango del día. Lo que
+NO quedó demostrado es qué pasa en un universo sin filtro de gap, porque ese
+universo no es el que se opera.
+
+### Lo que sigue sin estar
+
+El punto de muerte del locate al 5% del nominal (§12 de ESTRATEGIA.md) **no se
+mueve un milímetro con esto**. El censo valida la señal; no dice nada sobre si el
+short se puede abrir ni cuánto cuesta abrirlo.
+
+Y `--tope-stop 30` se sigue eligiendo después de ver la grilla.
+
 ## 5. Hipótesis a testear (no conclusiones)
 
 Nada de esto está probado — son las preguntas que el dataset de Fase 2 tiene que poder contestar:

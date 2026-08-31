@@ -36,7 +36,7 @@ ilusión.
 | **La Chavineta mecánica** | 🔴 **DOMINADA**: el MAE p90 más bajo de la tabla (10,9%) y media −6,21%. No es la versión conservadora: es peor en las dos dimensiones |
 | **Ratios cortos (1:1 o menos)** | 🔴 la esperanza SUBE con el ratio en todas las celdas |
 | **Front-side long** | 🟡 el balde que mejor da es el más contaminado por el sesgo |
-| **Los niveles absolutos de todo lo anterior** | 🔴 **muestra sesgada** — en corrección, ver abajo |
+| **Los niveles absolutos de todo lo anterior** | 🟢 **VALIDADOS sobre el censo** (2026-08-31): direcciones intactas y niveles levemente mejores |
 
 **El sesgo que invalida los niveles absolutos.** Los 1.500 días con minutos se
 sortearon de eventos con rango DIARIO > 40%, que a las 09:30 no se conoce. El
