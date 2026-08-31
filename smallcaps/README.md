@@ -55,6 +55,8 @@
 | `sesion.py` | **la jornada como unidad: riesgo en dólares, varios trades** | $0 |
 | `backtest.py` | corre las variantes y **guarda cada trade etiquetado** | $0 |
 | `test_grilla.py` | la superficie stop × target completa, sin elegir celda | $0 |
+| `test_escala.py` | ¿hasta dónde escala? el edge contra el impacto de mercado | $0 |
+| `test_mecanismos.py` | filtros con MECANISMO declarado antes de medir | $0 |
 | `torneo.py` | todas las estrategias contra la misma vara | $0 |
 | `recorrer.py` | re-corre TODO el análisis sobre el censo y guarda la salida | $0 |
 | `visor/server.py` | **gráfico de velas local** de cualquier día descargado | $0 |

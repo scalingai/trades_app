@@ -28,6 +28,9 @@ ilusión.
 | **El radar de 5 filtros separa 15 puntos** | 🟢 n=169 sobre el universo diario · P1 −12,9% / P2 −13,4% · umbrales NO calibrados por mí · **meseta, no pico** |
 | **El derrumbe sigue después del cierre** | 🟢 T+1 −9,8% · T+5 −17,4% · T+20 −31,6% (83% negativos) |
 | **El historial de gaps del ticker** | 🟢 monotónico, y aporta aparte de la dilución |
+| **Escala hasta ~$5.000 de riesgo diario** | 🟢 con impacto raíz-cuadrada: $180–280k/año antes de morir |
+| **Excluir chinas/offshore** | 🟢 único filtro con mecanismo que MEJORA el ratio (3,71 → 4,10) |
+| **Dilución 12m > 100%** | 🟡 +$6,87 por jornada y replica clavado, pero NO mejora el ratio ni como filtro ni como multiplicador de tamaño |
 | **El techo es 57% y capturamos 1-10%** | 🟢 el problema no es el edge, es la captura |
 | **Cerrar la jornada al objetivo** | 🔴 divide el resultado por 4 y baja la volatilidad 14% |
 | **Stop y target cortos** | 🔴 superficie 6×7 monotónica en las DOS direcciones: cuanto más corto, peor |
