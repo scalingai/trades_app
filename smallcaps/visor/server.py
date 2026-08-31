@@ -357,6 +357,86 @@ def _con_ts(dia: Dia, marcas: list[dict]) -> list[dict]:
     return out
 
 
+# ---------------------------------------------------------------- historial
+
+def _conn_trades():
+    import sqlite3
+    p = config.data_dir() / "trades.sqlite"
+    if not p.exists():
+        return None
+    c = sqlite3.connect(f"file:{p}?mode=ro", uri=True)
+    c.row_factory = sqlite3.Row
+    return c
+
+
+def _metricas(pnls: list[float]) -> dict:
+    """Las métricas de una curva. Profit factor y drawdown incluidos.
+
+    El drawdown se calcula sobre el ORDEN CRONOLÓGICO de los trades, que es lo
+    único que lo hace significar algo: la suma es la misma en cualquier orden,
+    la caída máxima no.
+    """
+    if not pnls:
+        return {}
+    gan = [x for x in pnls if x > 0]
+    per = [x for x in pnls if x <= 0]
+    acum, pico, dd = 0.0, 0.0, 0.0
+    curva = []
+    for x in pnls:
+        acum += x
+        pico = max(pico, acum)
+        dd = min(dd, acum - pico)
+        curva.append(round(acum, 2))
+    return {
+        "n": len(pnls), "total": round(sum(pnls), 2),
+        "media": round(sum(pnls) / len(pnls), 3),
+        "gana": round(100 * len(gan) / len(pnls), 1),
+        "gan_medio": round(sum(gan) / len(gan), 2) if gan else 0,
+        "per_medio": round(sum(per) / len(per), 2) if per else 0,
+        # Profit factor: cuánto gana por cada dólar que pierde. Debajo de 1 la
+        # estrategia pierde, y no hay calibración que lo arregle.
+        "pf": round(sum(gan) / abs(sum(per)), 2) if per and sum(per) else None,
+        "dd": round(dd, 2),
+        "curva": curva,
+    }
+
+
+def _estrategias() -> list[dict]:
+    c = _conn_trades()
+    if not c:
+        return []
+    out = []
+    for (e,) in c.execute("SELECT DISTINCT estrategia FROM trades"):
+        pn = [r[0] for r in c.execute(
+            "SELECT pnl FROM trades WHERE estrategia=? ORDER BY d, hora_entrada", (e,))]
+        m = _metricas(pn)
+        m.pop("curva", None)
+        out.append({"estrategia": e, **m})
+    c.close()
+    return sorted(out, key=lambda x: -(x.get("total") or 0))
+
+
+def _trades(estrategia: str) -> dict:
+    c = _conn_trades()
+    if not c:
+        return {"filas": [], "metricas": {}}
+    filas = [dict(r) for r in c.execute(
+        "SELECT * FROM trades WHERE estrategia=? ORDER BY d, hora_entrada",
+        (estrategia,))]
+    c.close()
+    m = _metricas([f["pnl"] for f in filas])
+    # La curva por FECHA, no por trade: es como se vive el resultado.
+    por_dia, acum = {}, 0.0
+    for f in filas:
+        por_dia[f["d"]] = por_dia.get(f["d"], 0.0) + f["pnl"]
+    curva = []
+    for d in sorted(por_dia):
+        acum += por_dia[d]
+        curva.append({"d": d, "pnl": round(por_dia[d], 2), "acum": round(acum, 2)})
+    m.pop("curva", None)
+    return {"filas": filas, "metricas": m, "curva": curva}
+
+
 # ---------------------------------------------------------------- HTTP
 
 class Handler(BaseHTTPRequestHandler):
@@ -395,6 +475,16 @@ class Handler(BaseHTTPRequestHandler):
         if ruta.startswith("/static/"):
             nombre = os.path.basename(ruta)
             return self._archivo(ESTATICOS / nombre)
+
+        if ruta == "/historial" or ruta == "/historial.html":
+            return self._archivo(ESTATICOS / "historial.html")
+
+        if ruta == "/api/estrategias":
+            return self._json({"estrategias": _estrategias()})
+
+        if ruta == "/api/trades":
+            e = (q.get("estrategia") or [""])[0]
+            return self._json({"trades": _trades(e)})
 
         if ruta == "/api/dias":
             if not _indice_listo.is_set():

@@ -53,6 +53,7 @@
 | `test_extremos.py` | la anatomía del día desde los extremos, no desde el reloj | $0 |
 | `test_swings.py` | ¿cuántas oportunidades hay por día? (5, no 1) | $0 |
 | `sesion.py` | **la jornada como unidad: riesgo en dólares, varios trades** | $0 |
+| `backtest.py` | corre las variantes y **guarda cada trade etiquetado** | $0 |
 | `torneo.py` | todas las estrategias contra la misma vara | $0 |
 | `recorrer.py` | re-corre TODO el análisis sobre el censo y guarda la salida | $0 |
 | `visor/server.py` | **gráfico de velas local** de cualquier día descargado | $0 |

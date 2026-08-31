@@ -461,7 +461,20 @@ $('#bajar').addEventListener('click', async () => {
   $('#bajar').textContent = 'bajar';
   if (r.error) return alert(r.error);
   if (r.estado !== 'ok') return alert('sin barras para ese día (' + r.estado + ')');
+  await /* Deep-link: /?ticker=AMIX&d=2026-08-04 abre ese día directo. Lo usa el
+   historial de trades para saltar de una fila al gráfico. */
+(async () => {
   await cargarIndice();
+  const q = new URLSearchParams(location.search);
+  const t = (q.get('ticker') || '').toUpperCase();
+  const d = q.get('d');
+  if (t && d) {
+    $('#soloCandidatos').checked = false;
+    $('#q').value = t;
+    render();
+    abrir(t, d);
+  }
+})();
   abrir(t, d);
 });
 
@@ -591,4 +604,17 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-cargarIndice();
+/* Deep-link: /?ticker=AMIX&d=2026-08-04 abre ese día directo. Lo usa el
+   historial de trades para saltar de una fila al gráfico. */
+(async () => {
+  await cargarIndice();
+  const q = new URLSearchParams(location.search);
+  const t = (q.get('ticker') || '').toUpperCase();
+  const d = q.get('d');
+  if (t && d) {
+    $('#soloCandidatos').checked = false;
+    $('#q').value = t;
+    render();
+    abrir(t, d);
+  }
+})();
