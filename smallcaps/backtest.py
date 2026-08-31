@@ -110,6 +110,18 @@ def salir(dia, i, p, stop_pct, *, salida, arrastre=50.0, hora_fija=16.0,
     return c, CIERRE_RTH, "cierre", (peor / p - 1) * 100, (1 - mejor / p) * 100
 
 
+# Las de SESIÓN llevan límite diario, que es lo que las separa de las de arriba.
+# Medido: el límite es lo que convierte una base apenas break-even por trade en
+# un sistema positivo por jornada. No es decoración, hace la mitad del trabajo.
+SESIONES = [
+    ("SESIÓN·swing·estructural", dict(modo="swing", stop_modo="estructural"), None),
+    ("SESIÓN·swing·estructural·sin-chinas",
+     dict(modo="swing", stop_modo="estructural"), "sin_chinas"),
+    ("SESIÓN·swing·fijo15", dict(modo="swing", stop_modo="fijo"), None),
+    ("SESIÓN·agotamiento·estructural",
+     dict(modo="agotamiento", stop_modo="estructural"), None),
+]
+
 ESTRATEGIAS = [
     # (etiqueta, generador de señales, modo de stop, modo de salida)
     ("swing·estructural·cierre", "swing", "estructural", "cierre"),
@@ -125,6 +137,11 @@ ESTRATEGIAS = [
 
 def correr(*, riesgo_trade=16.67, costo_accion=0.04, min_liquidez=2.5e5,
            min_expansion=100.0, tope_stop=30.0, stop_fijo=15.0):
+    import json as _json
+    from sesion import jornada
+    _f = config.data_dir() / "fichas_empresa.json"
+    fichas = _json.loads(_f.read_text(encoding="utf-8")) if _f.exists() else {}
+
     conn = sqlite3.connect(ruta(), timeout=60)
     conn.executescript(_SCHEMA)
     conn.execute("DELETE FROM trades")
@@ -166,6 +183,27 @@ def correr(*, riesgo_trade=16.67, costo_accion=0.04, min_liquidez=2.5e5,
                               (p / q - 1) * 100, mae, mfe, motivo,
                               "P1" if dia.d < CORTE_PERIODO else "P2",
                               dia.expansion_pct, dia.liquidez_en(hora(dia.bars[i]))))
+        # Las de sesión: se corre la jornada entera y se guardan sus trades.
+        china = bool((fichas.get(dia.ticker) or {}).get("china"))
+        for etiqueta, kw, cond in SESIONES:
+            if cond == "sin_chinas" and china:
+                continue
+            j = jornada(dia, riesgo_dia=riesgo_trade * 3, riesgo_trade=riesgo_trade,
+                        objetivo=0, stop_pct=stop_fijo, costo_accion=costo_accion,
+                        max_trades=10, min_liquidez=min_liquidez,
+                        colchon=1.0, tope_stop=tope_stop, **kw)
+            if not j:
+                continue
+            for t in j["detalle"]:
+                p = t["precio"]
+                q = p * (1 - t["pnl"] / (t["acciones"] * p)) if t.get("acciones") else None
+                filas.append((etiqueta, dia.ticker, dia.d, round(t["hora"], 5),
+                              None, p, q, t["stop_pct"], t.get("acciones"),
+                              t["pnl"], (p / q - 1) * 100 if q else None,
+                              None, None, t["motivo"],
+                              "P1" if dia.d < CORTE_PERIODO else "P2",
+                              dia.expansion_pct, dia.liquidez_en(t["hora"])))
+
         if len(filas) >= 20000:
             conn.executemany(
                 f"INSERT OR REPLACE INTO trades VALUES ({','.join('?'*17)})", filas)
@@ -194,8 +232,12 @@ def resumen():
     for e in ests:
         v = [r[0] for r in conn.execute(
             "SELECT pnl FROM trades WHERE estrategia=?", (e,))]
+        # Las estrategias de SESIÓN no guardan MAE por trade: el riesgo ahí se
+        # controla a nivel jornada, no a nivel trade, y poner un número por
+        # trade sería inventarlo.
         m = sorted(r[0] for r in conn.execute(
-            "SELECT mae_pct FROM trades WHERE estrategia=?", (e,)))
+            "SELECT mae_pct FROM trades WHERE estrategia=? AND mae_pct IS NOT NULL",
+            (e,)))
         per = []
         for p in ("P1", "P2"):
             g = [r[0] for r in conn.execute(
@@ -204,7 +246,7 @@ def resumen():
         print(f"  {e:32} {len(v):>5} {sum(v):>+10.0f} {statistics.mean(v):>+7.2f} "
               f"{statistics.median(v):>+7.2f} "
               f"{100*sum(1 for x in v if x>0)/len(v):>5.0f}% "
-              f"{m[int(.9*len(m))]:>7.1f}% {per[0]} {per[1]}")
+              f"{(f'{m[int(.9*len(m))]:.1f}%' if m else '—'):>8} {per[0]} {per[1]}")
     print("\n  PnL total es la suma de todos los trades de esa variante, con")
     print("  $16,67 de riesgo por trade. No es una curva de capital: los trades")
     print("  del mismo día se solapan y no se pueden tomar todos.")

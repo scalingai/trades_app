@@ -169,6 +169,7 @@ def jornada(dia, *, riesgo_dia, riesgo_trade, objetivo, stop_pct, costo_accion,
         return None
 
     pnl, n, motivos, stops = 0.0, 0, [], []
+    detalle = []   # los trades que la jornada efectivamente tomó
     for i in ses:
         if n >= max_trades:
             break
@@ -189,13 +190,17 @@ def jornada(dia, *, riesgo_dia, riesgo_trade, objetivo, stop_pct, costo_accion,
         n += 1
         motivos.append(r[1])
         stops.append(sp)
+        pe = dia.bars[i][4]
+        detalle.append({"i": i, "hora": hora(dia.bars[i]), "precio": pe,
+                        "stop_pct": sp, "pnl": r[0], "motivo": r[1],
+                        "acciones": r[2] if len(r) > 2 else None})
         if objetivo > 0 and pnl >= objetivo:
             motivos.append("objetivo")
             break
     if n == 0:
         return None
     return {"ticker": dia.ticker, "d": dia.d, "pnl": pnl, "trades": n,
-            "cierre_por": motivos[-1], "stops": stops,
+            "cierre_por": motivos[-1], "stops": stops, "detalle": detalle,
             "per": "P1" if dia.d < CORTE_PERIODO else "P2"}
 
 
