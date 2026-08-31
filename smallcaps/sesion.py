@@ -123,14 +123,28 @@ def stop_estructural(dia, i, *, colchon=1.0, minimo=3.0, maximo=40.0):
     return max(minimo, min(maximo, d))
 
 
-def trade(dia, i, *, stop_pct, riesgo, costo_accion):
-    """Short con nominal dimensionado por el riesgo. Devuelve (pnl $, motivo)."""
+def trade(dia, i, *, stop_pct, riesgo, costo_accion, impacto_k=0.0):
+    """Short con nominal dimensionado por el riesgo. Devuelve (pnl $, motivo).
+
+    `impacto_k` activa el modelo de impacto de mercado: el slippage crece con la
+    raíz de la participación sobre el volumen del minuto, y se paga a la ida y a
+    la vuelta. Con k=0 el comportamiento es el de siempre.
+    """
     p = dia.bars[i][4]
     if not p or stop_pct <= 0:
         return None
     # El tamaño sale del riesgo, no del capital: si el stop es 15% y arriesgo
     # $50, la posición vale $333 sin importar si el papel vale $1 o $12.
     acciones = riesgo / (p * stop_pct / 100.0)
+    slip = 0.0
+    if impacto_k > 0:
+        liq = dia.liquidez_en(hora(dia.bars[i]))
+        if liq and liq > 0:
+            slip = impacto_k * ((acciones * p / liq) ** 0.5)
+        else:
+            return None
+        p = p * (1 - slip)          # te llenan peor al entrar
+        costo_accion = costo_accion + p * slip   # y peor al salir
     p_stop = p * (1 + stop_pct / 100.0)
     for b in dia.bars[i + 1:]:
         if hora(b) > CIERRE_RTH:
@@ -145,7 +159,7 @@ def trade(dia, i, *, stop_pct, riesgo, costo_accion):
 
 def jornada(dia, *, riesgo_dia, riesgo_trade, objetivo, stop_pct, costo_accion,
             max_trades, min_liquidez, modo="agotamiento",
-            stop_modo="fijo", colchon=1.0, tope_stop=40.0):
+            stop_modo="fijo", colchon=1.0, tope_stop=40.0, impacto_k=0.0):
     """Opera un día completo con presupuesto. Devuelve el resultado de la jornada."""
     if clasificar_apertura(dia) != "fade":
         return None
@@ -168,7 +182,7 @@ def jornada(dia, *, riesgo_dia, riesgo_trade, objetivo, stop_pct, costo_accion,
             if sp is None:
                 continue
         r = trade(dia, i, stop_pct=sp, riesgo=riesgo_trade,
-                  costo_accion=costo_accion)
+                  costo_accion=costo_accion, impacto_k=impacto_k)
         if not r:
             continue
         pnl += r[0]
