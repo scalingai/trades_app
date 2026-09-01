@@ -102,7 +102,7 @@ El indicador vuelca la historia entera cuando arranca, así que el archivo crece
 Con el **mercado cerrado**:
 
 ```bash
-python smallcaps/puente/limpiar.py   # o: vivo.py --limpiar
+python smallcaps/puente/vivo.py --limpiar
 ```
 
 Se corre cerrado a propósito: reescribir el archivo mientras el indicador
