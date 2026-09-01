@@ -106,6 +106,52 @@ def leer_feed(ruta=FEED):
     return por_papel
 
 
+AVISO_TAMANO_MB = 25.0
+
+
+def limpiar(ruta=FEED, hoy=None):
+    """Archiva todo lo que no sea de hoy. Devuelve (archivadas, conservadas).
+
+    POR QUE HACE FALTA. El indicador vuelca TODA la historia del grafico cada
+    vez que arranca —es lo que resuelve el agujero del premarket— asi que el
+    archivo crece con cada reinicio de la plataforma: 657 KB medidos por un
+    solo papel con veinte dias de historia. Con cuatro papeles y un par de
+    reinicios por dia son varios MB diarios, y `leer_feed` lo lee ENTERO en
+    cada refresco.
+
+    NO se puede resolver leyendo el archivo al reves y cortando: los volcados
+    de historia agregan barras VIEJAS despues de las nuevas, asi que el orden
+    del archivo no es cronologico.
+
+    Se corre con el mercado cerrado, a proposito. Reescribir el archivo mientras
+    el indicador escribe puede perder la barra de ese minuto, y una barra
+    perdida cambia el dia.
+    """
+    hoy = hoy or datetime.now(NY).date().isoformat()
+    if not ruta.exists():
+        return (0, 0)
+    quedan, fuera = [], []
+    with open(ruta, "r", encoding="utf-8", errors="replace") as fh:
+        for linea in fh:
+            if not linea.strip().startswith("{"):
+                continue
+            try:
+                r = json.loads(linea)
+                t = datetime.strptime(r["t"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                    tzinfo=timezone.utc).astimezone(NY)
+            except Exception:
+                continue
+            (quedan if t.date().isoformat() == hoy else fuera).append(linea)
+    if not fuera:
+        return (0, len(quedan))
+    archivo = ruta.with_name(ruta.stem + "_hasta_" + hoy + ".jsonl")
+    with open(archivo, "a", encoding="utf-8") as fh:
+        fh.writelines(fuera)
+    with open(ruta, "w", encoding="utf-8") as fh:
+        fh.writelines(quedan)
+    return (len(fuera), len(quedan))
+
+
 def armar_dia(ticker, fecha, datos):
     """Un `Dia` real, el mismo que usa el backtest.
 
@@ -234,6 +280,14 @@ def pintar(res, riesgo, piso):
         print(f"  Esperando en: {FEED}")
         return
 
+    try:
+        mb = FEED.stat().st_size / 1e6
+        if mb > AVISO_TAMANO_MB:
+            print(f"\n  ! el feed pesa {mb:.0f} MB — con el mercado cerrado: "
+                  f"python puente/vivo.py --limpiar")
+    except OSError:
+        pass
+
     operables = [r for r in res if r.get("tramos")]
     for r in sorted(res, key=lambda x: -len(x.get("tramos") or [])):
         h = r.get("hora", 0)
@@ -284,12 +338,18 @@ def main(argv=None) -> int:
     ap.add_argument("--cada", type=float, default=20.0, help="segundos")
     ap.add_argument("--una-vez", action="store_true")
     ap.add_argument("--feed", default=str(FEED))
+    ap.add_argument("--limpiar", action="store_true",
+                    help="archivar lo que no sea de hoy (mercado cerrado)")
     ap.add_argument("--fecha", default=None,
                     help="forzar una fecha (para probar con datos guardados)")
     args = ap.parse_args(argv)
 
     ruta = Path(args.feed)
     hoy = args.fecha or datetime.now(NY).date().isoformat()
+    if args.limpiar:
+        fuera, quedan = limpiar(ruta, hoy)
+        print(f"  archivadas {fuera} lineas · quedan {quedan} de hoy")
+        return 0
     while True:
         res = []
         for (tk, fecha), datos in leer_feed(ruta).items():
