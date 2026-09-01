@@ -64,6 +64,16 @@ PISO_DEFECTO = 2.0
 MAX_TRAMOS = 40               # "sin tope": el mismo de test_costos_reales
 MIN_ORDEN, POR_ACCION = 0.75, 0.005   # comision real de Trade The Pool
 
+# HASTA DONDE LLEGAN A FAVOR, MEDIDO — no es un objetivo de salida.
+#
+# El sistema NO tiene take profit: se midio once veces que asegurar empeora, y
+# sostener al cierre quedo como la regla. Estos numeros salen de `test_mfe.py`
+# sobre los 1420 trades de la configuracion candidata, y son la excursion
+# maxima a favor en % del precio de entrada. Sirven para dibujar hasta donde es
+# razonable que llegue, que es distinto de donde hay que salir.
+MFE_P50 = 18.33
+MFE_P75 = 29.52
+
 
 def leer_feed(ruta=FEED):
     """Todas las barras del archivo, agrupadas por (símbolo, fecha NY).
@@ -122,19 +132,28 @@ def antiguedad_min(res):
     posible en una pantalla con la que se opera: no dice nada y parece que dice
     "no hay nada".
     """
-    horas = [r.get("hora") for r in res if r.get("hora") is not None]
-    if not horas:
+    atrasos = [atraso_min(r.get("hora")) for r in res]
+    atrasos = [a for a in atrasos if a is not None]
+    if not atrasos:
         return None
     # El MENOS atrasado: si hasta el mas fresco esta viejo, se corto todo.
-    return min(atraso_min(h) for h in horas)
+    return min(atrasos)
 
 
 def atraso_min(h):
-    """Minutos desde la hora `h` de Nueva York hasta ahora."""
+    """Minutos desde la hora `h` de Nueva York hasta ahora.
+
+    None fuera de la rueda: despues de las 16:00 el feed deja de escribir
+    porque el mercado cerro, no porque se haya roto. Un aviso que grita todas
+    las noches deja de leerse, y entonces tampoco se lee el dia que importa.
+    """
     if h is None:
         return None
     ahora = datetime.now(NY)
-    return max(0.0, (ahora.hour + ahora.minute / 60.0 - h) * 60.0)
+    h_ahora = ahora.hour + ahora.minute / 60.0
+    if not (APERTURA_RTH <= h_ahora <= CIERRE_RTH):
+        return None
+    return max(0.0, (h_ahora - h) * 60.0)
 
 
 def referencias(ruta=WATCHLIST):
@@ -337,10 +356,37 @@ def evaluar(dia, riesgo, piso):
         a += da
         pico = max(pico, a)
 
-    vivas = sum(t["acciones"] for t in tramos if t["viva"])
+    abiertos = [t for t in tramos if t["viva"]]
+    vivas = sum(t["acciones"] for t in abiertos)
     com = sum(2 * max(MIN_ORDEN, t["acciones"] * POR_ACCION) for t in tramos)
+
+    # CERRADO vs ABIERTO. Mezclarlos esconde el dato que decide: lo cerrado ya
+    # es plata y lo abierto todavia se puede dar vuelta entero.
+    pnl_cerrado = sum(t["pnl"] for t in tramos if not t["viva"])
+    pnl_abierto = sum(t["pnl"] for t in abiertos)
+
+    # PRECIO PROMEDIO DE LA POSICION ABIERTA, ponderado por acciones. Es el
+    # numero contra el que se mide todo lo demas: el stop real de la posicion
+    # no es el de ningun tramo suelto, es el de este promedio.
+    prom = (sum(t["precio"] * t["acciones"] for t in abiertos) / vivas
+            if vivas else None)
+
+    # La composicion: como fue variando el promedio a medida que se agregaba.
+    # Se ve de un vistazo si cada agregado mejoro o empeoro la posicion.
+    comp, acc_ac, nom_ac = [], 0.0, 0.0
+    for t in tramos:
+        acc_ac += t["acciones"]
+        nom_ac += t["precio"] * t["acciones"]
+        comp.append({"h": t["h"], "prom": nom_ac / acc_ac, "acciones": acc_ac})
+
     out.update({"tramos": tramos, "pico": pico, "vivas": vivas,
                 "nominal": pico * px, "equity": equity, "comision": com,
+                "pnl_cerrado": pnl_cerrado, "pnl_abierto": pnl_abierto,
+                "precio_prom": prom,
+                "stop_prom": prom * (1 + STOP_PCT / 100.0) if prom else None,
+                "proy_50": prom * (1 - MFE_P50 / 100.0) if prom else None,
+                "proy_75": prom * (1 - MFE_P75 / 100.0) if prom else None,
+                "composicion": comp,
                 "limite": -riesgo,
                 "cerca_del_limite": equity - riesgo / 3.0 < -riesgo})
     return out
@@ -417,9 +463,14 @@ def pintar(res, riesgo, piso):
                   f"{t['acciones']:>9.0f} {est:>10} ${t['pnl']:>+8.2f}")
         print(f"      -> {r['vivas']:.0f} acciones ABIERTAS ahora · "
               f"pico del dia {r['pico']:.0f} (eso es lo que hay que localizar)")
-        print(f"      -> equity ${r['equity']:+.2f} de ${r['limite']:.0f} · "
+        if r.get("precio_prom"):
+            print(f"      -> promedio ${r['precio_prom']:.2f} · "
+                  f"stop ${r['stop_prom']:.2f} · "
+                  f"llega a ${r['proy_50']:.2f} la mitad de las veces")
+        print(f"      -> cerrado ${r.get('pnl_cerrado', 0):+.2f} · "
+              f"abierto ${r.get('pnl_abierto', 0):+.2f} · "
               f"comision ${r['comision']:.2f} · "
-              f"neto ${r['equity'] - r['comision']:+.2f}")
+              f"neto ${r['equity'] - r['comision']:+.2f} de ${r['limite']:.0f}")
         if r["cerca_del_limite"]:
             print("      ! EN EL LIMITE DIARIO — el sistema no abre mas tramos")
 

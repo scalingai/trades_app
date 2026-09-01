@@ -318,7 +318,9 @@ def payload_vivo(riesgo: float, piso: float) -> dict:
               "existe": _vivo.FEED.exists(), "papeles": [],
               "config": {"stop": _vivo.STOP_PCT, "desde": _vivo.DESDE,
                          "expansion": _vivo.EXPANSION_MIN,
-                         "apertura": _vivo.APERTURA}}
+                         "apertura": _vivo.APERTURA,
+                       "mfe50": _vivo.MFE_P50, "mfe75": _vivo.MFE_P75,
+                       "rancio": _vivo.RANCIO_MIN}}
     if not salida["existe"]:
         return salida
 
@@ -385,7 +387,15 @@ def payload_vivo(riesgo: float, piso: float) -> dict:
                        "pico": r.get("pico"), "vivas": r.get("vivas"),
                        "equity": r.get("equity"), "comision": r.get("comision"),
                        "limite": r.get("limite"),
-                       "tope": r.get("cerca_del_limite")},
+                       "tope": r.get("cerca_del_limite"),
+                       "atraso": _vivo.atraso_min(r.get("hora")),
+                       "pnl_cerrado": r.get("pnl_cerrado"),
+                       "pnl_abierto": r.get("pnl_abierto"),
+                       "precio_prom": r.get("precio_prom"),
+                       "stop_prom": r.get("stop_prom"),
+                       "proy_50": r.get("proy_50"),
+                       "proy_75": r.get("proy_75"),
+                       "composicion": r.get("composicion") or []},
         })
     salida["papeles"].sort(
         key=lambda x: -len(x["trades_estrategia"]))

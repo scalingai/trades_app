@@ -8,14 +8,14 @@
 <link rel="stylesheet" href="/static/base.css">
 <style>
   /* Esta vista se mira mientras se opera, no se estudia. Todo lo que decide una
-     orden —cuantas acciones, donde el stop, cuanto queda de presupuesto— tiene
-     que leerse sin buscar. Lo demas es contexto y va en gris. */
+     orden —cuántas acciones, dónde el stop, cuánto queda de presupuesto— tiene
+     que leerse sin buscar. Lo demás es contexto y va en gris. */
 
   body{height:auto;min-height:100%}
-  main{padding:var(--e4) var(--e5) var(--e6);max-width:1500px}
+  main{padding:var(--e3) var(--e4) var(--e6);max-width:none}
 
-  .tope{position:sticky;top:0;z-index:10;background:var(--fondo);
-        padding:var(--e3) 0 var(--e3);display:flex;align-items:center;
+  .tope{position:sticky;top:0;z-index:20;background:var(--fondo);
+        padding:var(--e3) 0;display:flex;align-items:center;
         gap:var(--e4);flex-wrap:wrap;border-bottom:1px solid var(--borde)}
   .tope input{width:74px}
   .pulso{display:inline-block;width:7px;height:7px;border-radius:50%;
@@ -23,56 +23,90 @@
   .pulso.frio{background:var(--texto-3)}
   @keyframes lat{0%,100%{opacity:1}50%{opacity:.25}}
   .vivo .pulso{animation:lat 2s ease-in-out infinite}
-
   .receta{color:var(--texto-3);font-size:var(--t1);
           font-family:var(--fuente-num)}
 
-  .papel{margin-top:var(--e5);border:1px solid var(--borde);
-         border-radius:var(--radio);overflow:hidden;background:var(--fondo-2)}
-  .cab{display:flex;align-items:baseline;gap:var(--e4);flex-wrap:wrap;
+  .alarma{margin-top:var(--e3);padding:var(--e3) var(--e4);border-radius:var(--radio);
+          background:rgba(239,83,80,.14);color:var(--rojo);font-size:var(--t2);
+          border:1px solid rgba(239,83,80,.35)}
+
+  /* DOS COLUMNAS. La altura de cada tarjeta está calculada para que entren
+     CUATRO por pantalla (2×2) sin scrollear: media pantalla menos la barra de
+     arriba. Si entraran tres, la cuarta se vería a medias y eso es peor que
+     no verla. */
+  .grilla{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+          gap:var(--e4);margin-top:var(--e4)}
+  @media (max-width:1100px){.grilla{grid-template-columns:1fr}}
+
+  .papel{border:1px solid var(--borde);border-radius:var(--radio);
+         background:var(--fondo-2);overflow:hidden;display:flex;
+         flex-direction:column}
+  .papel.opera{border-color:rgba(38,166,154,.45)}
+
+  .cab{display:flex;align-items:baseline;gap:var(--e3);flex-wrap:wrap;
        padding:var(--e3) var(--e4);border-bottom:1px solid var(--borde)}
   .cab .tk{font-size:var(--t4);font-weight:600;letter-spacing:.02em}
   .cab .px{font-family:var(--fuente-num);font-size:var(--t3)}
-  .cab .meta{color:var(--texto-3);font-size:var(--t1);
+  .cab .meta{color:var(--texto-3);font-size:var(--t0);
              font-family:var(--fuente-num)}
+  .cab .rancio{color:var(--rojo);font-size:var(--t0);font-weight:600}
+  .lupa{margin-left:auto;background:none;border:1px solid var(--borde);
+        color:var(--texto-2);border-radius:var(--radio);cursor:pointer;
+        font-size:var(--t1);padding:2px 9px;line-height:1.5}
+  .lupa:hover{background:var(--fondo-3);color:var(--texto)}
 
-  /* La franja de decision: las tres cifras que se miran antes de mandar. */
-  .franja{display:flex;gap:var(--e5);flex-wrap:wrap;
-          padding:var(--e3) var(--e4);background:var(--fondo-3)}
-  .cif{display:flex;flex-direction:column;gap:2px}
+  .franja{display:flex;gap:var(--e4);flex-wrap:wrap;
+          padding:6px var(--e4);background:var(--fondo-3)}
+  .cif{display:flex;flex-direction:column;gap:1px}
   .cif .n{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
-          font-size:var(--t4);line-height:1.1}
-  .cif .r{color:var(--texto-3);font-size:var(--t0);text-transform:uppercase;
+          font-size:var(--t3);line-height:1.15}
+  .cif .r{color:var(--texto-3);font-size:9px;text-transform:uppercase;
           letter-spacing:.06em}
   .pos{color:var(--verde)} .neg{color:var(--rojo)}
 
-  .alerta{padding:var(--e3) var(--e4);background:rgba(239,83,80,.12);
-          color:var(--rojo);font-size:var(--t1);border-top:1px solid var(--borde)}
-  .descarte{padding:var(--e4);color:var(--texto-3);font-size:var(--t2)}
-  .descarte li{margin:2px 0}
+  .alerta{padding:5px var(--e4);background:rgba(239,83,80,.12);
+          color:var(--rojo);font-size:var(--t0)}
+  .descarte{padding:var(--e4);color:var(--texto-3);font-size:var(--t1)}
+  .descarte li{margin:2px 0;list-style:none}
 
-  .g{height:420px}
+  .g{height:270px}
+  .papel details{border-top:1px solid var(--borde)}
+  .papel summary{padding:5px var(--e4);cursor:pointer;color:var(--texto-3);
+                 font-size:var(--t0);text-transform:uppercase;
+                 letter-spacing:.06em;user-select:none}
+  .papel summary:hover{color:var(--texto-2)}
 
-  table{width:100%;border-collapse:collapse;font-size:var(--t1);
+  table{width:100%;border-collapse:collapse;font-size:var(--t0);
         font-family:var(--fuente-num);font-variant-numeric:tabular-nums}
   th{color:var(--texto-3);font-weight:500;text-transform:uppercase;
-     font-size:var(--t0);letter-spacing:.06em;text-align:right;
-     padding:6px var(--e3);border-bottom:1px solid var(--borde)}
+     font-size:9px;letter-spacing:.06em;text-align:right;
+     padding:4px var(--e3);border-bottom:1px solid var(--borde)}
   th:first-child,td:first-child{text-align:left}
-  td{padding:5px var(--e3);border-bottom:1px solid var(--borde-2)}
+  td{padding:3px var(--e3);border-bottom:1px solid var(--borde-2)}
   td:not(:first-child){text-align:right}
-  tr.abierta td{color:var(--texto)}
   tr.cerrada td{color:var(--texto-3)}
-  .chip{display:inline-block;padding:1px 7px;border-radius:99px;
-        font-size:var(--t0);letter-spacing:.04em}
+  .chip{display:inline-block;padding:0 6px;border-radius:99px;font-size:9px}
   .chip.ab{background:rgba(38,166,154,.16);color:var(--verde)}
   .chip.st{background:rgba(239,83,80,.16);color:var(--rojo)}
 
   .vacio{padding:var(--e6);text-align:center;color:var(--texto-3)}
   .vacio code{color:var(--texto-2)}
-  .aviso{margin-top:var(--e5);padding:var(--e3) var(--e4);
+  .aviso{margin-top:var(--e4);padding:var(--e3) var(--e4);
          border:1px solid var(--borde);border-radius:var(--radio);
-         color:var(--texto-3);font-size:var(--t1)}
+         color:var(--texto-3);font-size:var(--t0)}
+
+  /* El popup: el mismo gráfico, grande. Se crea uno solo y se reusa — crear un
+     chart por apertura deja instancias colgadas y el navegador se come la RAM. */
+  #modal{position:fixed;inset:0;z-index:50;background:rgba(8,11,16,.85);
+         display:none;padding:var(--e5)}
+  #modal.abierto{display:flex;flex-direction:column}
+  #modal .barra{display:flex;align-items:baseline;gap:var(--e4);
+                padding-bottom:var(--e3);flex-wrap:wrap}
+  #modal .cerrar{margin-left:auto;background:none;border:1px solid var(--borde);
+                 color:var(--texto-2);border-radius:var(--radio);cursor:pointer;
+                 padding:3px 12px}
+  #gmodal{flex:1;min-height:0;border:1px solid var(--borde);
+          border-radius:var(--radio);overflow:hidden}
 </style>
 </head>
 <body>
@@ -87,15 +121,25 @@
     <span class="receta" id="receta"></span>
     <span class="receta" id="reloj" style="margin-left:auto"></span>
   </div>
+  <div id="alarma"></div>
   <div id="cuerpo"></div>
   <div class="aviso">
-    Las órdenes las ponés vos. Esta pantalla no manda nada.
-    Las velas son de <b>1 minuto</b> y sólo se escribe la vela ya
-    <b>cerrada</b>: nunca aparece algo nuevo más de una vez por minuto.
-    Entrar un minuto tarde cuesta <b>2%</b> del retorno —está medido—, así que
-    no corras.
+    Las órdenes las ponés vos. Esta pantalla no manda nada. Velas de
+    <b>1 minuto</b>, sólo la ya <b>cerrada</b>. La línea verde punteada es hasta
+    dónde llegó a favor la <b>mitad</b> de los trades medidos — no es un
+    objetivo de salida: el sistema sostiene al cierre.
   </div>
 </main>
+
+<div id="modal">
+  <div class="barra">
+    <span class="tk" id="mtk" style="font-size:var(--t4);font-weight:600"></span>
+    <span class="receta" id="mmeta"></span>
+    <button class="cerrar" id="mcerrar">cerrar ✕</button>
+  </div>
+  <div id="gmodal"></div>
+</div>
+
 <script src="/static/lightweight-charts.js"></script>
 <script src="/static/grafico.js"></script>
 <script src="/static/vivo.js"></script>
