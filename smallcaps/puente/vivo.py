@@ -107,6 +107,36 @@ def leer_feed(ruta=FEED):
 
 
 AVISO_TAMANO_MB = 25.0
+WATCHLIST = Path(config.data_dir()) / "watchlist.txt"
+TOLERANCIA_PRECIO = 0.25
+
+
+def referencias(ruta=WATCHLIST):
+    """Precio de referencia por ticker, del archivo de watchlist.
+
+    Se usa para verificar que el papel del feed sea EL PAPEL, no otro con el
+    mismo simbolo. Es el mismo dato que usa el indicador para elegir, pero el
+    chequeo se repite aca a proposito: este es el lado que decide, y una
+    verificacion que vive solo del lado que manda los datos no verifica nada.
+    """
+    out = {}
+    if not ruta.exists():
+        return out
+    try:
+        for linea in ruta.read_text(encoding="utf-8", errors="replace").splitlines():
+            linea = linea.strip()
+            if not linea or linea.startswith("#"):
+                continue
+            partes = linea.replace(",", " ").replace(";", " ").split()
+            if len(partes) < 2:
+                continue
+            try:
+                out[partes[0].upper()] = float(partes[1])
+            except ValueError:
+                continue
+    except OSError:
+        pass
+    return out
 
 
 def limpiar(ruta=FEED, hoy=None):
@@ -162,6 +192,31 @@ def armar_dia(ticker, fecha, datos):
     if not datos["bars"] or not datos["pc"]:
         return None
     return Dia(ticker, fecha, datos["bars"], datos["pc"], None, 0)
+
+
+def papel_sospechoso(dia, ref):
+    """¿El papel del feed es EL papel? Devuelve el motivo, o None si cuadra.
+
+    Un mismo simbolo existe en mas de un mercado. `SSM` llego al feed cotizando
+    $59 con 116 acciones de volumen cuando el SSM de la watchlist estaba a $3,85
+    subiendo 43%: eran dos instrumentos distintos con el mismo nombre. Si eso
+    pasa desapercibido, la pantalla calcula señales sobre un papel y la orden se
+    manda sobre otro.
+
+    VIVE AFUERA DE `evaluar` A PROPOSITO. `evaluar` tiene que ser un espejo
+    exacto del backtest —lo verifica `identidad.py`— y este chequeo es sobre la
+    PROCEDENCIA del dato, no sobre la estrategia. Metido adentro, el test de
+    identidad se puso en rojo al instante, que es exactamente para lo que sirve.
+    """
+    if not ref:
+        return None
+    px = dia.bars[-1][4] if dia.bars else 0
+    if not px:
+        return None
+    if abs(px - ref) / ref <= TOLERANCIA_PRECIO:
+        return None
+    return (f"precio ${px:.2f} no se parece a los ${ref:.2f} de la watchlist "
+            f"— puede ser OTRO instrumento con el mismo simbolo")
 
 
 def evaluar(dia, riesgo, piso):
@@ -352,12 +407,20 @@ def main(argv=None) -> int:
         return 0
     while True:
         res = []
+        refs = referencias()
         for (tk, fecha), datos in leer_feed(ruta).items():
             if fecha != hoy:
                 continue
             dia = armar_dia(tk, fecha, datos)
-            if dia:
-                res.append(evaluar(dia, args.riesgo, args.piso))
+            if not dia:
+                continue
+            malo = papel_sospechoso(dia, refs.get(tk))
+            if malo:
+                res.append({"ticker": tk, "bars": len(dia.bars),
+                            "hora": hora(dia.bars[-1]),
+                            "precio": dia.bars[-1][4], "descartes": [malo]})
+                continue
+            res.append(evaluar(dia, args.riesgo, args.piso))
         pintar(res, args.riesgo, args.piso)
         if args.una_vez:
             return 0

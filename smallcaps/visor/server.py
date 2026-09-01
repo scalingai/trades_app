@@ -323,6 +323,7 @@ def payload_vivo(riesgo: float, piso: float) -> dict:
         return salida
 
     hoy = date.today().isoformat()
+    refs = _vivo.referencias()
     for (tk, f), datos in sorted(_vivo.leer_feed().items()):
         if f != hoy:
             continue
@@ -335,7 +336,16 @@ def payload_vivo(riesgo: float, piso: float) -> dict:
         dia = _vivo.armar_dia(tk, f, datos)
         if not dia:
             continue
-        r = _vivo.evaluar(dia, riesgo, piso)
+        # Mismo chequeo de procedencia que la pantalla de terminal: que el papel
+        # del feed sea EL papel y no otro con el mismo simbolo.
+        malo = _vivo.papel_sospechoso(dia, refs.get(tk))
+        if malo:
+            r = {"ticker": tk, "bars": len(dia.bars),
+                 "hora": hora(dia.bars[-1]), "precio": dia.bars[-1][4],
+                 "expansion": None, "apertura": None, "descartes": [malo],
+                 "tramos": []}
+        else:
+            r = _vivo.evaluar(dia, riesgo, piso)
 
         velas, vol, vwap = [], [], []
         for i, b in enumerate(dia.bars):
