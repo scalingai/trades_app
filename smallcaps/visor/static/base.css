@@ -1,0 +1,272 @@
+/* ============================================================================
+   base.css — el sistema visual del visor. Una sola hoja para las cuatro paginas.
+
+   Antes esto vivia copiado adentro de cada HTML y ya habia divergido: cuatro
+   juegos de variables con valores distintos (--panel era #121722 en dos paginas
+   y #111621 en las otras dos), dos familias tipograficas repartidas sin criterio
+   y nueve tamanos de fuente sin relacion entre si.
+
+   El sistema entero esta en el bloque :root de abajo y se lee en veinte lineas.
+
+   Dos reglas que explican el resto del archivo:
+
+   1. La jerarquia se hace con ESPACIO y PESO, no con bordes. Un borde solo
+      aparece cuando separa dos cosas que de verdad se tocan (filas de una
+      tabla, la barra lateral del contenido). Todo lo demas se separa con aire.
+      Por eso casi no quedan `border-radius`: no hay cajas que redondear.
+
+   2. El color significa algo. Verde gana, rojo pierde, azul es "aca estas
+      parado", ambar es marca manual. Nada decorativo puede usar esos cuatro,
+      porque si el verde tambien sirve de adorno deja de leerse como ganancia.
+   ========================================================================== */
+
+:root{
+  /* ---- superficies ------------------------------------------------------ */
+  --fondo:#0d1117;        /* el papel */
+  --fondo-2:#131922;      /* barra lateral y paneles de grafico */
+  --fondo-3:#1a212c;      /* hover */
+  --fondo-4:#222b39;      /* seleccionado */
+
+  /* ---- lineas: dos pesos, y se usan lo menos posible -------------------- */
+  --linea:#1c222c;        /* separador dentro de una tabla */
+  --linea-2:#28303c;      /* separador entre bloques */
+
+  /* ---- texto: tres niveles, ni uno mas ---------------------------------- */
+  --texto:#dce2eb;
+  --texto-2:#8b96a8;      /* secundario: unidades, metadatos, prosa de apoyo */
+  --texto-3:#5f6979;      /* terciario: rotulos y cabeceras de tabla */
+
+  /* ---- color con significado (y solo con significado) ------------------- */
+  --pos:#2ea88f;
+  --neg:#e5544f;
+  --acento:#5b8def;       /* navegacion activa y seleccion */
+  --ambar:#d4a11e;        /* marcas manuales y VWAP — se usa en los graficos */
+  --pre:rgba(40,70,140,.20);   /* sombra de pre-market sobre las velas */
+
+  /* ---- tipografia -------------------------------------------------------
+     Dos familias con un reparto explicito: la interfaz en sans (titulos,
+     rotulos, prosa) y TODO numero en mono. Antes era al reves segun la pagina:
+     /historial era mono entera —incluida la prosa— y /bitacora era sans entera
+     —incluidas las columnas de precios, que por eso no alineaban. */
+  --fuente:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+  --fuente-num:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+
+  /* Seis escalones, en reemplazo de los nueve tamanos sueltos que habia
+     (10 / 10.5 / 11 / 11.5 / 12 / 12.5 / 13 / 15 / 16). */
+  --t0:10px;   /* rotulo de KPI, badge, unidad */
+  --t1:11px;   /* cabecera de tabla, metadato */
+  --t2:12px;   /* celda de tabla — el tamano de trabajo, el que mas se lee */
+  --t3:13px;   /* interfaz y prosa */
+  --t4:15px;   /* titulo de pagina, valor de KPI secundario */
+  --t5:21px;   /* el numero que importa. Uno por pantalla, no siete. */
+
+  /* ---- espaciado: multiplos de 4, sin excepciones ----------------------- */
+  --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e5:24px; --e6:32px;
+
+  --nav:154px;            /* ancho de la barra lateral */
+  --radio:5px;            /* unico radio del sistema: controles y badges */
+
+  /* ---- alias heredados --------------------------------------------------
+     El JS ya escrito y los marcadores de los graficos piden estos nombres. Se
+     mantienen apuntando a los tokens nuevos: asi el rediseno no obliga a tocar
+     la logica de dibujo, que esta afinada y no se toca. */
+  --bg:var(--fondo); --panel:var(--fondo-2); --tenue:var(--texto-2);
+  --verde:var(--pos); --rojo:var(--neg);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+
+/* El `display` del navegador para [hidden] es `none`, pero CUALQUIER regla de
+   clase que fije un display se lo lleva por delante — y entonces el elemento
+   "oculto" se sigue viendo. Ya pasó con el corte entre jornadas de /replay,
+   que es un `display:grid` y quedaba velando la pantalla entera. */
+[hidden]{display:none!important}
+
+body{
+  background:var(--fondo);
+  color:var(--texto);
+  font:var(--t3)/1.5 var(--fuente);
+  /* La barra lateral es `fixed`; el padding le hace el hueco. Se resuelve asi
+     y no con una grilla en el body porque cada pagina ya tiene su propio
+     layout adentro (grilla de dos columnas en /, flex en /bitacora) y no hay
+     que rehacerlos para meterles una columna mas adelante. */
+  padding-left:var(--nav);
+}
+a{color:var(--acento);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ============================================================ barra lateral */
+/* Reemplaza a las cuatro navegaciones horizontales, que estaban copiadas con
+   markup distinto en cada pagina — y en /historial directamente no habia nav,
+   solo un "volver al visor", asi que desde ahi no se llegaba a /cartera. */
+
+.nav{
+  position:fixed; left:0; top:0; bottom:0; width:var(--nav); z-index:20;
+  background:var(--fondo-2); border-right:1px solid var(--linea-2);
+  display:flex; flex-direction:column; padding:var(--e4) 0;
+}
+.nav-marca{
+  padding:0 var(--e4) var(--e5);
+  font-size:var(--t3); font-weight:600; letter-spacing:.01em; line-height:1.3;
+}
+.nav-marca span{
+  display:block; color:var(--texto-3); font-weight:400; font-size:var(--t0);
+  text-transform:uppercase; letter-spacing:.1em; margin-top:3px;
+}
+.nav a{
+  display:block; padding:6px var(--e3); margin:0 var(--e2) 1px;
+  color:var(--texto-2); font-size:var(--t3); border-radius:var(--radio);
+  text-decoration:none; transition:background .12s ease,color .12s ease;
+}
+.nav a:hover{background:var(--fondo-3);color:var(--texto);text-decoration:none}
+/* El activo se marca con peso y con la barrita de acento. Sin caja completa:
+   la caja competia con el contenido de la pagina. */
+.nav a.sel{
+  color:var(--texto); font-weight:600; background:var(--fondo-3);
+  box-shadow:inset 2px 0 0 var(--acento);
+}
+.nav-pie{
+  margin-top:auto; padding:var(--e3) var(--e4) 0;
+  color:var(--texto-3); font-size:var(--t0); line-height:1.6;
+}
+
+/* ================================================================= cabecera */
+/* Con la identidad ya resuelta en la barra lateral, la cabecera de cada pagina
+   deja de ser un cartel y pasa a ser lo que siempre debio ser: la fila de
+   controles de esa vista. */
+
+.tope{
+  display:flex; align-items:center; gap:var(--e4); flex-wrap:wrap;
+  padding:var(--e2) var(--e5); border-bottom:1px solid var(--linea-2);
+  min-height:50px;
+}
+.tope h1{
+  margin:0; font-size:var(--t4); font-weight:600; letter-spacing:-.01em;
+  white-space:nowrap;
+}
+.tope .der{margin-left:auto}
+
+/* ================================================================ controles */
+
+input,select,button,textarea{
+  background:var(--fondo-2); color:var(--texto);
+  border:1px solid var(--linea-2); border-radius:var(--radio);
+  padding:5px var(--e2); font:var(--t2)/1.4 var(--fuente); min-width:0;
+  transition:border-color .12s ease,background .12s ease;
+}
+input:hover,select:hover,button:hover{border-color:#3a4453}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acento)}
+button{cursor:pointer}
+button:hover{background:var(--fondo-3)}
+input[type=checkbox]{accent-color:var(--acento);min-width:auto}
+label{color:var(--texto-2);font-size:var(--t1);white-space:nowrap}
+
+/* ==================================================================== datos */
+/* Las tablas son la razon de ser de la herramienta: doce a quince columnas de
+   numeros a proposito. Aca no se recorta densidad — se recorta cromo. Lo que
+   se fue: el fondo de las cabeceras, los bordes exteriores, el radio. Lo que
+   se queda: `tabular-nums`, la alineacion a la derecha y el interlineado corto. */
+
+table{width:100%;border-collapse:collapse}
+th{
+  position:sticky; top:0; z-index:1; background:var(--fondo);
+  color:var(--texto-3); font:500 var(--t1)/1.4 var(--fuente);
+  text-transform:uppercase; letter-spacing:.06em;
+  text-align:right; white-space:nowrap; padding:var(--e2) var(--e3) 6px;
+  border-bottom:1px solid var(--linea-2); user-select:none;
+}
+td{
+  padding:5px var(--e3); text-align:right; white-space:nowrap;
+  font:var(--t2)/1.5 var(--fuente-num); font-variant-numeric:tabular-nums;
+  border-bottom:1px solid var(--linea);
+}
+th:first-child,td:first-child{text-align:left}
+tbody tr{transition:background .1s ease}
+tbody tr:hover td{background:var(--fondo-3)}
+/* La columna por la que se ordena se marca en el texto, no con un fondo. */
+th[data-c],th[data-col]{cursor:pointer}
+th[data-c]:hover,th[data-col]:hover{color:var(--texto-2)}
+th.orden{color:var(--acento)}
+
+/* Contenedor de tabla ancha. Siempre `min-width:0`: sin eso, una tabla de 390
+   columnas adentro de una grilla desborda el body entero y aparece una barra
+   horizontal a nivel pagina que rompe la navegacion. Pasaba en /cartera. */
+.scroll{overflow:auto;min-width:0;min-height:0}
+
+.badge{
+  display:inline-block; padding:1px 6px; border-radius:3px;
+  background:var(--fondo-3); color:var(--texto-2);
+  font:var(--t0)/1.6 var(--fuente); letter-spacing:.02em;
+}
+
+/* ===================================================================== KPIs */
+/* Antes eran siete cajas identicas en fila: ninguna resaltaba y todas competian.
+   Ahora el peso lo pone el tamano del numero, no un marco. `.kpi.jefe` es el
+   dato que uno mira primero — se usa UNO por pantalla. */
+
+.kpis{display:flex;align-items:baseline;gap:var(--e5);flex-wrap:wrap}
+.kpi{display:flex;flex-direction:column;gap:2px;line-height:1.2}
+.kpi b{
+  font:600 var(--t4)/1.15 var(--fuente-num); font-variant-numeric:tabular-nums;
+  letter-spacing:-.01em;
+}
+.kpi span{
+  color:var(--texto-3); font:var(--t0)/1.3 var(--fuente);
+  text-transform:uppercase; letter-spacing:.07em; white-space:nowrap;
+}
+.kpi.jefe b{font-size:var(--t5)}
+
+/* ================================================================ secciones */
+/* Sin borde, sin fondo, sin radio. Un titulo chico en terciario y aire arriba:
+   alcanza para separar, y deja de haber una grilla de rectangulos. */
+
+.seccion{padding:0 var(--e5);margin-bottom:var(--e6)}
+.seccion > h2{
+  margin:0 0 var(--e1); font:600 var(--t1)/1.4 var(--fuente);
+  text-transform:uppercase; letter-spacing:.08em; color:var(--texto-3);
+}
+.nota{
+  margin:0 0 var(--e4); max-width:82ch;
+  color:var(--texto-2); font-size:var(--t2); line-height:1.65;
+}
+.nota b{color:var(--texto);font-weight:600}
+.nota code{
+  font:var(--t1) var(--fuente-num); background:var(--fondo-2);
+  padding:1px 5px; border-radius:3px;
+}
+
+/* =============================================================== utilidades */
+
+.pos{color:var(--pos)} .neg{color:var(--neg)} .tenue{color:var(--texto-2)}
+/* Ambar = "ojo con esto": un dato que sigue siendo valido pero que no se puede
+   comparar con el de al lado. Hoy lo usa la fecha de medicion de una estrategia
+   que quedo de una corrida anterior del motor. */
+.vieja{color:var(--ambar)}
+.num{font-family:var(--fuente-num);font-variant-numeric:tabular-nums}
+.vacio{
+  color:var(--texto-3); padding:var(--e6); text-align:center;
+  font-size:var(--t3); line-height:1.8;
+}
+.sep{width:1px;align-self:stretch;background:var(--linea-2)}
+.sepv{width:1px;height:14px;background:var(--linea-2);display:inline-block}
+
+/* La barra de scroll tambien es cromo: que no grite. */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:#2a323e;border-radius:5px;
+  border:2px solid var(--fondo)}
+*::-webkit-scrollbar-thumb:hover{background:#3a4453}
+*::-webkit-scrollbar-track{background:transparent}
+
+/* Ventana angosta: la barra lateral se acuesta arriba. El visor se usa en
+   pantalla grande, pero sin esto una ventana de 900px pierde el grafico. */
+@media (max-width:900px){
+  body{padding-left:0;padding-top:40px}
+  .nav{
+    right:0; bottom:auto; width:auto; height:40px; flex-direction:row;
+    align-items:center; padding:0 var(--e3); gap:var(--e1);
+    border-right:none; border-bottom:1px solid var(--linea-2);
+  }
+  .nav-marca,.nav-pie{display:none}
+  .nav a.sel{box-shadow:inset 0 -2px 0 var(--acento)}
+}

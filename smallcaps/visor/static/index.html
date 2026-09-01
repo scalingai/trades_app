@@ -3,124 +3,131 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Visor de eventos — small caps</title>
+<title>Gráficos · small caps</title>
+<link rel="stylesheet" href="/static/base.css">
 <style>
-  :root{
-    --bg:#0b0e14; --panel:#121722; --linea:#222938; --texto:#d5dae6;
-    --tenue:#7b8598; --verde:#26a69a; --rojo:#ef5350; --ambar:#e6c84a;
-    --pre:rgba(40,70,140,.20);
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
-  body{
-    background:var(--bg); color:var(--texto);
-    font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    display:grid; grid-template-columns:340px 1fr; overflow:hidden;
-  }
+  /* Sistema, tokens y primitivos: base.css. Aca solo lo propio de esta vista —
+     la lista de papeles a la izquierda y el lienzo del grafico a la derecha. */
 
-  /* ---- panel izquierdo ---- */
-  aside{border-right:1px solid var(--linea);display:flex;flex-direction:column;min-height:0}
-  aside header{padding:12px 14px;border-bottom:1px solid var(--linea)}
-  aside h1{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
-  aside h1 small{display:block;color:var(--tenue);letter-spacing:0;text-transform:none;font-weight:400;margin-top:3px}
+  body{display:grid;grid-template-columns:340px 1fr;overflow:hidden}
 
-  .filtros{padding:10px 14px;border-bottom:1px solid var(--linea);display:grid;gap:8px}
-  .fila{display:flex;gap:8px;align-items:center}
-  input,select,button{
-    background:#0e131d;color:var(--texto);border:1px solid var(--linea);
-    border-radius:4px;padding:5px 8px;font:inherit;font-size:12px;min-width:0
+  /* ------------------------------------------------- columna de la izquierda */
+  aside{
+    border-right:1px solid var(--linea-2);
+    display:flex;flex-direction:column;min-height:0;min-width:0;
   }
-  input:focus,select:focus{outline:none;border-color:#3d4a63}
-  button{cursor:pointer}
-  button:hover{border-color:#3d4a63}
-  label{color:var(--tenue);font-size:11px;white-space:nowrap}
+  .filtros{padding:var(--e3) var(--e4);display:grid;gap:var(--e2)}
+  .fila{display:flex;gap:var(--e2);align-items:center}
+  .fila label{display:flex;align-items:center;gap:5px}
 
   .lista{overflow:auto;flex:1;min-height:0}
-  .lista table{width:100%;border-collapse:collapse}
-  .lista th{
-    position:sticky;top:0;background:var(--panel);color:var(--tenue);
-    font-weight:400;font-size:11px;text-align:right;padding:6px 8px;
-    border-bottom:1px solid var(--linea);cursor:pointer;user-select:none
-  }
-  .lista th:first-child{text-align:left}
-  .lista th.orden{color:var(--texto)}
-  .lista td{padding:5px 8px;text-align:right;border-bottom:1px solid #171d29;font-size:12px}
-  .lista td:first-child{text-align:left;font-weight:600}
+  /* Cuatro columnas en 340px: el padding de tabla del sistema (12px) las
+     desborda, asi que aca baja a 8. Y la columna "que es" tiene que poder
+     cortar renglon — con `nowrap` heredado la tabla no entra. */
+  .lista th{padding:var(--e2) var(--e2) 6px;background:var(--fondo)}
+  .lista td{padding:4px var(--e2);white-space:normal}
+  /* La fecha no se parte; la unica que puede cortar renglon es "que es". */
+  .lista td:first-child,.lista td:nth-child(3),
+  .lista td:nth-child(4){white-space:nowrap}
+  .lista td:first-child{font-weight:600}
   .lista tr{cursor:pointer}
-  .lista tr:hover{background:#161c28}
-  .lista tr.sel{background:#1c2434}
-  /* El papel es la unidad; los días son lo que le pasó adentro. */
-  .lista tr.grupo td{background:#141a26;font-weight:700;border-top:1px solid var(--linea)}
-  .lista tr.grupo:hover td{background:#1a2130}
-  .lista tr.dia td:first-child{padding-left:22px;font-weight:400;color:var(--tenue)}
-  .flecha{display:inline-block;width:10px;color:var(--tenue)}
-  .tag{font-size:9px;border:1px solid var(--linea);border-radius:3px;padding:0 4px;color:var(--tenue)}
-  .tag.ev{opacity:.6}
-  .lista tr.dia .tag:not(.ev){border-color:var(--verde);color:var(--verde)}
-  .marca{color:var(--ambar);font-size:10px}
-  /* Los vecinos se ven, pero atenuados: son contexto, no candidatos. */
-  .lista tr.dia.vecino td{opacity:.42}
-  .lista tr.dia.vecino:hover td{opacity:.85}
-  .pos{color:var(--verde)} .neg{color:var(--rojo)} .tenue{color:var(--tenue)}
+  .lista tr.sel td{background:var(--fondo-4)}
 
-  /* ---- panel derecho ---- */
-  main{display:flex;flex-direction:column;min-width:0;min-height:0}
-  .barra{
-    display:flex;gap:18px;align-items:center;flex-wrap:wrap;
-    padding:9px 14px;border-bottom:1px solid var(--linea);background:var(--panel)
+  /* El papel es la unidad; los dias son lo que le paso adentro. El grupo se
+     distingue por PESO y por una linea arriba, no por un fondo distinto: el
+     fondo lo necesitamos libre para marcar el seleccionado. */
+  .lista tr.grupo td{
+    font-weight:700;color:var(--texto);border-top:1px solid var(--linea-2);
+    border-bottom-color:transparent;cursor:pointer;
   }
-  .barra .tit{font-size:15px;font-weight:700;letter-spacing:.04em}
-  .kpi{display:flex;flex-direction:column;line-height:1.25}
-  .kpi b{font-size:13px;font-weight:600}
-  .kpi span{font-size:10px;color:var(--tenue);text-transform:uppercase;letter-spacing:.05em}
-  .sep{width:1px;align-self:stretch;background:var(--linea)}
+  .lista tr.dia td:first-child{padding-left:var(--e5);font-weight:400;color:var(--texto-2)}
+  .flecha{display:inline-block;width:11px;color:var(--texto-3)}
+  .tag{
+    font:var(--t0) var(--fuente);color:var(--texto-3);
+    background:var(--fondo-3);border-radius:3px;padding:0 4px;
+  }
+  .tag.ev{background:transparent;opacity:.7}
+  .lista tr.dia .tag:not(.ev){background:transparent;color:var(--pos)}
+  .marca{color:var(--ambar);font-size:var(--t0)}
+  /* Los vecinos se ven, pero atenuados: son contexto, no candidatos. */
+  .lista tr.dia.vecino td{opacity:.4}
+  .lista tr.dia.vecino:hover td{opacity:.9}
+
+  /* --------------------------------------------------- columna de la derecha */
+  main{display:flex;flex-direction:column;min-width:0;min-height:0}
+
+  /* La barra de fichas del papel. Sin fondo propio: es la misma hoja, separada
+     del grafico por una linea y por aire. */
+  .barra{
+    display:flex;gap:var(--e5);align-items:center;flex-wrap:wrap;
+    padding:var(--e2) var(--e5);border-bottom:1px solid var(--linea-2);
+  }
+  .barra .tit{
+    font:600 var(--t4)/1.2 var(--fuente);letter-spacing:-.01em;
+    display:flex;align-items:baseline;gap:var(--e2);
+  }
+  .barra .tit .tenue{font:var(--t2) var(--fuente-num)}
+  #embudo,#trade{gap:var(--e2);padding:6px var(--e5)}
+  /* Sin dia elegido estas dos barras estan vacias: que no dejen dos rayas
+     sueltas colgando abajo del titulo. */
+  .barra:empty{display:none}
 
   .lienzo{position:relative;flex:1;min-height:0}
   #chart{position:absolute;inset:0}
-  #sombra{position:absolute;top:0;bottom:0;background:var(--pre);pointer-events:none;display:none}
-  #vacio{
-    position:absolute;inset:0;display:grid;place-items:center;
-    color:var(--tenue);text-align:center;padding:40px;line-height:1.8
-  }
-  .pie{
-    padding:7px 14px;border-top:1px solid var(--linea);color:var(--tenue);
-    font-size:11px;display:flex;gap:16px;flex-wrap:wrap;align-items:center
-  }
-  .pie b{color:var(--texto);font-weight:600}
-  .chip{border:1px solid var(--linea);border-radius:3px;padding:1px 6px;cursor:pointer}
-  .chip.on{border-color:var(--ambar);color:var(--ambar)}
-  .sepv{width:1px;height:14px;background:var(--linea);display:inline-block}
-  /* El embudo: cada paso con su estado, para ver dónde se cae un día. */
+  #sombra{position:absolute;top:0;bottom:0;background:var(--pre);
+          pointer-events:none;display:none}
+  /* z-index: sin esto el lienzo de lightweight-charts tapa el cartel y la
+     pantalla inicial queda en negro sin explicar que hay que elegir un dia. */
+  #vacio{position:absolute;inset:0;display:grid;place-items:center;z-index:2}
+
+  /* El embudo: cada paso con su estado, para ver donde se cae un dia.
+     Los pasos son la unica excepcion a "sin bordes": el borde ES el dato
+     (verde paso, rojo no paso), asi que no es cromo. */
   .embudo{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
   .paso{
-    font-size:10px;padding:1px 6px;border-radius:3px;border:1px solid var(--linea);
-    color:var(--tenue);text-transform:uppercase;letter-spacing:.04em
+    font:var(--t0)/1.7 var(--fuente);padding:1px 7px;border-radius:3px;
+    border:1px solid var(--linea-2);color:var(--texto-2);
+    text-transform:uppercase;letter-spacing:.04em;
   }
-  .paso.si{border-color:var(--verde);color:var(--verde)}
-  .paso.no{border-color:var(--rojo);color:var(--rojo);opacity:.75}
-  .paso.pos{border-color:var(--verde);color:var(--verde)}
-  .paso.neg{border-color:var(--rojo);color:var(--rojo)}
-  .paso.saltar{cursor:pointer}
+  .paso.si,.paso.pos{border-color:var(--pos);color:var(--pos)}
+  .paso.no{border-color:var(--neg);color:var(--neg);opacity:.7}
+  .paso.neg{border-color:var(--neg);color:var(--neg)}
+  .paso.saltar{cursor:pointer;transition:border-color .12s ease,color .12s ease}
   .paso.saltar:hover{border-color:var(--ambar);color:var(--ambar)}
-  .lista tr.grupo td{cursor:pointer}
 
-  /* Ventana angosta: la lista pasa arriba y el gráfico se queda con el resto.
-     Sin esto, con menos de 900px el gráfico queda directamente fuera de pantalla. */
+  /* ---------------------------------------------------------------- el pie */
+  .pie{
+    padding:var(--e2) var(--e5);border-top:1px solid var(--linea-2);
+    color:var(--texto-2);font-size:var(--t1);
+    display:flex;gap:var(--e3);flex-wrap:wrap;align-items:center;
+  }
+  .pie b{color:var(--texto);font-weight:600}
+  /* Los chips son interruptores: apagado = solo texto, prendido = fondo suave.
+     Antes cada uno tenia su borde y la fila parecia una botonera de aeropuerto. */
+  .chip{
+    padding:2px 8px;border-radius:var(--radio);cursor:pointer;color:var(--texto-3);
+    transition:background .12s ease,color .12s ease;
+  }
+  .chip:hover{background:var(--fondo-3);color:var(--texto)}
+  .chip.on{background:var(--fondo-3);color:var(--texto)}
+  .chip[data-tipo].on{color:var(--ambar)}
+  .sepv{width:1px;height:14px;background:var(--linea-2);display:inline-block}
+
+  /* Ventana angosta: la lista pasa arriba y el grafico se queda con el resto. */
   @media (max-width:900px){
     body{grid-template-columns:1fr;grid-template-rows:auto 1fr}
-    aside{border-right:none;border-bottom:1px solid var(--linea);max-height:45vh}
-    .barra{gap:12px;font-size:12px}
+    aside{border-right:none;border-bottom:1px solid var(--linea-2);max-height:45vh}
+    .barra{gap:var(--e3);padding-left:var(--e3);padding-right:var(--e3)}
+    .pie,.filtros{padding-left:var(--e3);padding-right:var(--e3)}
   }
 </style>
 </head>
 <body>
 <aside>
-  <header>
-    <h1>Visor de eventos
-      <small>días con barras de 1 minuto descargadas ·
-        <a href="/historial" style="color:var(--ambar)">historial de trades →</a></small>
-    </h1>
-  </header>
+  <div class="tope">
+    <h1>Gráficos</h1>
+    <span class="tenue der" id="cuenta" style="font-size:var(--t1)"></span>
+  </div>
 
   <div class="filtros">
     <div class="fila">
@@ -134,7 +141,7 @@
     </div>
     <div class="fila">
       <label>expansión ≥</label>
-      <input id="minExp" type="number" value="" placeholder="—" style="width:70px">
+      <input id="minExp" type="number" value="" placeholder="—" style="width:64px">
       <label>precio</label>
       <select id="banda">
         <option value="">todo</option>
@@ -147,15 +154,12 @@
     <div class="fila">
       <label title="pasa los 5 filtros de ESTRATEGIA.md: censo, precio, volumen, expansión, fade">
         <input type="checkbox" id="soloCandidatos" checked>
-        <b>solo candidatos</b></label>
-      <span id="cuenta" class="tenue"></span>
-    </div>
-    <div class="fila">
+        <b style="color:var(--texto)">solo candidatos</b></label>
       <label><input type="checkbox" id="soloLimpios"> vol ≥ 3×</label>
       <label><input type="checkbox" id="soloEventos"> solo eventos</label>
     </div>
     <div class="fila">
-      <input id="nvTicker" placeholder="TICKER" style="width:88px;text-transform:uppercase">
+      <input id="nvTicker" placeholder="TICKER" style="width:82px;text-transform:uppercase">
       <input id="nvFecha" placeholder="AAAA-MM-DD" style="flex:1">
       <button id="bajar" title="baja los minutos de ese día (1 llamada a la API)">bajar</button>
     </div>
@@ -178,18 +182,20 @@
   <div class="barra" id="barra">
     <div class="tit" id="tit">—</div>
   </div>
-  <div class="barra" id="embudo" style="padding:5px 14px;gap:10px"></div>
-  <div class="barra embudo" id="trade" style="padding:5px 14px;gap:6px"></div>
+  <div class="barra" id="embudo"></div>
+  <div class="barra embudo" id="trade"></div>
   <div class="lienzo">
     <div id="chart"></div>
     <div id="sombra"></div>
-    <div id="vacio">
-      Elegí un día de la lista.<br>
-      <span style="font-size:11px">
-        La zona sombreada es pre-market · la línea ámbar es el VWAP acumulado<br>
-        Las rayas punteadas son cierre previo y máximo pre-market<br>
-        Para marcar a mano: elegí un tipo abajo (s / l / n) y clickeá el gráfico
-      </span>
+    <div class="vacio" id="vacio">
+      <div>
+        Elegí un día de la lista.<br>
+        <span style="font-size:var(--t1)">
+          La zona sombreada es pre-market · la línea ámbar es el VWAP acumulado<br>
+          Las rayas punteadas son cierre previo y máximo pre-market<br>
+          Para marcar a mano: elegí un tipo abajo (s / l / n) y clickeá el gráfico
+        </span>
+      </div>
     </div>
   </div>
   <div class="pie" id="pie">
@@ -217,6 +223,7 @@
   </div>
 </main>
 
+<script src="/static/chrome.js"></script>
 <script src="/static/lightweight-charts.js"></script>
 <script src="/static/app.js"></script>
 </body>

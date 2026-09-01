@@ -57,10 +57,15 @@ def como_lo_escribe_la_plataforma(d, tk, ruta):
     Las horas van a UTC con la 'Z' del formato ISO, que es lo que manda el
     indicador; si la conversión de vuelta a Nueva York estuviera mal, las
     señales caerían en otra hora y el test lo vería.
+
+    El UTC se deriva de la propia barra con `astimezone`, NO sumando un offset
+    fijo. Con +4 fijo este test pasaba en verano y fallaba en diciembre, que es
+    exactamente por qué PRFX (2024-12-19) está en la lista: es el único día de
+    invierno, y fue el que delató que `vivo.py` tenía el huso hardcodeado.
     """
     with open(ruta, "w", encoding="utf-8") as fh:
         for b in d.bars:
-            utc = (b[0] + dt.timedelta(hours=4)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            utc = b[0].astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
             fh.write(json.dumps({"t": utc, "s": tk, "o": b[1], "h": b[2],
                                  "l": b[3], "c": b[4], "v": b[5] or 0,
                                  "pc": d.prev_close}) + "\n")

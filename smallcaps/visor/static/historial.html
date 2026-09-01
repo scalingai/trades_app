@@ -3,67 +3,40 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Historial de trades — small caps</title>
+<title>Historial · small caps</title>
+<link rel="stylesheet" href="/static/base.css">
 <style>
-  :root{
-    --bg:#0b0e14; --panel:#121722; --linea:#222938; --texto:#d5dae6;
-    --tenue:#7b8598; --verde:#26a69a; --rojo:#ef5350; --ambar:#e6c84a;
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
-  body{
-    background:var(--bg); color:var(--texto);
-    font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    display:flex; flex-direction:column; overflow:hidden;
-  }
-  a{color:var(--ambar)}
-  header{
-    padding:10px 16px; border-bottom:1px solid var(--linea); background:var(--panel);
-    display:flex; gap:16px; align-items:center; flex-wrap:wrap
-  }
-  h1{margin:0;font-size:13px;letter-spacing:.08em;text-transform:uppercase}
-  select,input,button{
-    background:#0e131d;color:var(--texto);border:1px solid var(--linea);
-    border-radius:4px;padding:5px 8px;font:inherit;font-size:12px
-  }
-  select{min-width:280px}
-  button{cursor:pointer}
-  .kpi{display:flex;flex-direction:column;line-height:1.25}
-  .kpi b{font-size:14px;font-weight:700}
-  .kpi span{font-size:9px;color:var(--tenue);text-transform:uppercase;letter-spacing:.05em}
-  .sep{width:1px;align-self:stretch;background:var(--linea)}
-  .pos{color:var(--verde)} .neg{color:var(--rojo)} .tenue{color:var(--tenue)}
+  /* Sistema, tokens y primitivos: base.css. Aca solo lo propio de esta vista. */
+
+  body{display:flex;flex-direction:column;overflow:hidden}
+  #est{min-width:280px}
 
   main{display:grid;grid-template-rows:auto 1fr;flex:1;min-height:0}
-  #curva{height:210px;border-bottom:1px solid var(--linea);position:relative}
+  #curva{height:190px;border-bottom:1px solid var(--linea-2);position:relative}
   .tabla{overflow:auto;min-height:0}
-  table{width:100%;border-collapse:collapse}
-  th{
-    position:sticky;top:0;background:var(--panel);color:var(--tenue);
-    font-weight:400;font-size:11px;text-align:right;padding:6px 10px;
-    border-bottom:1px solid var(--linea);cursor:pointer;user-select:none;white-space:nowrap
+  .tabla th:first-child,.tabla th:nth-child(2),
+  .tabla td:first-child,.tabla td:nth-child(2){text-align:left}
+  .tabla tr{cursor:pointer}
+
+  /* La comparativa de variantes. Antes crecia sin tope y se comia la pantalla
+     entera: con 390 estrategias, la curva y la tabla de trades quedaban abajo
+     de todo y nunca se veian juntas. Ahora tiene su propio scroll y un techo. */
+  .comp{
+    max-height:32vh;overflow:auto;min-height:0;
+    padding:0 var(--e5) var(--e3);border-bottom:1px solid var(--linea-2);
   }
-  th:first-child,th:nth-child(2){text-align:left}
-  th.orden{color:var(--ambar)}
-  td{padding:4px 10px;text-align:right;border-bottom:1px solid #171d29;font-size:12px;white-space:nowrap}
-  td:first-child,td:nth-child(2){text-align:left}
-  tr:hover td{background:#161c28}
-  tr{cursor:pointer}
-  .comp{padding:10px 16px;border-bottom:1px solid var(--linea);overflow:auto}
-  .comp table{width:auto;min-width:100%}
-  .comp td,.comp th{padding:3px 12px}
-  .comp tr.sel td{background:#1c2434;color:var(--texto)}
-  .badge{font-size:10px;border:1px solid var(--linea);border-radius:3px;padding:1px 5px;color:var(--tenue)}
+  .comp th{background:var(--fondo)}
+  .comp td{padding:3px var(--e3);cursor:pointer}
+  .comp tr.sel td{background:var(--fondo-4);color:var(--texto)}
 </style>
 </head>
 <body>
-<header>
-  <h1>Historial de trades</h1>
+<div class="tope">
+  <h1>Historial</h1>
   <select id="est"></select>
   <span class="sep"></span>
-  <div id="kpis" style="display:flex;gap:16px;flex-wrap:wrap"></div>
-  <span style="margin-left:auto"><a href="/">← volver al visor</a></span>
-</header>
+  <div class="kpis" id="kpis"></div>
+</div>
 
 <div class="comp" id="comp"></div>
 
@@ -93,6 +66,7 @@
   </div>
 </main>
 
+<script src="/static/chrome.js"></script>
 <script src="/static/lightweight-charts.js"></script>
 <script src="/static/historial.js"></script>
 </body>

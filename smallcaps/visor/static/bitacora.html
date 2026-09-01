@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bitácora · small caps</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+  /* Sistema, tokens y primitivos: base.css. Aca solo lo propio de esta vista. */
+
+  body{display:flex;flex-direction:column;overflow:hidden}
+  #est{min-width:220px}
+  #cuerpo{flex:1;display:flex;min-height:0}
+
+  /* ---------------------------------- columna izquierda: el diario, en orden */
+  #diario{
+    width:272px;flex:none;overflow-y:auto;min-height:0;
+    border-right:1px solid var(--linea-2);background:var(--fondo-2);
+  }
+  .mes{
+    position:sticky;top:0;z-index:2;background:var(--fondo-2);
+    color:var(--texto-3);font:600 var(--t0)/1.4 var(--fuente);
+    letter-spacing:.1em;text-transform:uppercase;
+    padding:var(--e3) var(--e4) var(--e1);
+  }
+  .dia{
+    padding:7px var(--e4);cursor:pointer;
+    display:grid;grid-template-columns:1fr auto;gap:1px var(--e2);
+    transition:background .1s ease;
+  }
+  .dia:hover{background:var(--fondo-3)}
+  .dia.sel{background:var(--fondo-4);box-shadow:inset 2px 0 0 var(--acento)}
+  .dia b{font:600 var(--t3)/1.35 var(--fuente)}
+  .dia .tk{color:var(--texto-3);font-size:var(--t1);grid-column:1;
+           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dia .r{font:600 var(--t3)/1.35 var(--fuente-num);
+          font-variant-numeric:tabular-nums;text-align:right}
+  .dia .n{color:var(--texto-3);font:var(--t0) var(--fuente-num);text-align:right}
+
+  /* ------------------------------------------ columna derecha: la jornada */
+  #jornada{flex:1;overflow-y:auto;min-width:0;padding:var(--e5)}
+
+  .jornada-tope{margin-bottom:var(--e5)}
+  .jornada-tope h2{
+    margin:0 0 var(--e3);font:600 var(--t4)/1.2 var(--fuente-num);
+    letter-spacing:-.01em;
+  }
+
+  /* El papel ya no es una tarjeta con marco. Lo que lo separa del siguiente es
+     aire y una linea fina arriba — el marco solo agregaba un rectangulo mas. */
+  .papel{margin-bottom:var(--e6);padding-top:var(--e4);border-top:1px solid var(--linea-2)}
+  .papel:first-of-type{border-top:0;padding-top:0}
+  .cab{display:flex;align-items:baseline;gap:var(--e4);flex-wrap:wrap;
+       margin-bottom:var(--e3)}
+  .cab h2{margin:0;font:600 var(--t4)/1.2 var(--fuente);letter-spacing:-.01em}
+  .cab .dato{color:var(--texto-2);font-size:var(--t1)}
+  .cab .dato b{color:var(--texto);font-family:var(--fuente-num);font-weight:600}
+
+  /* El grafico sí conserva superficie propia: es un lienzo, no un bloque de
+     texto, y necesita un borde de contencion contra el papel de la pagina. */
+  .grafico{height:340px;background:var(--fondo-2);border-radius:var(--radio)}
+
+  #jornada table{margin-top:var(--e3)}
+  #jornada th{background:var(--fondo)}
+
+  /* La lectura del dia en prosa: sans, ancho de lectura acotado, tenue. */
+  .lectura{
+    margin-top:var(--e3);max-width:96ch;
+    color:var(--texto-2);font-size:var(--t2);line-height:1.7;
+  }
+  .lectura b{color:var(--texto);font-weight:600}
+</style>
+</head>
+<body>
+<div class="tope">
+  <h1>Bitácora</h1>
+  <select id="est"></select>
+  <span class="tenue der" id="resumen" style="font-size:var(--t1)"></span>
+</div>
+
+<div id="cuerpo">
+  <div id="diario"><div class="vacio">cargando…</div></div>
+  <div id="jornada">
+    <div class="vacio">Elegí una jornada de la izquierda.<br>
+      <span style="font-size:var(--t1)">Cada renglón es un día que el sistema
+      habría operado — con sus ejecuciones dibujadas sobre las velas.</span>
+    </div>
+  </div>
+</div>
+
+<script src="/static/chrome.js"></script>
+<script src="/static/lightweight-charts.js"></script>
+<script src="/static/grafico.js"></script>
+<script src="/static/bitacora.js"></script>
+</body>
+</html>

@@ -9,7 +9,7 @@ let orden = { c: 'd', desc: false };
 
 const chart = LWC.createChart($('#curva'), {
   autoSize: true,
-  layout: { background: { color: '#0b0e14' }, textColor: '#7b8598', fontSize: 11 },
+  layout: { background: { color: '#0d1117' }, textColor: '#7b8598', fontSize: 11 },
   grid: { vertLines: { color: '#151b26' }, horzLines: { color: '#151b26' } },
   rightPriceScale: { borderColor: '#222938' },
   timeScale: { borderColor: '#222938' },
@@ -30,8 +30,9 @@ const hhmm = (h) => (h == null ? '—'
   : String(Math.floor(h)).padStart(2, '0') + ':'
     + String(Math.round((h % 1) * 60)).padStart(2, '0'));
 
-function kpi(v, lab, c = '') {
-  return `<div class="kpi"><b class="${c}">${v}</b><span>${lab}</span></div>`;
+function kpi(v, lab, c = '', jefe = false) {
+  return `<div class="kpi${jefe ? ' jefe' : ''}"><b class="${c}">${v}</b>`
+    + `<span>${lab}</span></div>`;
 }
 
 async function cargarEstrategias() {
@@ -47,12 +48,26 @@ async function cargarEstrategias() {
 
   /* La tabla comparativa arriba: el punto de etiquetar por estrategia es poder
      verlas juntas, no de a una. */
+  /* La fecha de medición, acá y no en otro lado: esta tabla es DONDE se
+     comparan 425 estrategias entre sí, y 337 de ellas se midieron con una
+     corrida anterior del motor. Ordenar por PnL mezclando eras es comparar
+     peras con manzanas, y hasta ahora nada en pantalla lo decía. */
+  const medidas = es.map((e) => e.medido).filter(Boolean);
+  const ultima = medidas.length ? medidas.reduce((a, b) => (a > b ? a : b)) : null;
+  const dia = (x) => (x ? String(x).slice(0, 10) : null);
+
   $('#comp').innerHTML = `<table>
-    <tr><th>estrategia</th><th>n</th><th>PnL</th><th>media</th><th>gana</th>
+    <tr><th>estrategia</th><th>medida</th><th>n</th><th>PnL</th><th>media</th><th>gana</th>
         <th>gan medio</th><th>perd medio</th><th>profit factor</th><th>max DD</th></tr>
     ${es.map((e) => `
       <tr data-e="${e.estrategia}">
         <td>${e.estrategia}</td>
+        <td class="${!e.medido ? 'tenue' : dia(e.medido) < dia(ultima) ? 'vieja' : 'tenue'}"
+            title="${!e.medido
+              ? 'No figura en la tabla de estrategias: quedó de una corrida anterior del motor y no se volvió a medir.'
+              : dia(e.medido) < dia(ultima)
+                ? 'Medida con una corrida anterior del motor. No es comparable con las del ' + dia(ultima) + '.'
+                : 'Medida con la corrida más reciente.'}">${dia(e.medido) || '—'}</td>
         <td>${e.n}</td>
         <td class="${cls(e.total)}">$${n(e.total, 0)}</td>
         <td class="${cls(e.media)}">$${n(e.media, 3)}</td>
@@ -81,7 +96,7 @@ async function cargar() {
   TRADES = r.filas || [];
   const m = r.metricas || {};
   $('#kpis').innerHTML =
-    kpi(`$${n(m.total, 0)}`, 'PnL total', cls(m.total))
+    kpi(`$${n(m.total, 0)}`, 'PnL total', cls(m.total), true)
     + kpi(m.n, 'trades')
     + kpi(`$${n(m.media, 3)}`, 'media/trade', cls(m.media))
     + kpi(`${n(m.gana, 0)}%`, 'aciertos')
@@ -128,12 +143,12 @@ function pintar() {
       <td class="tenue">${n(f.expansion, 0)}</td>
       <td class="tenue">${f.periodo}</td>
     </tr>`).join('');
-  document.querySelectorAll('th').forEach((th) => {
+  document.querySelectorAll('.tabla th').forEach((th) => {
     th.classList.toggle('orden', th.dataset.c === orden.c);
   });
 }
 
-document.querySelectorAll('th').forEach((th) => {
+document.querySelectorAll('.tabla th').forEach((th) => {
   th.addEventListener('click', () => {
     const c = th.dataset.c;
     orden = { c, desc: orden.c === c ? !orden.desc : true };

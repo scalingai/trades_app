@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reproducción · small caps</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+  /* Sistema, tokens y primitivos: base.css. Aca solo lo propio de esta vista.
+
+     La pantalla es una sola pieza que no scrollea: mandos arriba, acumuladores,
+     y el grafico ocupando todo lo que sobra. Es una pelicula — si hay que
+     scrollear para ver el numero mientras corre, el numero no se ve. */
+
+  body{display:flex;flex-direction:column;overflow:hidden}
+  #est{min-width:210px}
+  #mes{min-width:120px}
+
+  /* ------------------------------------------------------------- los mandos */
+  .mandos{
+    display:flex;align-items:center;gap:var(--e3);flex-wrap:wrap;
+    padding:var(--e2) var(--e5);border-bottom:1px solid var(--linea-2);
+  }
+  .mandos button{min-width:34px;text-align:center}
+  #play{min-width:74px;font-weight:600}
+  .velocidad{display:flex;gap:2px}
+  .velocidad button{border-radius:0;margin:0}
+  .velocidad button:first-child{border-radius:var(--radio) 0 0 var(--radio)}
+  .velocidad button:last-child{border-radius:0 var(--radio) var(--radio) 0}
+  .velocidad button.on{background:var(--fondo-4);color:var(--texto);
+                       border-color:var(--acento)}
+  .mandos label{display:flex;align-items:center;gap:5px;cursor:pointer}
+
+  /* --------------------------------------------------- la barra de progreso */
+  /* Un segmento por jornada, del mismo ancho: todas duran los mismos 390
+     minutos de rueda. Se puede clickear para saltar — por eso la curva del mes
+     se precomputa entera al cargar. */
+  .barra{
+    display:flex;gap:2px;padding:var(--e2) var(--e5) var(--e3);
+    border-bottom:1px solid var(--linea-2);
+  }
+  .seg{
+    flex:1;height:26px;position:relative;cursor:pointer;border-radius:3px;
+    background:var(--fondo-2);overflow:hidden;
+  }
+  .seg .lleno{position:absolute;inset:0 auto 0 0;background:var(--fondo-4)}
+  /* Los tramos que el modo "solo con accion" saltea. Se marcan para que no
+     parezca que el dia fue mas corto de lo que fue. */
+  .seg .muerto{position:absolute;top:0;bottom:0;background:#151b24}
+  .seg .ev{position:absolute;top:0;bottom:0;width:2px}
+  .seg .ev.ent{background:var(--neg)}
+  .seg .ev.sal{background:var(--pos)}
+  .seg .rot{
+    position:absolute;inset:0;display:flex;align-items:center;
+    justify-content:center;gap:var(--e2);
+    font:var(--t0)/1 var(--fuente-num);color:var(--texto-2);
+    pointer-events:none;letter-spacing:.03em;
+  }
+  .seg.actual{outline:1px solid var(--acento);outline-offset:-1px}
+  .seg .aguja{position:absolute;top:0;bottom:0;width:1px;background:var(--texto)}
+
+  /* ------------------------------------------------------ los acumuladores */
+  .tablero{
+    display:flex;align-items:baseline;gap:var(--e5);flex-wrap:wrap;
+    padding:var(--e3) var(--e5);border-bottom:1px solid var(--linea-2);
+  }
+  .tablero .sep{height:26px}
+
+  /* ------------------------------------------------------------ el escenario */
+  .escena{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+  .cabj{
+    display:flex;align-items:baseline;gap:var(--e4);flex-wrap:wrap;
+    padding:var(--e2) var(--e5);color:var(--texto-2);font-size:var(--t1);
+  }
+  .cabj .tk{font:600 var(--t4)/1.2 var(--fuente-num);color:var(--texto);
+            letter-spacing:-.01em}
+  .cabj .reloj{font:600 var(--t4)/1.2 var(--fuente-num);color:var(--acento);
+               font-variant-numeric:tabular-nums}
+  .cabj b{color:var(--texto);font-family:var(--fuente-num)}
+  #chart{flex:1;min-height:180px;margin:0 var(--e5) var(--e2);
+         background:var(--fondo-2);border-radius:var(--radio)}
+  /* El panel de curvas: la equity a mercado del dia con el piso de -1 R, y las
+     acciones expuestas. Va debajo del grafico y NO scrollea — la gracia es ver
+     las tres cosas moverse al mismo tiempo. */
+  #panel{display:block;width:calc(100% - var(--e5) * 2);height:128px;
+         margin:0 var(--e5) var(--e4);background:var(--fondo-2);
+         border-radius:var(--radio)}
+
+  /* El corte entre jornadas. Tapa el grafico a proposito: es el unico momento
+     en que la pelicula se detiene, y lo que se lee es el resultado del dia. */
+  .corte{
+    position:absolute;inset:0;display:grid;place-items:center;
+    background:rgba(13,17,23,.93);z-index:5;text-align:center;
+  }
+  .corte h2{margin:0 0 var(--e2);font:600 var(--t5)/1.2 var(--fuente-num);
+            letter-spacing:-.01em}
+  .corte p{margin:0 0 var(--e4);color:var(--texto-2);font-size:var(--t2);
+           line-height:1.7;max-width:62ch}
+  .corte .cuenta{color:var(--texto-3);font-size:var(--t1);margin-top:var(--e3)}
+
+  @media (max-width:1100px){
+    .mandos,.barra,.tablero,.cabj{padding-left:var(--e3);padding-right:var(--e3)}
+    #chart{margin-left:var(--e3);margin-right:var(--e3)}
+    #panel{margin-left:var(--e3);margin-right:var(--e3);
+           width:calc(100% - var(--e3) * 2);height:104px}
+  }
+</style>
+</head>
+<body>
+<div class="tope">
+  <h1>Reproducción</h1>
+  <select id="est"></select>
+  <span class="medicion" id="medicion"></span>
+  <select id="mes"></select>
+  <span class="tenue der" id="resumen" style="font-size:var(--t1)"></span>
+</div>
+
+<div class="mandos">
+  <button id="reiniciar" title="volver al principio del mes">⏮</button>
+  <button id="play">▶ correr</button>
+  <button id="saltar" title="saltar a la jornada siguiente">⏭</button>
+  <span class="sepv"></span>
+  <label style="cursor:default">velocidad</label>
+  <span class="velocidad" id="velocidad">
+    <button data-ms="140">lento</button>
+    <button data-ms="45" class="on">medio</button>
+    <button data-ms="14">rápido</button>
+  </span>
+  <span class="sepv"></span>
+  <label title="los minutos sin posiciones abiertas ni entradas cercanas se pintan de corrido en vez de a ritmo de reloj">
+    <input type="checkbox" id="soloAccion" checked> sólo minutos con acción
+  </label>
+  <span class="tenue" id="aviso" style="font-size:var(--t1)"></span>
+</div>
+
+<div class="barra" id="barra"></div>
+
+<div class="tablero" id="tablero"></div>
+
+<div class="escena">
+  <div class="cabj" id="cabj"></div>
+  <div id="chart"></div>
+  <canvas id="panel"></canvas>
+  <div class="corte" id="corte" hidden></div>
+</div>
+
+<script src="/static/chrome.js"></script>
+<script src="/static/lightweight-charts.js"></script>
+<script src="/static/grafico.js"></script>
+<script src="/static/replay.js"></script>
+</body>
+</html>

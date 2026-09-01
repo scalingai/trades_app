@@ -30,7 +30,8 @@ import json
 import os
 import sys
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -46,7 +47,12 @@ for _s in (sys.stdout, sys.stderr):
         _s.reconfigure(encoding="utf-8", errors="replace")
 
 FEED = Path(config.data_dir()) / "feed_vivo.jsonl"
-NY = timezone(timedelta(hours=-4))          # EDT; en invierno es -5
+# La MISMA zona que usa el censo (`massive/minutes.py`), no un offset fijo.
+# Con -4 fijo, a partir del primer domingo de noviembre cada barra quedaria una
+# hora corrida: el filtro de las 10:00 dejaria de ser las 10:00, la apertura se
+# clasificaria con velas de las 09:00 y nada de eso avisaria. El unico sintoma
+# seria que los numeros dejan de parecerse al backtest, en enero.
+NY = ZoneInfo("America/New_York")
 
 # La configuración candidata, la misma que quedó medida. Si esto se desvía del
 # backtest, lo que se opera no es lo que se midió.
@@ -76,8 +82,13 @@ def leer_feed(ruta=FEED):
                 continue
             try:
                 r = json.loads(linea)
+                # Se conserva la zona horaria: las barras del censo son
+                # timezone-aware y el visor deriva el desfase del eje con
+                # `utcoffset()`. Un `Dia` en vivo con fechas naive rompia la
+                # vista y, peor, era un `Dia` distinto del que mide el
+                # backtest — justo lo que este archivo existe para evitar.
                 t = datetime.strptime(r["t"], "%Y-%m-%dT%H:%M:%SZ").replace(
-                    tzinfo=timezone.utc).astimezone(NY).replace(tzinfo=None)
+                    tzinfo=timezone.utc).astimezone(NY)
             except Exception:
                 continue
             k = (r["s"], t)

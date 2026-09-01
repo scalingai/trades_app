@@ -41,6 +41,7 @@ AQUI = Path(__file__).resolve().parent
 ESTATICOS = AQUI / "static"
 INDICE_CACHE = config.data_dir() / "visor_indice.json"
 
+_CARTERA_CACHE = None
 _RE_TICKER = re.compile(r"^[A-Z][A-Z0-9.\-]{0,9}$")
 _RE_FECHA = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -298,6 +299,89 @@ def payload_dia(ticker: str, d: str) -> dict | None:
     }
 
 
+def payload_vivo(riesgo: float, piso: float) -> dict:
+    """La sesión de HOY, armada desde el feed que escribe la plataforma.
+
+    Devuelve por papel exactamente la misma forma que `payload_dia` —velas,
+    volumen, vwap, niveles, trades— para poder reusar `VisorGrafico.dibujar`
+    sin tocarlo. Que la pantalla en vivo y la bitácora dibujen con el mismo
+    código no es prolijidad: es lo que garantiza que la ejecución que mirás hoy
+    se vea igual que la que vas a auditar mañana.
+
+    Toda la decisión pasa por `puente.vivo.evaluar`, que a su vez llama a
+    `motor.jornada`. Acá no se decide nada.
+    """
+    sys.path.insert(0, str(AQUI.parent / "puente"))
+    import vivo as _vivo  # import tardío: el visor abre aunque no haya feed
+
+    salida = {"riesgo": riesgo, "piso": piso, "feed": str(_vivo.FEED),
+              "existe": _vivo.FEED.exists(), "papeles": [],
+              "config": {"stop": _vivo.STOP_PCT, "desde": _vivo.DESDE,
+                         "expansion": _vivo.EXPANSION_MIN,
+                         "apertura": _vivo.APERTURA}}
+    if not salida["existe"]:
+        return salida
+
+    hoy = date.today().isoformat()
+    for (tk, f), datos in sorted(_vivo.leer_feed().items()):
+        if f != hoy:
+            continue
+        # El simbolo sale de un archivo en disco y termina en el DOM de la
+        # vista (en innerHTML y en el id de cada nodo). Es el mismo validador
+        # que usan las otras rutas: un feed corrupto tiene que dar una fila de
+        # menos, no HTML inyectado en la pantalla con la que se opera.
+        if not _RE_TICKER.match(tk):
+            continue
+        dia = _vivo.armar_dia(tk, f, datos)
+        if not dia:
+            continue
+        r = _vivo.evaluar(dia, riesgo, piso)
+
+        velas, vol, vwap = [], [], []
+        for i, b in enumerate(dia.bars):
+            if None in (b[1], b[2], b[3], b[4]):
+                continue
+            t = ts(b[0])
+            velas.append({"time": t, "open": b[1], "high": b[2],
+                          "low": b[3], "close": b[4]})
+            vol.append({"time": t, "value": b[5] or 0,
+                        "color": "rgba(38,166,154,.5)" if b[4] >= b[1]
+                        else "rgba(239,83,80,.5)"})
+            vwap.append({"time": t, "value": round(dia.vwap[i], 4)})
+
+        b_ap = next((b for b in dia.bars if hora(b) >= APERTURA_RTH), None)
+        b_ci = next((b for b in reversed(dia.bars) if hora(b) <= CIERRE_RTH), None)
+
+        # Los tramos se traducen al vocabulario que ya entiende `grafico.js`.
+        trades = [{"hora_entrada": t["h"], "precio_entrada": t["precio"],
+                   "hora_salida": None if t["viva"] else t["h_sal"],
+                   "precio_salida": None if t["viva"] else t["p_sal"],
+                   "motivo": "abierta" if t["viva"] else t["motivo"],
+                   "pnl": t["pnl"], "acciones": t["acciones"],
+                   "stop_pct": _vivo.STOP_PCT}
+                  for t in (r.get("tramos") or [])]
+
+        salida["papeles"].append({
+            "ticker": tk, "d": f, "velas": velas, "volumen": vol, "vwap": vwap,
+            "trades_estrategia": trades,
+            "niveles": {"prev_close": dia.prev_close, "pm_high": dia.pm_high,
+                        "rth_open": dia.rth_open},
+            "sesion": {"apertura": ts(b_ap[0]) if b_ap else None,
+                       "cierre": ts(b_ci[0]) if b_ci else None},
+            "estado": {"hora": r.get("hora"), "precio": r.get("precio"),
+                       "barras": r.get("bars"), "expansion": r.get("expansion"),
+                       "apertura": r.get("apertura"),
+                       "descartes": r.get("descartes") or [],
+                       "pico": r.get("pico"), "vivas": r.get("vivas"),
+                       "equity": r.get("equity"), "comision": r.get("comision"),
+                       "limite": r.get("limite"),
+                       "tope": r.get("cerca_del_limite")},
+        })
+    salida["papeles"].sort(
+        key=lambda x: -len(x["trades_estrategia"]))
+    return salida
+
+
 def _simular(dia: Dia) -> dict | None:
     """Corre la Chavineta sobre el día y devuelve el trade listo para dibujar.
 
@@ -405,13 +489,21 @@ def _estrategias() -> list[dict]:
     c = _conn_trades()
     if not c:
         return []
+    # Fecha de medición: ver el comentario en /api/bitacora. Se agrega acá
+    # también porque /historial es donde se comparan estrategias entre sí, que
+    # es exactamente donde mezclar eras hace más daño.
+    try:
+        medido = {r[0]: r[1] for r in c.execute(
+            "SELECT nombre, creado FROM estrategia")}
+    except sqlite3.Error:
+        medido = {}
     out = []
     for (e,) in c.execute("SELECT DISTINCT estrategia FROM trades"):
         pn = [r[0] for r in c.execute(
             "SELECT pnl FROM trades WHERE estrategia=? ORDER BY d, hora_entrada", (e,))]
         m = _metricas(pn)
         m.pop("curva", None)
-        out.append({"estrategia": e, **m})
+        out.append({"estrategia": e, "medido": medido.get(e), **m})
     c.close()
     return sorted(out, key=lambda x: -(x.get("total") or 0))
 
@@ -478,6 +570,221 @@ class Handler(BaseHTTPRequestHandler):
 
         if ruta == "/historial" or ruta == "/historial.html":
             return self._archivo(ESTATICOS / "historial.html")
+
+        if ruta == "/papeles" or ruta == "/papeles.html":
+            return self._archivo(ESTATICOS / "papeles.html")
+
+        if ruta == "/cartera" or ruta == "/cartera.html":
+            return self._archivo(ESTATICOS / "cartera.html")
+
+        if ruta == "/vivo" or ruta == "/vivo.html":
+            return self._archivo(ESTATICOS / "vivo.html")
+
+        if ruta == "/api/vivo":
+            try:
+                riesgo = float((q.get("riesgo") or ["400"])[0])
+                piso = float((q.get("piso") or ["2"])[0])
+            except ValueError:
+                return self._json({"error": "riesgo/piso inválidos"}, 400)
+            try:
+                return self._json(payload_vivo(riesgo, piso))
+            except Exception as e:
+                return self._json({"error": str(e)}, 500)
+
+        if ruta == "/replay" or ruta == "/replay.html":
+            return self._archivo(ESTATICOS / "replay.html")
+
+        if ruta == "/api/replay":
+            # Todo lo necesario para REPRODUCIR un tramo del calendario, en
+            # orden. El cliente anima; el servidor sólo entrega el material.
+            # Se manda el día completo de barras (no sólo los minutos con
+            # trade) porque la gracia de mirar la reproducción es ver lo que
+            # pasaba ALREDEDOR de la ejecución, no la ejecución sola.
+            e = (q.get("estrategia") or [""])[0]
+            desde = (q.get("desde") or ["0000-00-00"])[0]
+            hasta = (q.get("hasta") or ["9999-99-99"])[0]
+            if not (_RE_FECHA.match(desde) and _RE_FECHA.match(hasta)):
+                return self._json({"error": "fechas inválidas"}, 400)
+            c = _conn_trades()
+            if not c:
+                return self._json({"error": "sin base de trades"}, 404)
+            cols = [x[1] for x in c.execute("PRAGMA table_info(trades)")]
+            filas = [dict(zip(cols, r)) for r in c.execute(
+                "SELECT * FROM trades WHERE estrategia=? AND d BETWEEN ? AND ? "
+                "ORDER BY d, ticker, hora_entrada", (e, desde, hasta))]
+            # `lado` no se puede asumir: de las 413 estrategias medidas, 135
+            # son LARGAS (la familia que midió si existe un edge comprador) y
+            # 278 cortas. Sin este campo, una vista que marque el PnL a mercado
+            # mostraría un cuarto de las estrategias con el signo invertido
+            # durante toda la reproducción.
+            fila_e = c.execute(
+                "SELECT lado, familia, creado FROM estrategia WHERE nombre=?",
+                (e,)).fetchone()
+            lado = (fila_e[0] if fila_e else None) or "short"
+            ses = {r[0]: (r[1], r[2]) for r in c.execute(
+                "SELECT d,pnl_R,nominal_R FROM sesion WHERE estrategia=? "
+                "AND d BETWEEN ? AND ?", (e, desde, hasta))}
+            c.close()
+
+            jornadas, vistos = [], set()
+            for f in filas:
+                k = (f["ticker"], f["d"])
+                if k in vistos:
+                    continue
+                vistos.add(k)
+                p = payload_dia(f["ticker"], f["d"])
+                if not p:
+                    continue
+                s2 = ses.get(f["d"])
+                jornadas.append({
+                    "d": f["d"], "ticker": f["ticker"],
+                    "velas": p["velas"], "volumen": p["volumen"],
+                    "vwap": p["vwap"], "niveles": p["niveles"],
+                    "sesion": p["sesion"], "resumen": p["resumen"],
+                    "trades": [x for x in filas
+                               if x["ticker"] == f["ticker"] and x["d"] == f["d"]],
+                    "pnl_R": s2[0] if s2 else None,
+                    "nominal_R": s2[1] if s2 else None,
+                })
+            jornadas.sort(key=lambda x: (x["d"], x["ticker"]))
+            return self._json({"estrategia": e, "lado": lado,
+                               "familia": fila_e[1] if fila_e else None,
+                               "medido": fila_e[2] if fila_e else None,
+                               "desde": desde, "hasta": hasta,
+                               "jornadas": jornadas})
+
+        if ruta == "/api/replay/meses":
+            # Qué meses tienen material, para no ofrecer un rango vacío.
+            e = (q.get("estrategia") or [""])[0]
+            c = _conn_trades()
+            if not c:
+                return self._json({"meses": []})
+            meses = [{"mes": r[0], "jornadas": r[1], "trades": r[2],
+                      "pnl": round(r[3] or 0, 2)}
+                     for r in c.execute(
+                         "SELECT substr(d,1,7), COUNT(DISTINCT d), COUNT(*), SUM(pnl) "
+                         "FROM trades WHERE estrategia=? GROUP BY 1 ORDER BY 1", (e,))]
+            c.close()
+            return self._json({"estrategia": e, "meses": meses})
+
+        if ruta == "/bitacora" or ruta == "/bitacora.html":
+            return self._archivo(ESTATICOS / "bitacora.html")
+
+        if ruta == "/api/bitacora":
+            # El diario de operación: un renglón por jornada, en orden
+            # cronológico. Es la vista que contesta "¿qué hago un martes?",
+            # que las tablas agregadas no contestan.
+            e = (q.get("estrategia") or [""])[0]
+            c = _conn_trades()
+            if not c:
+                return self._json({"dias": [], "estrategias": []})
+            # Las 'limpio·' primero: son las únicas medidas sin look-ahead,
+            # o sea las únicas que se pueden operar de verdad.
+            ests = [r[0] for r in c.execute(
+                "SELECT nombre FROM estrategia "
+                "ORDER BY (nombre LIKE 'limpio%') DESC, ret_nom DESC")]
+            # Cuándo se midió cada una. El motor se corrigió varias veces
+            # (look-ahead en la apertura, nominal por exposición simultánea,
+            # look-ahead en el presupuesto), así que dos estrategias medidas en
+            # días distintos NO son comparables aunque estén en la misma tabla.
+            # Sin este dato la única defensa es acordarse, y no alcanza.
+            medido = {r[0]: r[1] for r in c.execute(
+                "SELECT nombre, creado FROM estrategia")}
+            if not e and ests:
+                e = ests[0]
+            dias = []
+            for d, n, pnl, tks in c.execute(
+                    "SELECT d, COUNT(*), SUM(pnl), GROUP_CONCAT(DISTINCT ticker) "
+                    "FROM trades WHERE estrategia=? GROUP BY d ORDER BY d", (e,)):
+                dias.append({"d": d, "trades": n, "pnl": round(pnl or 0, 2),
+                             "tickers": (tks or "").split(",")})
+            ses = {r[0]: (r[1], r[2]) for r in c.execute(
+                "SELECT d,pnl_R,nominal_R FROM sesion WHERE estrategia=?", (e,))}
+            for x in dias:
+                s2 = ses.get(x["d"])
+                x["pnl_R"] = round(s2[0], 3) if s2 else None
+                x["nominal_R"] = round(s2[1], 3) if s2 else None
+            c.close()
+            return self._json({"estrategia": e, "estrategias": ests,
+                               "medido": medido, "dias": dias})
+
+        if ruta == "/api/bitacora/dia":
+            d = (q.get("d") or [""])[0]
+            e = (q.get("estrategia") or [""])[0]
+            if not _RE_FECHA.match(d):
+                return self._json({"error": "fecha inválida"}, 400)
+            c = _conn_trades()
+            if not c:
+                return self._json({"error": "sin base de trades"}, 404)
+            cols = [x[1] for x in c.execute("PRAGMA table_info(trades)")]
+            filas = [dict(zip(cols, r)) for r in c.execute(
+                "SELECT * FROM trades WHERE d=? AND estrategia=? "
+                "ORDER BY ticker, hora_entrada", (d, e))]
+            c.close()
+            # Un payload de gráfico por papel operado ese día.
+            papeles = []
+            for tk in sorted({f["ticker"] for f in filas}):
+                p = payload_dia(tk, d)
+                if not p:
+                    continue
+                p["trades_estrategia"] = [f for f in filas if f["ticker"] == tk]
+                papeles.append(p)
+            return self._json({"d": d, "estrategia": e, "papeles": papeles,
+                               "trades": filas})
+
+        if ruta == "/api/cartera":
+            # Cacheado por mtime del sqlite: recalcular la matriz completa
+            # cuesta 132 s y 8,4 MB, y los datos sólo cambian cuando alguna
+            # corrida escribe la base. Sin esto la página queda dos minutos en
+            # blanco y ningún trabajo de diseño la salva.
+            global _CARTERA_CACHE
+            try:
+                sello = os.path.getmtime(config.data_dir() / "trades.sqlite")
+            except OSError:
+                sello = 0
+            if _CARTERA_CACHE and _CARTERA_CACHE[0] == sello:
+                return self._json(_CARTERA_CACHE[1])
+            # Métricas por estrategia + matriz de correlación + ranking de
+            # combinaciones. Todo sale de lo que persistió `motor.evaluar()`;
+            # el ranking lo produce `cartera.py` y se lee de su JSON.
+            import itertools
+            import json as _json
+            try:
+                from cartera import cargar, correlacion, solape
+            except Exception as exc:
+                return self._json({"error": f"cartera.py: {exc}"}, 500)
+            ests = cargar(max_brecha=1e9)      # acá se muestran TODAS
+            # La matriz es cuadrática: 398 estrategias son 158.404 celdas y el
+            # navegador no las pinta. Se correlacionan sólo las de mayor
+            # ret/nom; la tabla de arriba sigue listando todas.
+            nombres = sorted(ests, key=lambda n: -(ests[n]["ret_nom"] or 0))[:40]
+            nombres.sort()
+            mat = []
+            for a in nombres:
+                fila = []
+                for b in nombres:
+                    if a == b:
+                        fila.append({"c": 1.0, "s": 1.0})
+                    else:
+                        fila.append({
+                            "c": correlacion(ests[a]["serie"], ests[b]["serie"]),
+                            "s": round(solape(ests[a]["serie"], ests[b]["serie"]), 3)})
+                mat.append(fila)
+            ranking = []
+            rp = config.data_dir() / "cartera.json"
+            if rp.exists():
+                try:
+                    ranking = _json.loads(rp.read_text(encoding="utf-8"))[:40]
+                except Exception:
+                    ranking = []
+            payload = {
+                "estrategias": [
+                    {k: v for k, v in ests[n].items() if k != "serie"} |
+                    {"serie": [[d, v[0]] for d, v in sorted(ests[n]["serie"].items())]}
+                    for n in nombres],
+                "nombres": nombres, "matriz": mat, "ranking": ranking}
+            _CARTERA_CACHE = (sello, payload)
+            return self._json(payload)
 
         if ruta == "/api/estrategias":
             return self._json({"estrategias": _estrategias()})

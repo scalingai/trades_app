@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Papeles · small caps</title>
+<link rel="stylesheet" href="/static/base.css">
+<style>
+  /* Sistema, tokens y primitivos: base.css. Aca solo lo propio de esta vista.
+
+     La vista es un documento plegable, no una planilla: papel -> jornadas ->
+     la jornada abierta con su grafico. Por eso casi no hay tabla hasta el
+     ultimo nivel, donde los trades SI son una tabla y densa. */
+
+  body{height:auto;min-height:100%}
+  .tope{position:sticky;top:0;background:var(--fondo);z-index:10}
+  #est{min-width:230px}
+  #q{width:120px}
+  main{padding:var(--e4) var(--e5) var(--e6);max-width:1500px}
+
+  /* Una sola grilla para los dos niveles de renglon, asi las columnas de papel
+     y de jornada quedan alineadas verticalmente. Sin eso el ojo pierde la
+     correspondencia entre "el precio del papel" y "el precio de esa jornada". */
+  .f{
+    display:grid;
+    grid-template-columns:14px minmax(96px,150px) 1fr 108px 104px 78px 100px;
+    align-items:center;gap:var(--e3);
+    padding:6px var(--e2);border-radius:var(--radio);
+    cursor:pointer;transition:background .1s ease;
+  }
+  .f:hover{background:var(--fondo-3)}
+  .f > .der{text-align:right;font-family:var(--fuente-num);
+            font-variant-numeric:tabular-nums;font-size:var(--t2)}
+  .f > .spark{display:flex;justify-content:flex-end;align-items:center;
+              overflow:hidden}
+
+  .flecha{color:var(--texto-3);font-size:var(--t0);transition:transform .12s ease;
+          display:inline-block;line-height:1}
+  .abierto > .flecha{transform:rotate(90deg)}
+
+  /* Nivel 1: el papel. Es el unico renglon con peso fuerte. */
+  .f-papel{border-top:1px solid var(--linea)}
+  .f-papel .tk{font:600 var(--t3)/1.3 var(--fuente-num);letter-spacing:.02em}
+  .f-papel.abierto{background:var(--fondo-3)}
+  .meta{color:var(--texto-3);font-size:var(--t1)}
+
+  /* Nivel 2: la jornada. Sangrada, pero SIN sangrar el contenedor: la guia
+     vertical se dibuja como fondo y la sangria vive en la primera columna del
+     grid. Si se indentara el contenedor, las columnas de numeros de la jornada
+     quedarian corridas respecto de las del papel y se perderia justamente la
+     comparacion que la vista existe para hacer (el precio de ESTA jornada
+     contra el precio medio del papel). */
+  .jornadas{
+    margin:0 0 var(--e3);
+    background:linear-gradient(var(--linea),var(--linea)) 22px 0/1px 100% no-repeat;
+  }
+  .f-jornada{grid-template-columns:calc(14px + var(--e5)) minmax(96px,150px)
+                                   1fr 108px 104px 78px 100px}
+  .f-jornada .flecha{margin-left:var(--e5)}
+  .f-jornada .tk{font:var(--t2)/1.3 var(--fuente-num);color:var(--texto-2)}
+  .f-jornada.abierto .tk{color:var(--texto);font-weight:600}
+  .f-jornada.abierto{background:var(--fondo-3)}
+
+  /* Nivel 3: la jornada abierta. Aca vive lo que importa de la pantalla. */
+  .detalle{padding:var(--e3) 0 var(--e5) calc(14px + var(--e5));
+           margin-bottom:var(--e3)}
+  .grafico{height:360px;background:var(--fondo-2);border-radius:var(--radio);
+           margin:var(--e4) 0 var(--e3)}
+  .detalle table{margin-top:var(--e2)}
+  .detalle th{background:var(--fondo)}
+
+  /* La linea de contexto: todo lo que NO es uno de los dos numeros grandes.
+     Va como prosa tenue en vez de como seis cajas mas. */
+  .contexto{color:var(--texto-2);font-size:var(--t2);line-height:1.75;
+            max-width:104ch;margin-top:var(--e3)}
+  .contexto b{color:var(--texto);font-weight:600;
+              font-family:var(--fuente-num);font-variant-numeric:tabular-nums}
+
+  .cargando{color:var(--texto-3);font-size:var(--t2);padding:var(--e3)}
+
+  /* Rotulos de columna. Sin esto la fila del papel son cuatro numeros sin
+     nombre: "$4.147" no dice por si solo que es el precio de entrada, y ese
+     es justamente el numero que la vista existe para poner adelante. */
+  .cab-cols{
+    cursor:default;font:500 var(--t1)/1.4 var(--fuente);color:var(--texto-3);
+    text-transform:uppercase;letter-spacing:.06em;
+    border-bottom:1px solid var(--linea-2);padding-bottom:var(--e2);
+    margin-bottom:var(--e1);
+  }
+  .cab-cols:hover{background:transparent}
+  .cab-cols .der{font-family:var(--fuente);font-size:var(--t1)}
+  /* El rotulo de la sparkline no entra en 78px con el interletrado
+     del resto de las cabeceras; se le saca a el, no a la columna. */
+  .cab-cols .spark{font-size:var(--t0);letter-spacing:0}
+
+  /* La chapa de fecha de medicion. Ambar = esta estrategia se midio ANTES que
+     la ultima corrida del motor, o sea que sus numeros son de otra era y no se
+     pueden comparar con los de arriba. Es el unico uso de ambar fuera de las
+     marcas manuales, y es a proposito: quiere decir "ojo con esto". */
+  .medicion{font-size:var(--t0);color:var(--texto-3);
+            font-family:var(--fuente-num);white-space:nowrap}
+  .medicion.vieja{color:var(--ambar)}
+
+  /* Ventana angosta: se va la sparkline, que es lo unico prescindible de la
+     fila. Los numeros se quedan. */
+  @media (max-width:1100px){
+    .f{grid-template-columns:14px minmax(80px,120px) 1fr 96px 88px 100px}
+    .f-jornada{grid-template-columns:calc(14px + var(--e5)) minmax(80px,120px)
+                                     1fr 96px 88px 100px}
+    .f > .spark{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="tope">
+  <h1>Papeles</h1>
+  <select id="est"></select>
+  <span class="medicion" id="medicion"></span>
+  <input id="q" placeholder="ticker…">
+  <select id="orden" title="ordenar los papeles por">
+    <option value="abs">movimiento (|PnL|)</option>
+    <option value="pnl">PnL</option>
+    <option value="jornadas">jornadas</option>
+    <option value="precio">precio de entrada</option>
+    <option value="acciones">acciones en el pico</option>
+    <option value="ticker">ticker</option>
+  </select>
+  <span class="tenue der" id="resumen" style="font-size:var(--t1)"></span>
+</div>
+
+<main>
+  <p class="nota">
+    Un papel por renglón; adentro, las jornadas que el sistema operó; adentro de
+    una jornada, sus ejecuciones dibujadas sobre las velas. Es la vista para
+    <b>auditar</b>: mirar un trade y darse cuenta de que el sistema hizo algo
+    raro. El <b>precio de entrada</b> y las <b>acciones en el pico de exposición
+    simultánea</b> están al frente porque el locate se cobra por acción — el
+    nominal en dólares es ciego a eso. El gráfico de una jornada se dibuja
+    recién cuando la abrís, y se descarta cuando la cerrás.
+  </p>
+  <div class="f cab-cols">
+    <span></span>
+    <span>papel</span>
+    <span>actividad</span>
+    <span class="der" title="precio de entrada medio, ponderado por acciones">precio entrada</span>
+    <span class="der" title="máximo de acciones simultáneas">acc. pico</span>
+    <span class="spark">por jornada</span>
+    <span class="der">PnL</span>
+  </div>
+  <div id="lista"><div class="vacio">cargando…</div></div>
+</main>
+
+<script src="/static/chrome.js"></script>
+<script src="/static/lightweight-charts.js"></script>
+<script src="/static/grafico.js"></script>
+<script src="/static/papeles.js"></script>
+</body>
+</html>

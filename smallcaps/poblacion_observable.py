@@ -54,14 +54,23 @@ _CONSULTA = """
     WHERE gap_pct >= ?
       AND med_dollar_volume >= ?
       AND prev_close BETWEEN ? AND ?
-      AND d < date('now','-10 day')
+      AND d < date('now', ?)
     ORDER BY d, ticker
 """
 
+# Diez días de margen: los agregados diarios de los últimos días se corrigen
+# (splits tardíos, trades fuera de hora que entran después), así que un evento
+# recién ocurrido puede cambiar de gap o de liquidez. Para el censo histórico
+# eso es contaminación; para una prueba hacia adelante sobre días recientes es
+# un costo aceptable y explícito. De ahí que sea parámetro y no constante.
+MARGEN_DEFECTO = "-10 day"
 
-def definir(conn, *, min_gap, min_liq, precio_min, precio_max) -> int:
+
+def definir(conn, *, min_gap, min_liq, precio_min, precio_max,
+            margen=MARGEN_DEFECTO) -> int:
     conn.executescript(_SCHEMA)
-    filas = conn.execute(_CONSULTA, (min_gap, min_liq, precio_min, precio_max)).fetchall()
+    filas = conn.execute(
+        _CONSULTA, (min_gap, min_liq, precio_min, precio_max, margen)).fetchall()
     conn.executemany(
         "INSERT OR IGNORE INTO poblacion_obs VALUES (?,?,?,?,?)", filas)
     conn.commit()
@@ -75,12 +84,16 @@ def main(argv=None) -> int:
     ap.add_argument("--precio-min", type=float, default=0.20)
     ap.add_argument("--precio-max", type=float, default=20.0)
     ap.add_argument("--stats", action="store_true")
+    ap.add_argument("--margen", default=MARGEN_DEFECTO,
+                    help="cuánto esperar antes de admitir un día "
+                         "(default -10 day; usar '-0 day' sólo para pruebas)")
     args = ap.parse_args(argv)
 
     conn = sqlite3.connect(config.bars_db_path(), timeout=120)
     store = MinuteStore()
     n = definir(conn, min_gap=args.min_gap, min_liq=args.min_liq,
-                precio_min=args.precio_min, precio_max=args.precio_max)
+                precio_min=args.precio_min, precio_max=args.precio_max,
+                margen=args.margen)
     pob = [(t, d) for t, d in conn.execute("SELECT ticker,d FROM poblacion_obs")]
     ya = {(t, d) for t, d in store.conn.execute("SELECT ticker,d FROM minute_log")}
     pend = [x for x in pob if x not in ya]
