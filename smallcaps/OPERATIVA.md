@@ -108,30 +108,55 @@ el retorno queda en 8,39% y 8,46% —más estable que la base, que oscila entre
 - La pantalla dibuja hasta dónde llegó a favor la mitad (18,3%) y tres cuartos
   (29,5%) de los trades. **Es referencia, no un objetivo de salida.**
 
-## 6. Cuánta plata
+## 6. El riesgo es POR ACTIVO, y no hace falta techo
 
-| | @$400 de riesgo | @$200 de riesgo |
-|---|---|---|
-| sesiones por mes | 9,0 | 9,0 |
-| al año, una cuenta | $11.966 | **$5.983** |
-| drawdown | $-1.229 | $-615 |
+Un día de tres papeles arriesga más que uno de un papel, y está bien. Lo que no
+puede pasar es perforar el límite diario de la cuenta.
 
-**Va $200 por sesión**, porque es lo que entra con margen en el tope de $1.000.
-A $400 el drawdown medido lo perfora.
+**Se probó ponerle un techo duro a la cuenta —cerrar todo cuando la pérdida
+junta toca el límite— y NO sirve.** Medido:
+
+| | neto | drawdown | peor día |
+|---|---|---|---|
+| $200/papel + corte, **sin techo** | **$9.647** | $-487 | **$-221** |
+| $200/papel + corte, con techo $400 | $9.217 | $-487 | $-447 |
+
+Mismo drawdown, pero sin techo gana más y con mejor peor día. Y el techo SOLO
+—sin el corte— empeora las cosas: el drawdown pasa de $-3.684 a $-3.788.
+
+**Por qué.** El techo cierra en el peor momento del día, que es justo cuando la
+pérdida es máxima. Convierte caídas que se hubieran recuperado en pérdidas
+realizadas. Protege del desastre y cobra en el día promedio, y con el corte de
+las 11:00 puesto el desastre ya no llega.
+
+El control diario real es el riesgo por activo bien dimensionado más el corte.
+
+## 7. Cuánta plata
+
+Simulado por DIA DE CUENTA —todos los papeles juntos, no cada uno por su lado—
+con el arnés verificado contra el motor a 0,0% de diferencia:
+
+| config | al año | drawdown | ¿entra en $1.000? |
+|---|---|---|---|
+| sin corte (lo que había) | $18.963 | $-3.684 | **NO** |
+| **$400/papel + corte 11:00** | **$10.803** | **$-856** | **sí** |
+| $300/papel + corte | $7.908 | $-654 | sí |
+| $200/papel + corte | $5.013 | $-487 | sí |
+
+**Va $400 por papel.** Una versión anterior de este documento decía $200 y
+$5.983 al año: salía de una simulación que agregaba el PnL por fecha pero no
+modelaba el día de cuenta. Con el modelo correcto el drawdown a $400 es $-856 y
+entra con margen.
+
+Queda un día del censo que perfora el límite diario por $34. Eso bloquea la
+operativa ese día, no liquida la cuenta — el que liquida es el drawdown.
 
 ⚠️ **Los límites del plan nunca se confirmaron con soporte.** El tope de $1.000
 de drawdown y los $400 de pérdida diaria salen de leer la web, no de una
 respuesta. Está en `MAIL-SOPORTE.md` y sigue sin mandarse. Si el drawdown real
 fuera más chico, todo esto se redimensiona.
 
-## 7. Lo que falta y se sabe que falta
-
-**El presupuesto de riesgo es por papel, no por día.** Si tres papeles disparan
-el mismo día, la cuenta arriesga $600 y no $200. Parte de los días de $-1.618
-son exactamente eso. Es lo próximo, y hay que medirlo JUNTO con el corte de las
-11:00 porque los dos arreglan lo mismo por caminos distintos — puede que con la
-caja diaria bien puesta el corte pueda ser menos agresivo y se recupere parte de
-los $13.000 de diferencia.
+## 8. Lo que falta y se sabe que falta
 
 **El locate sigue sin confirmarse.** Tres fuentes independientes dicen que Trade
 The Pool no cobra, ninguna es la empresa.
