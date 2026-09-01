@@ -28,6 +28,8 @@ import random
 import statistics
 import sys
 
+import numpy as np
+
 sys.path.insert(0, ".")
 
 from chavineta import clasificar_apertura as _cl
@@ -123,18 +125,26 @@ def separa(vals, objs):
 
 
 def p_perm(vals, objs, delta):
+    """Nulo por permutación, vectorizado.
+
+    En Python puro esto son 2000 barajadas sobre 50 mil filas por cada rasgo:
+    horas. La version vectorizada baraja las 2000 de una y saca las medias con
+    una sola suma acumulada. Es el MISMO test, no una aproximacion.
+    """
     pares = [(v, o) for v, o in zip(vals, objs) if v is not None]
-    obs = [o for _, o in pares]
+    obs = np.array([o for _, o in pares], dtype=float)
     med = statistics.median(v for v, _ in pares)
     n_alto = sum(1 for v, _ in pares if v > med)
-    if n_alto == 0 or n_alto == len(obs):
+    n = len(obs)
+    if n_alto == 0 or n_alto == n:
         return 1.0
-    ex = 0
-    for _ in range(PERMUTACIONES):
-        random.shuffle(obs)
-        if abs(statistics.mean(obs[:n_alto])
-               - statistics.mean(obs[n_alto:])) >= abs(delta):
-            ex += 1
+    rng = np.random.default_rng(20260901)
+    total = obs.sum()
+    # Una matriz de permutaciones: cada fila es un barajado distinto.
+    idx = rng.permuted(np.tile(np.arange(n), (PERMUTACIONES, 1)), axis=1)
+    suma_alto = obs[idx[:, :n_alto]].sum(axis=1)
+    dif = suma_alto / n_alto - (total - suma_alto) / (n - n_alto)
+    ex = int(np.sum(np.abs(dif) >= abs(delta)))
     return (ex + 1) / (PERMUTACIONES + 1)
 
 
