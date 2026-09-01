@@ -144,6 +144,21 @@ def evaluar(dia, riesgo, piso):
     if ahora < APERTURA_RTH:
         out["descartes"].append("todavia en pre-market")
         return out
+
+    # SIN PREMARKET NO HAY EXPANSION, Y EL FILTRO NO SE DA CUENTA.
+    #
+    # Si el grafico de la plataforma viene sin sesion extendida, la primera
+    # barra es de las 09:30 y `expansion_pct` queda en None. El filtro de abajo
+    # hace `(None or 0) < 0`, que es False: el dia PASA el filtro como si
+    # tuviera expansion medida. Es el peor tipo de falla —opera de mas y no
+    # avisa—, asi que se corta explicito.
+    if dia.pm_high is None or dia.expansion_pct is None:
+        out["sin_premarket"] = True
+        out["descartes"].append(
+            "sin premarket: prendé la sesión extendida en el gráfico "
+            "(sin eso no hay expansión y el filtro no sirve)")
+        return out
+
     if (dia.expansion_pct or 0) < EXPANSION_MIN:
         out["descartes"].append(
             f"expansion {dia.expansion_pct:.0f}% < {EXPANSION_MIN:.0f}%")
