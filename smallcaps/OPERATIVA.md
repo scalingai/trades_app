@@ -16,13 +16,17 @@ tope de $1.000, incluso operando a mitad de riesgo.
 Agregar un corte temprano lo arregla. Cuesta plata y es lo que hace la
 diferencia entre una estrategia y una estrategia operable.
 
-| | neto @$400 | peor día | drawdown | a ½ riesgo | ¿vive? |
+| | neto | al año | peor día | drawdown | ¿vive? |
 |---|---|---|---|---|---|
-| sostener al cierre | $36.495 | $-1.618 | $-3.684 | $-1.842 | **NO** |
-| **+ corte 11:00 si no ganó 5%** | $23.030 | $-505 | $-1.229 | **$-615** | **sí** |
-| + corte 11:00 si no va a favor | $26.024 | $-944 | $-1.513 | $-756 | sí |
+| sostener al cierre | $36.495 | $18.963 | $-1.618 | $-3.684 | **NO** |
+| **+ corte 11:00 si no ganó 5%** | $20.791 | **$10.803** | $-434 | **$-856** | **sí** |
 
 Los $36.495 son plata que no se puede cobrar porque la cuenta se liquida antes.
+
+Todo con **$400 de riesgo por papel**, simulado por día de cuenta —con todos los
+papeles del día compartiendo la misma cuenta— y con el arnés verificado contra
+el motor a 0,0% de diferencia. Ver §7 para el detalle y para un número que este
+documento daba mal.
 
 ---
 
