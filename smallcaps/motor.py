@@ -250,7 +250,7 @@ def _trade(dia, i, *, lado, stop_pct, riesgo, objetivo_pct=None, salida_h=None,
 def jornada(dia, señal, *, lado, stop_pct, riesgo, max_trades=10,
             objetivo_pct=None, salida_h=None, trail_ancho=None,
             trail_devuelve=None, trail_arma=0.0,
-            corte_h=None, corte_umbral=5.0):
+            corte_h=None, corte_umbral=5.0, corte_reentra=False):
     """Una sesión: varios trades hasta agotar el presupuesto de riesgo.
 
     **La regla de presupuesto miraba el futuro, y era el error más caro de los
@@ -283,34 +283,51 @@ def jornada(dia, señal, *, lado, stop_pct, riesgo, max_trades=10,
     n = 0
     detalle = []
     pnl = 0.0
-    for i in idx:
-        if n >= max_trades:
-            break
-        # Equity a mercado en ESTE minuto — nada de resultados futuros.
-        # Ojo: variable propia, NO `pnl`. Reusar el acumulador de la jornada
-        # acá hace que la función devuelva el equity de la última entrada en
-        # lugar del total del día, y el número queda mal por un factor grande.
-        h_ahora = hora(dia.bars[i])
-        px = dia.bars[i][4]
-        equity = 0.0
-        for t in detalle:
-            if t["h_sal"] is not None and t["h_sal"] <= h_ahora:
-                equity += t["pnl"]
-            elif px:
-                signo = -1.0 if lado == "short" else 1.0
-                equity += signo * t["acciones"] * (px - t["p_ent"])
-        if equity - r_trade < -riesgo:       # el límite diario del día
-            break
-        r = _trade(dia, i, lado=lado, stop_pct=stop_pct, riesgo=r_trade,
-                   objetivo_pct=objetivo_pct, salida_h=salida_h,
-                   trail_ancho=trail_ancho, trail_devuelve=trail_devuelve,
-                   trail_arma=trail_arma)
-        if not r:
-            continue
-        pnl += r["pnl"]
-        n += 1
-        detalle.append(r)
-    if not n:
+
+    # EL BUCLE ES UNA FUNCION PARA PODER CORRERLO DOS VECES.
+    #
+    # Con reentrada despues del corte hacen falta dos pasadas: una hasta la hora
+    # del corte y otra despues, con el resultado del corte YA REALIZADO adentro
+    # del presupuesto. Aplicar el corte al final —como estaba— no permitia eso:
+    # los tramos de la segunda mitad se abrian con un presupuesto calculado
+    # sobre posiciones que a esa altura ya estaban cerradas.
+    def abrir(indices):
+        nonlocal n, pnl
+        for i in indices:
+            if n >= max_trades:
+                break
+            # Equity a mercado en ESTE minuto — nada de resultados futuros.
+            # Ojo: variable propia, NO `pnl`. Reusar el acumulador de la
+            # jornada acá hace que la función devuelva el equity de la última
+            # entrada en lugar del total del día, y el número queda mal por un
+            # factor grande.
+            h_ahora = hora(dia.bars[i])
+            px = dia.bars[i][4]
+            equity = 0.0
+            for t in detalle:
+                if t["h_sal"] is not None and t["h_sal"] <= h_ahora:
+                    equity += t["pnl"]
+                elif px:
+                    signo = -1.0 if lado == "short" else 1.0
+                    equity += signo * t["acciones"] * (px - t["p_ent"])
+            if equity - r_trade < -riesgo:       # el límite diario del día
+                break
+            r = _trade(dia, i, lado=lado, stop_pct=stop_pct, riesgo=r_trade,
+                       objetivo_pct=objetivo_pct, salida_h=salida_h,
+                       trail_ancho=trail_ancho, trail_devuelve=trail_devuelve,
+                       trail_arma=trail_arma)
+            if not r:
+                continue
+            pnl += r["pnl"]
+            n += 1
+            detalle.append(r)
+
+    if corte_h is None:
+        abrir(idx)
+    else:
+        # Primera pasada: hasta la hora del corte.
+        abrir([i for i in idx if hora(dia.bars[i]) < corte_h])
+    if not n and corte_h is None:
         return None
 
     # EL CORTE POR HORA. Si a `corte_h` la posición no está al menos
@@ -332,26 +349,31 @@ def jornada(dia, señal, *, lado, stop_pct, riesgo, max_trades=10,
     if corte_h is not None:
         i_corte = dia.idx_en(corte_h)
         px = dia.bars[i_corte][4] if i_corte is not None else None
-        if px:
+        cortado = False
+        if px and detalle:
             h_corte = hora(dia.bars[i_corte])
             vivos = [t for t in detalle
-                     if t["h_ent"] < h_corte
-                     and (t["h_sal"] is None or t["h_sal"] > h_corte)]
+                     if t["h_sal"] is None or t["h_sal"] > h_corte]
             if vivos:
                 acc = sum(t["acciones"] for t in vivos)
                 prom = sum(t["p_ent"] * t["acciones"] for t in vivos) / acc
                 signo = -1.0 if lado == "short" else 1.0
                 favor = 100.0 * signo * (px - prom) / prom
                 if favor < corte_umbral:
+                    cortado = True
                     for t in vivos:
                         t["h_sal"], t["p_sal"], t["motivo"] = h_corte, px, "corte"
                         t["pnl"] = (signo * t["acciones"] * (px - t["p_ent"])
                                     - t["acciones"] * COSTO_ACCION)
-                    # Los tramos que entraron DESPUES del corte no existen: el
-                    # papel cerró su día. Sin esto el corte no corta nada.
-                    detalle = [t for t in detalle if t["h_ent"] <= h_corte]
                     pnl = sum(t["pnl"] for t in detalle)
-                    n = len(detalle)
+
+        # SEGUNDA PASADA. Si no hubo corte, el dia sigue normal. Si hubo y
+        # `corte_reentra`, tambien sigue — pero ahora el presupuesto ya tiene la
+        # perdida del corte REALIZADA adentro, asi que lo que queda de caja es
+        # menos. Esa es la diferencia entre reentrar y empezar el dia de nuevo.
+        if not cortado or corte_reentra:
+            abrir([i for i in idx if hora(dia.bars[i]) >= corte_h])
+
     if not n:
         return None
     return {"pnl": pnl, "nominal": _nominal_pico(detalle), "trades": n,

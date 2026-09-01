@@ -40,6 +40,7 @@ for _s in (sys.stdout, sys.stderr):
 # --- la estrategia, la de OPERATIVA.md -------------------------------------
 PISO, STOP, MAXT, DESDE = 2.0, 45.0, 40, 10.0
 CORTE_H, CORTE_UMBRAL = 11.0, 5.0
+CORTE_REENTRA = False
 RIESGO_PAPEL = 400.0
 MIN_ORDEN, POR_ACCION = 0.75, 0.005
 
@@ -62,7 +63,8 @@ def sig(d):
 def pnl_de(dia):
     """Lo que dejó ese papel ese día, neto de comisiones reales."""
     j = jornada(dia, sig, lado="short", stop_pct=STOP, riesgo=RIESGO_PAPEL,
-                max_trades=MAXT, corte_h=CORTE_H, corte_umbral=CORTE_UMBRAL)
+                max_trades=MAXT, corte_h=CORTE_H, corte_umbral=CORTE_UMBRAL,
+                corte_reentra=CORTE_REENTRA)
     if not j:
         return None
     b = j["pnl"]
@@ -146,11 +148,18 @@ class Cuenta:
 
 
 def main(argv=None) -> int:
+    # `global` tiene que ir antes de cualquier uso del nombre en la funcion, y
+    # `RIESGO_PAPEL` se usa como default del argumento unas lineas abajo.
+    global CORTE_REENTRA, RIESGO_PAPEL
     ap = argparse.ArgumentParser(description="Cuentas de fondeo, día por día")
     ap.add_argument("--cuentas", type=int, default=3)
     ap.add_argument("--desde", default="2026-01-01")
     ap.add_argument("--retiro-cada", type=int, default=14,
                     help="días fondeada entre retiros (el mínimo del plan)")
+    ap.add_argument("--riesgo", type=float, default=RIESGO_PAPEL,
+                    help="riesgo por papel y por dia")
+    ap.add_argument("--reentra", action="store_true",
+                    help="volver a entrar despues del corte de las 11:00")
     ap.add_argument("--topear-dia", action="store_true",
                     help="topear la perdida diaria en el limite (optimista)")
     ap.add_argument("--sin-hoy", action="store_true",
@@ -185,6 +194,8 @@ def main(argv=None) -> int:
         print(f"  No hay sesiones desde {args.desde}.")
         return 1
 
+    CORTE_REENTRA = args.reentra
+    RIESGO_PAPEL = args.riesgo
     Cuenta.TOPEAR_DIA = args.topear_dia
     cuentas = [Cuenta(i + 1) for i in range(args.cuentas)]
     ultimo_retiro = {c.n: 0 for c in cuentas}
