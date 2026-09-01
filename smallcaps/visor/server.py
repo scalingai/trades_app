@@ -574,6 +574,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if ruta in ("/", "/index.html"):
             return self._archivo(ESTATICOS / "index.html")
+        if ruta == "/favicon.ico":
+            return self._archivo(ESTATICOS / "favicon.ico")
         if ruta.startswith("/static/"):
             nombre = os.path.basename(ruta)
             return self._archivo(ESTATICOS / nombre)

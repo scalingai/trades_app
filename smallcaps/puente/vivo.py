@@ -109,6 +109,32 @@ def leer_feed(ruta=FEED):
 AVISO_TAMANO_MB = 25.0
 WATCHLIST = Path(config.data_dir()) / "watchlist.txt"
 TOLERANCIA_PRECIO = 0.25
+RANCIO_MIN = 3.0        # minutos sin barra nueva antes de gritar
+
+
+def antiguedad_min(res):
+    """Minutos desde la barra mas nueva de todo el feed. None si no hay nada.
+
+    EL MODO DE FALLA QUE IMPORTA. Si la plataforma se desconecta —hoy paso, por
+    la politica de multi-conexion— el indicador deja de escribir y el archivo
+    queda congelado. La pantalla sigue mostrando el ultimo estado conocido y se
+    ve EXACTAMENTE IGUAL que un dia tranquilo sin señales. Ese es el peor error
+    posible en una pantalla con la que se opera: no dice nada y parece que dice
+    "no hay nada".
+    """
+    horas = [r.get("hora") for r in res if r.get("hora") is not None]
+    if not horas:
+        return None
+    # El MENOS atrasado: si hasta el mas fresco esta viejo, se corto todo.
+    return min(atraso_min(h) for h in horas)
+
+
+def atraso_min(h):
+    """Minutos desde la hora `h` de Nueva York hasta ahora."""
+    if h is None:
+        return None
+    ahora = datetime.now(NY)
+    return max(0.0, (ahora.hour + ahora.minute / 60.0 - h) * 60.0)
 
 
 def referencias(ruta=WATCHLIST):
@@ -335,6 +361,16 @@ def pintar(res, riesgo, piso):
         print(f"  Esperando en: {FEED}")
         return
 
+    rancio = antiguedad_min(res)
+    if rancio is not None and rancio > RANCIO_MIN:
+        print()
+        print("  " + "!" * 78)
+        print(f"  EL FEED ESTA FRENADO: la barra mas nueva es de hace "
+              f"{rancio:.0f} minutos.")
+        print("  Revisá que Trade The Pool diga 'Connected' y que el indicador")
+        print("  TTPFeedMulti siga en el gráfico. LO DE ABAJO ESTA VIEJO.")
+        print("  " + "!" * 78)
+
     try:
         mb = FEED.stat().st_size / 1e6
         if mb > AVISO_TAMANO_MB:
@@ -348,6 +384,12 @@ def pintar(res, riesgo, piso):
         h = r.get("hora", 0)
         cab = (f"\n  {r['ticker']:<7} ${r.get('precio') or 0:>7.2f} · "
                f"{int(h):02d}:{int((h % 1) * 60):02d} · {r['bars']:>4} barras")
+        # El atraso va POR PAPEL: con un aviso solo global, un papel que sigue
+        # llegando tapa a otros seis cuyo feed se corto, y en pantalla se ven
+        # igual que si no tuvieran señal.
+        atraso = atraso_min(h)
+        if atraso is not None and atraso > RANCIO_MIN:
+            cab += f"  ! SIN DATOS HACE {atraso:.0f} MIN"
         if r.get("expansion") is not None:
             cab += f" · expansion {r['expansion']:>5.0f}%"
         if r.get("apertura"):

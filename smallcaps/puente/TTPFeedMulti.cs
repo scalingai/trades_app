@@ -35,6 +35,7 @@ using TradeApi;
 using TradeApi.History;
 using TradeApi.Indicators;
 using TradeApi.Instruments;
+using TradeApi.Quotes;
 
 namespace TTPFeedMulti
 {
@@ -190,9 +191,29 @@ namespace TTPFeedMulti
             if (todos.Count == 0)
                 return null;
 
+            // UN SOLO CANDIDATO NO TIENE AMBIGUEDAD QUE RESOLVER, y esto no es
+            // un atajo: `DayInfo` viene VACIO hasta que el instrumento esta
+            // suscripto. Comparando precios antes de pedir la serie, `Last` y
+            // `PrevClose` daban 0 para todos menos el del grafico, y el filtro
+            // descartaba 6 de 7 papeles — se veia como "TTPFeedMulti 1/7".
+            // Antes funcionaba porque el precio previo se leia DESPUES del
+            // `Get`, que es lo que suscribe.
+            if (todos.Count == 1)
+                return todos[0];
+
             double px;
             if (!esperado.TryGetValue(ticker, out px) || px <= 0)
                 return todos.FirstOrDefault();   // sin referencia, el primero
+
+            // Hay mas de uno con el mismo simbolo: recien aca hace falta el
+            // precio, y para tenerlo hay que suscribirse primero. Puede tardar
+            // un refresco en llegar; mientras tanto no se manda nada, que es
+            // preferible a mandar el instrumento equivocado.
+            foreach (var i in todos)
+            {
+                try { InstrumentsManager.Subscribe(i, QuoteTypes.Trade); }
+                catch { }
+            }
 
             Instrument mejor = null;
             double mejorDist = double.MaxValue;
