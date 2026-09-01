@@ -249,7 +249,8 @@ def _trade(dia, i, *, lado, stop_pct, riesgo, objetivo_pct=None, salida_h=None,
 
 def jornada(dia, señal, *, lado, stop_pct, riesgo, max_trades=10,
             objetivo_pct=None, salida_h=None, trail_ancho=None,
-            trail_devuelve=None, trail_arma=0.0):
+            trail_devuelve=None, trail_arma=0.0,
+            corte_h=None, corte_umbral=5.0):
     """Una sesión: varios trades hasta agotar el presupuesto de riesgo.
 
     **La regla de presupuesto miraba el futuro, y era el error más caro de los
@@ -309,6 +310,48 @@ def jornada(dia, señal, *, lado, stop_pct, riesgo, max_trades=10,
         pnl += r["pnl"]
         n += 1
         detalle.append(r)
+    if not n:
+        return None
+
+    # EL CORTE POR HORA. Si a `corte_h` la posición no está al menos
+    # `corte_umbral`% a favor, se cierra todo y ese papel no se opera más.
+    #
+    # POR QUE ES OPCIONAL Y VIENE APAGADA. Esta función es el arnés donde se
+    # midieron ~450 estrategias, y cambiarle el comportamiento por defecto
+    # invalidaría cada número guardado en la base. La operativa la prende; los
+    # tests históricos siguen midiendo lo que midieron.
+    #
+    # QUE COMPRA. Es lo único que hace la estrategia operable en una cuenta de
+    # fondeo: el drawdown pasa de $-3.684 a $-856 contra un tope de $1.000. No
+    # gana mas plata —al contrario— pero los $36.495 sin corte son incobrables
+    # porque la cuenta se liquida antes de cobrarlos.
+    #
+    # Corta PERDEDORES, que es lo que la distingue de los trece intentos de
+    # asegurar que fallaron: aquellos cortaban ganadores y la estrategia vive de
+    # la cola derecha.
+    if corte_h is not None:
+        i_corte = dia.idx_en(corte_h)
+        px = dia.bars[i_corte][4] if i_corte is not None else None
+        if px:
+            h_corte = hora(dia.bars[i_corte])
+            vivos = [t for t in detalle
+                     if t["h_ent"] < h_corte
+                     and (t["h_sal"] is None or t["h_sal"] > h_corte)]
+            if vivos:
+                acc = sum(t["acciones"] for t in vivos)
+                prom = sum(t["p_ent"] * t["acciones"] for t in vivos) / acc
+                signo = -1.0 if lado == "short" else 1.0
+                favor = 100.0 * signo * (px - prom) / prom
+                if favor < corte_umbral:
+                    for t in vivos:
+                        t["h_sal"], t["p_sal"], t["motivo"] = h_corte, px, "corte"
+                        t["pnl"] = (signo * t["acciones"] * (px - t["p_ent"])
+                                    - t["acciones"] * COSTO_ACCION)
+                    # Los tramos que entraron DESPUES del corte no existen: el
+                    # papel cerró su día. Sin esto el corte no corta nada.
+                    detalle = [t for t in detalle if t["h_ent"] <= h_corte]
+                    pnl = sum(t["pnl"] for t in detalle)
+                    n = len(detalle)
     if not n:
         return None
     return {"pnl": pnl, "nominal": _nominal_pico(detalle), "trades": n,

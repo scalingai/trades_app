@@ -90,7 +90,8 @@ def main() -> int:
                     if (x.bars[i][4] or 0) >= PISO]
 
         j = jornada(d, sig, lado="short", stop_pct=vivo.STOP_PCT,
-                    riesgo=RIESGO, max_trades=vivo.MAX_TRAMOS)
+                    riesgo=RIESGO, max_trades=vivo.MAX_TRAMOS,
+                    corte_h=vivo.CORTE_H, corte_umbral=vivo.CORTE_UMBRAL)
 
         como_lo_escribe_la_plataforma(d, tk, ruta)
         feed = vivo.leer_feed(ruta)

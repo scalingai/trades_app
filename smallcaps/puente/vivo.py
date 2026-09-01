@@ -62,6 +62,16 @@ EXPANSION_MIN = 0.0            # la variante de 7,5 sesiones/mes
 APERTURA = "reclaim"
 PISO_DEFECTO = 2.0
 MAX_TRAMOS = 40               # "sin tope": el mismo de test_costos_reales
+
+# EL CORTE DE LAS 11:00. Si a esa hora la posicion no esta al menos 5% a favor,
+# se cierra todo y ese papel no se opera mas en el dia.
+#
+# Es lo unico que hace la estrategia operable en una cuenta de fondeo: el
+# drawdown pasa de $-3.684 a $-856 contra un tope de $1.000. No gana mas plata
+# —da $23.030 contra $36.495— pero los $36.495 son incobrables porque la cuenta
+# se liquida antes.
+CORTE_H = 11.0
+CORTE_UMBRAL = 5.0
 MIN_ORDEN, POR_ACCION = 0.75, 0.005   # comision real de Trade The Pool
 
 # HASTA DONDE LLEGAN A FAVOR, MEDIDO — no es un objetivo de salida.
@@ -323,7 +333,8 @@ def evaluar(dia, riesgo, piso):
     señal = lambda d: [i for i in señales_swing(d, desde=DESDE)
                        if (d.bars[i][4] or 0) >= piso]
     j = jornada(dia, señal, lado="short", stop_pct=STOP_PCT, riesgo=riesgo,
-                max_trades=MAX_TRAMOS)
+                max_trades=MAX_TRAMOS, corte_h=CORTE_H,
+                corte_umbral=CORTE_UMBRAL)
     if not j:
         out["tramos"] = []
         return out
@@ -399,7 +410,8 @@ def pintar(res, riesgo, piso):
     print(f"  SISTEMA EN VIVO · {ahora_ny} NY · riesgo ${riesgo:.0f}/dia · "
           f"piso ${piso:.2f} · stop {STOP_PCT:.0f}%")
     print(f"  reclaim · expansion >={EXPANSION_MIN:.0f}% · entradas desde las "
-          f"{int(DESDE):02d}:{int((DESDE % 1) * 60):02d}")
+          f"{int(DESDE):02d}:{int((DESDE % 1) * 60):02d} · corte "
+          f"{int(CORTE_H):02d}:00 si no gana {CORTE_UMBRAL:.0f}%")
     print("=" * 88)
     if not res:
         print("\n  Sin datos todavia. El indicador TTPFeed esta puesto en algun "
