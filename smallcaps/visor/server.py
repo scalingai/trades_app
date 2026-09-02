@@ -320,6 +320,8 @@ def payload_vivo(riesgo: float, piso: float) -> dict:
                          "expansion": _vivo.EXPANSION_MIN,
                          "apertura": _vivo.APERTURA,
                        "mfe50": _vivo.MFE_P50, "mfe75": _vivo.MFE_P75,
+                       "corte": _vivo.CORTE_H,
+                       "corte_umbral": _vivo.CORTE_UMBRAL,
                        "rancio": _vivo.RANCIO_MIN}}
     if not salida["existe"]:
         return salida

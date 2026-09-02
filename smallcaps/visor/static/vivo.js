@@ -338,7 +338,9 @@
     ultimo = d;
     const c = d.config || {};
     $('receta').textContent = `${c.apertura} · exp ≥${c.expansion}% · desde `
-      + `${hhmm(c.desde)} · stop ${c.stop}% · p50 ${n(c.mfe50, 1)}%`;
+      + `${hhmm(c.desde)} · stop ${c.stop}%`
+      + (c.corte ? ` · corte ${hhmm(c.corte)} si no gana ${c.corte_umbral}%` : '')
+      + ` · p50 ${n(c.mfe50, 1)}%`;
 
     if (!d.existe) {
       charts.clear();
