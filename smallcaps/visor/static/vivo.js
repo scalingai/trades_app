@@ -483,24 +483,27 @@
       + '<div class="ctrl">precio mínimo<span class="u">$</span>'
       + `<input id="piso" type="number" value="${PISO}" step="0.5" min="0"></div>`;
 
+    /* EL ORDEN DE LA COLUMNA ES EL ORDEN EN QUE SE MIRA, y hasta ahora no lo
+       era: arriba de todo estaban los AJUSTES —que se tocan una vez por día— y
+       el número del día quedaba tercero, a media columna de scroll. Con ocho
+       bloques del mismo gris y rótulos de 10px, nada saltaba.
+
+       Ahora baja por urgencia: cuánto voy hoy, qué tengo abierto, qué falta
+       para el próximo hito, qué espera, qué pasó. Los ajustes al pie. */
     $('mando').innerHTML = [
-      bloque('cómo se opera hoy', controles),
-      bloque('sesión · nueva york ' + hhmm(c.ahora), relojSesion(c)
-        /* La receta vive ACA y no en la barra de arriba: no cambia nunca, asi
-           que no es estado — es la regla que rige el dia, y su lugar es junto
-           a los hitos de la sesion. */
-        + `<div class="receta">${c.apertura} · expansión ≥${c.expansion}%`
-        + ` · stop ${c.stop}%`
-        + ` · sostiene al cierre · p50 ${n(c.mfe50, 1)}%</div>`),
+      /* 1. EL NUMERO DEL DIA. Uno por pantalla, y es este. */
+      `<div class="bloque jefe"><div class="jefe-cab">`
+      + `<span class="gran ${neto > 0 ? 'pos' : neto < 0 ? 'neg' : 'cero'}">`
+      + `${signo(neto)}$${n(Math.abs(neto))}</span>`
+      + `<span class="que">simulado hoy</span></div>`
+      + `<div class="sub">${tramos} tramo${tramos === 1 ? '' : 's'}`
+      + ` · cerrado ${signo(cerrado)}$${n(Math.abs(cerrado))}`
+      + ` · abierto ${signo(abierto)}$${n(Math.abs(abierto))}</div>`
+      + `<div class="barra"><i class="${pct > 85 ? 'lleno' : ''}" style="width:${pct}%"></i></div>`
+      + `<div class="sub">riesgo $${n(usado, 0)} de $${n(riesgo, 0)}</div></div>`,
 
-      bloque('simulado hoy',
-        `<div class="gran ${neto >= 0 ? 'pos' : 'neg'}">${signo(neto)}$${n(Math.abs(neto))}</div>`
-        + `<div class="sub">${tramos} tramo${tramos === 1 ? '' : 's'}`
-        + ` · cerrado ${signo(cerrado)}$${n(Math.abs(cerrado))}`
-        + ` · abierto ${signo(abierto)}$${n(Math.abs(abierto))}</div>`
-        + `<div class="barra"><i class="${pct > 85 ? 'lleno' : ''}" style="width:${pct}%"></i></div>`
-        + `<div class="sub">riesgo $${n(usado, 0)} de $${n(riesgo, 0)}</div>`),
-
+      /* 2. QUE TENGO ABIERTO. Es lo único de la pantalla sobre lo que se puede
+         actuar ahora mismo, así que va pegado al número. */
       bloque(`operando · ${conTramos.length}`, conTramos.length
         ? conTramos.map((p) => {
           const e = p.estado;
@@ -512,6 +515,16 @@
             + ` · stop $${n(e.stop_prom)}</span></div>`;
         }).join('')
         : '<div class="nada">nada abierto</div>'),
+
+      /* 3. EL RELOJ. La estrategia es HORARIA: sin esto no había forma de saber
+         cuánto faltaba para el corte de las 11 sin mirar el reloj de al lado.
+         La receta va acá abajo y no en una barra suelta: no cambia nunca, así
+         que no es estado — es la regla que rige el día. */
+      bloque('sesión · nueva york ' + hhmm(c.ahora), relojSesion(c)
+        + `<div class="receta">shorteamos la apertura <b>${c.apertura}</b>`
+        + ` con expansión <b>≥${c.expansion}%</b>, stop <b>${c.stop}%</b> por tramo,`
+        + ` y sostenemos hasta el cierre. Un ganador típico llega a dar`
+        + ` <b>${n(c.mfe50, 1)}%</b> a favor.</div>`),
 
       bloque(`esperando señal · ${esperando.length}`, esperando.length
         ? '<div class="chips">' + esperando.map((p) =>
@@ -531,6 +544,9 @@
             + `<span class="m ${x.cls || ''}">${x.m}</span></div>`).join('')
           + '</div>'
         : '<div class="nada">sin movimientos</div>'),
+
+      /* 4. LOS AJUSTES, AL PIE. */
+      `<div class="bloque ajustes"><h2>ajustes</h2>${controles}</div>`,
     ].join('');
   }
 
@@ -598,9 +614,14 @@
     const atrasos = d.papeles.map((p) => p.estado?.atraso).filter((x) => x != null);
     const min = atrasos.length ? Math.min(...atrasos) : null;
     $('alarma').innerHTML = (min != null && min > (c.rancio ?? 3))
-      ? `<div class="alarma"><b>EL FEED ESTÁ FRENADO</b> — ningún papel recibió `
-        + `una barra en ${n(min, 0)} minutos. Revisá que Trade The Pool diga `
-        + `"Connected" y que TTPFeedMulti siga en el gráfico. Lo de abajo está viejo.</div>`
+      /* El feed cortado NO es plata perdida: es "lo de abajo esta viejo". Iba
+         en un muro rojo a todo el ancho con cuatro renglones de instrucciones
+         que uno ya se sabe. Ambar, un renglon, y el dato que importa —hace
+         cuanto— adelante. */
+      ? '<div class="alarma"><span class="luz"></span>'
+        + `<b>Feed frenado hace ${n(min, 0)} min</b>`
+        + '<span class="que">— revisá que Trade The Pool diga “Connected”.'
+        + ' Lo de abajo está viejo.</span></div>'
       : '';
 
     if (!$('cuerpo').querySelector('.grilla')) {

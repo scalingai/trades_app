@@ -9,174 +9,234 @@
 <style>
   /* Esta vista se mira mientras se opera, no se estudia. Todo lo que decide una
      orden —cuántas acciones, dónde el stop, cuánto queda de presupuesto— tiene
-     que leerse sin buscar. Lo demás es contexto y va en gris. */
+     que leerse sin buscar. Lo demás es contexto y va en gris.
+
+     LO QUE CAMBIO EN ESTE PASE, Y POR QUE:
+
+     1. EL ROJO VOLVIO A SIGNIFICAR UNA SOLA COSA. Estaba diciendo cuatro: feed
+        caído, dato viejo, precio en baja, papel descartado. Tres de esas no son
+        plata perdida. Con seis tarjetas en pantalla eso era una grilla roja
+        donde el único rojo que importa —un PnL negativo— no saltaba. Ahora los
+        avisos que no son plata van en ámbar, y el descarte en gris apagado.
+
+     2. LA COLUMNA TIENE JERARQUIA. Eran ocho bloques idénticos con rótulos de
+        10px casi invisibles, y el número del día estaba tercero. Ahora ese
+        número es lo primero y es grande; los ajustes —que son ajustes, no
+        estado— bajaron al pie.
+
+     3. LAS TARJETAS SON SUPERFICIES, NO RECTANGULOS. Radio de 12px y sombra
+        suave en vez de un borde de 1px entre dos grises casi iguales, que no
+        separaba nada y competía con las líneas del gráfico que tiene adentro.
+
+     4. EL GRAFICO GANO ALTURA: de 270 a 296px. */
 
   body{height:auto;min-height:100%}
-  main{padding:var(--e3) var(--e4) var(--e6);max-width:none}
+  main{padding:var(--e4) var(--e5) var(--e6);max-width:none}
 
   /* NO HAY BARRA DE ARRIBA. Tenia el titulo, dos controles con nombres que no
      decian nada ("riesgo", "piso"), un boton de latido y la receta de la
      estrategia. Los controles se fueron a la columna, junto a lo que gobiernan;
-     la receta al bloque de sesion; el latido y el reloj local, afuera. Todo
-     sube una fila. */
-  main{padding:var(--e3) var(--e4) var(--e6);max-width:none}
-
-  .vista{display:grid;grid-template-columns:300px minmax(0,1fr);
+     la receta al bloque de sesion; el latido y el reloj local, afuera. */
+  .vista{display:grid;grid-template-columns:308px minmax(0,1fr);
          gap:var(--e4);align-items:start}
   @media (max-width:1200px){.vista{grid-template-columns:1fr}}
-  .lateral{display:flex;flex-direction:column;gap:var(--e4);
-           position:sticky;top:var(--e3)}
+  .lateral{display:flex;flex-direction:column;gap:var(--e3);
+           position:sticky;top:var(--e4)}
 
-  /* Los dos controles, con nombres que se entienden y su unidad a la vista. */
-  .ctrl{display:flex;align-items:center;gap:8px;padding:5px 0;
-        font-size:var(--t2);color:var(--texto-2)}
-  .ctrl input{width:64px;margin-left:auto;background:var(--fondo);
-              border:1px solid var(--borde);border-radius:6px;
-              color:var(--texto);font-family:var(--fuente-num);
-              font-variant-numeric:tabular-nums;font-size:var(--t3);
-              padding:3px 8px;text-align:right}
-  .ctrl input:focus{outline:none;border-color:var(--acento)}
-  .ctrl .u{color:var(--texto-3)}
+  /* ====================================================== aviso de feed ==== */
+  /* Era un muro rojo a todo el ancho con cuatro renglones de instrucciones. El
+     feed cortado NO es plata perdida: es "ojo, lo de abajo está viejo". Eso es
+     un renglón en ámbar con un punto que late, no una alarma. */
+  .alarma{display:flex;align-items:center;gap:10px;
+          margin:0 0 var(--e4);padding:8px var(--e4);
+          border-radius:var(--radio-2);
+          background:var(--ambar-fondo);border:1px solid var(--ambar-borde);
+          color:var(--texto);font-size:var(--t2)}
+  .alarma .luz{width:7px;height:7px;border-radius:50%;flex:none;
+               background:var(--ambar);animation:latir 1.8s ease-in-out infinite}
+  @keyframes latir{50%{opacity:.28}}
+  .alarma b{font-weight:600}
+  .alarma .que{color:var(--texto-2)}
+  @media (prefers-reduced-motion:reduce){.alarma .luz{animation:none}}
 
-  /* EL SCANNER, estilo terminal: ticker, precio, variacion y un punto de
-     estado. Se clickea para saltar a su grafico. */
-  #wl{background:var(--fondo-2);border:1px solid var(--borde);
-      border-radius:var(--radio);overflow:hidden}
-  .wl-cab{display:flex;align-items:center;gap:8px;padding:9px var(--e4) 7px}
-  .wl-cab h2{margin:0;font-size:var(--t0);font-weight:500;
-             color:var(--texto-3);letter-spacing:.04em}
-  #wl-n{color:var(--texto-3);font-size:var(--t1);font-family:var(--fuente-num)}
-  #wl-editar{margin-left:auto;background:none;border:0;cursor:pointer;
-             color:var(--texto-3);font-size:var(--t1);font-family:inherit;
-             padding:2px 6px;border-radius:5px}
-  #wl-editar:hover{color:var(--texto);background:var(--fondo-3)}
-
-  .wl-fila{display:grid;grid-template-columns:9px 1fr auto auto;
-           align-items:center;gap:9px;padding:5px var(--e4);cursor:pointer;
-           font-size:var(--t2);border-top:1px solid var(--linea)}
-  .wl-fila:hover{background:var(--fondo-3)}
-  .wl-fila .luz{width:6px;height:6px;border-radius:50%;background:var(--texto-3)}
-  .wl-fila.opera .luz{background:var(--pos)}
-  .wl-fila.espera .luz{background:var(--acento)}
-  .wl-fila .tk3{font-weight:600;letter-spacing:-.01em}
-  .wl-fila .p,.wl-fila .v{font-family:var(--fuente-num);
-                          font-variant-numeric:tabular-nums;text-align:right}
-  .wl-fila .v{width:56px}
-
-  #wl-editor{padding:var(--e3) var(--e4) var(--e4);border-top:1px solid var(--linea)}
-  #wl-txt{width:100%;height:130px;resize:vertical;background:var(--fondo);
-          color:var(--texto);border:1px solid var(--borde);
-          border-radius:6px;padding:8px;
-          font-family:var(--fuente-num);font-size:var(--t2);line-height:1.7}
-  .wl-pie{display:flex;align-items:center;gap:10px;margin-top:8px}
-  #wl-guardar{background:var(--fondo-3);color:var(--texto);cursor:pointer;
-              border:1px solid var(--borde);border-radius:6px;
-              padding:4px 14px;font-size:var(--t1);font-family:inherit}
-  #wl-guardar:hover{background:var(--borde)}
-  #wl-msg{font-size:var(--t0)}
-  #wl-editor p{color:var(--texto-3);font-size:var(--t0);margin:9px 0 0;
-               line-height:1.6}
-
-  .alarma{margin-top:var(--e3);padding:var(--e3) var(--e4);border-radius:var(--radio);
-          background:rgba(239,83,80,.14);color:var(--rojo);font-size:var(--t2);
-          border:1px solid rgba(239,83,80,.35)}
-
-  /* EL PUESTO DE MANDO. La pantalla anterior era un MONITOR: seis gráficos del
-     mismo tamaño, y lo único accionable —"0 con señal"— era una cadena gris de
-     12px arriba a la derecha. Mientras la operativa se simula acá, lo que hace
-     falta ver es qué está operando, qué está esperando y cómo viene el día.
-     Los gráficos son el contexto de eso, no al revés. */
-  .vista{display:grid;grid-template-columns:300px minmax(0,1fr);
-         gap:var(--e4);margin-top:var(--e4);align-items:start}
-  @media (max-width:1200px){.vista{grid-template-columns:1fr}}
+  /* ======================================================= puesto de mando == */
+  /* La pantalla anterior era un MONITOR: seis gráficos del mismo tamaño, y lo
+     único accionable —"0 con señal"— era una cadena gris de 12px arriba a la
+     derecha. Mientras la operativa se simula acá, lo que hace falta ver es qué
+     está operando, qué está esperando y cómo viene el día. Los gráficos son el
+     contexto de eso, no al revés. */
 
   #mando{display:flex;flex-direction:column;gap:1px;
-         background:var(--linea);border:1px solid var(--borde);
-         border-radius:var(--radio);overflow:hidden}
-  .bloque{background:var(--fondo-2);padding:10px var(--e4) 12px}
-  .bloque h2{margin:0 0 8px;font-size:var(--t0);font-weight:500;
-             color:var(--texto-3);letter-spacing:.04em}
+         background:var(--linea);border-radius:var(--radio-2);
+         box-shadow:var(--sombra);overflow:hidden}
+  .bloque{background:var(--fondo-2);padding:11px var(--e4) 13px}
+  .bloque h2{margin:0 0 7px;font-size:var(--t0);font-weight:600;
+             color:var(--texto-3);letter-spacing:.06em;text-transform:uppercase}
   .bloque .nada{color:var(--texto-3);font-size:var(--t2)}
 
-  /* El reloj de la sesión: la estrategia es HORARIA y hasta ahora no había
-     forma de saber cuánto faltaba para el corte sin mirar el reloj de al lado. */
-  .hito{display:flex;align-items:baseline;gap:8px;font-size:var(--t2);
-        padding:2px 0;color:var(--texto-2)}
-  .hito .cuando{margin-left:auto;font-family:var(--fuente-num);
-                color:var(--texto-3)}
-  .hito.paso{color:var(--texto-3);opacity:.6}
-  .hito.ahora{color:var(--texto)}
-  .hito.ahora .cuando{color:var(--acento)}
-
+  /* EL BLOQUE JEFE: el número del día. Uno por pantalla. Lleva el rótulo al
+     lado y no arriba, para que nada le compita el primer golpe de vista. */
+  .bloque.jefe{padding:var(--e4)}
+  .jefe-cab{display:flex;align-items:baseline;gap:9px}
   .gran{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
-        font-size:22px;line-height:1.1;letter-spacing:-.02em}
-  .sub{color:var(--texto-3);font-size:var(--t1);margin-top:3px}
+        font-size:30px;line-height:1;letter-spacing:-.025em;font-weight:500}
+  .gran.cero{color:var(--texto-2)}
+  .jefe-cab .que{color:var(--texto-3);font-size:var(--t1);
+                 text-transform:uppercase;letter-spacing:.06em}
+  .sub{color:var(--texto-3);font-size:var(--t1);margin-top:6px;
+       font-family:var(--fuente-num)}
 
   /* La barra de riesgo. No es decoración: dice si entra otro tramo. */
-  .barra{height:4px;border-radius:2px;background:var(--fondo-4);
-         margin-top:8px;overflow:hidden}
+  .barra{height:3px;border-radius:2px;background:var(--fondo-4);
+         margin-top:11px;overflow:hidden}
   .barra i{display:block;height:100%;background:var(--acento);
            transition:width .3s ease}
   .barra i.lleno{background:var(--neg)}
 
-  .pos-fila{display:grid;grid-template-columns:1fr auto;gap:4px var(--e3);
-            padding:6px 0;border-top:1px solid var(--linea)}
-  .pos-fila:first-of-type{border-top:0}
-  .pos-fila .tk2{font-weight:600;font-size:var(--t3)}
+  /* El reloj de la sesión: la estrategia es HORARIA y hasta ahora no había
+     forma de saber cuánto faltaba para el corte sin mirar el reloj de al lado. */
+  .hito{display:flex;align-items:baseline;gap:9px;font-size:var(--t2);
+        padding:3px 0;color:var(--texto-2)}
+  .hito b{font-family:var(--fuente-num);color:var(--texto-3);font-weight:500}
+  .hito .cuando{margin-left:auto;font-family:var(--fuente-num);
+                font-size:var(--t1);color:var(--texto-3)}
+  .hito.paso{opacity:.45}
+  .hito.ahora{color:var(--texto)}
+  .hito.ahora b{color:var(--texto)}
+  .hito.ahora .cuando{color:var(--ambar)}
+
+  /* La receta: la regla que rige el día. No cambia nunca, así que no es
+     estado — por eso va apagada y separada de los hitos por una línea. */
+  .receta{margin-top:10px;padding-top:10px;border-top:1px solid var(--linea);
+          color:var(--texto-3);font-size:var(--t1);line-height:1.75}
+  .receta b{color:var(--texto-2);font-weight:500}
+
+  .pos-fila{display:grid;grid-template-columns:1fr auto;gap:3px var(--e3);
+            padding:7px 0;border-top:1px solid var(--linea)}
+  .pos-fila:first-of-type{border-top:0;padding-top:1px}
+  .pos-fila .tk2{font-weight:600;font-size:var(--t3);letter-spacing:-.01em}
   .pos-fila .num{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
                  font-size:var(--t3);text-align:right}
   .pos-fila .det{grid-column:1/-1;color:var(--texto-3);font-size:var(--t1);
                  font-family:var(--fuente-num)}
 
   .chips{display:flex;gap:5px;flex-wrap:wrap}
-  .chip2{padding:2px 8px;border-radius:99px;background:var(--fondo-3);
-         color:var(--texto-2);font-size:var(--t1)}
+  .chip2{padding:2px 9px;border-radius:99px;background:var(--fondo-3);
+         color:var(--texto-2);font-size:var(--t1);line-height:1.6}
   .chip2.espera{background:rgba(91,141,239,.14);color:var(--acento)}
 
   /* La cinta: qué pasó, en orden, lo último arriba. */
-  .cinta{max-height:220px;overflow-y:auto;margin:-2px -4px 0}
+  .cinta{max-height:210px;overflow-y:auto;margin:-3px -5px 0}
   .ev{display:grid;grid-template-columns:38px 1fr auto;gap:8px;
-      padding:4px;border-radius:5px;font-size:var(--t1);align-items:baseline}
+      padding:4px 5px;border-radius:6px;font-size:var(--t1);align-items:baseline}
   .ev:hover{background:var(--fondo-3)}
   .ev .h{font-family:var(--fuente-num);color:var(--texto-3)}
   .ev .q{color:var(--texto-2)}
   .ev .m{font-family:var(--fuente-num);font-variant-numeric:tabular-nums}
 
-  /* DOS COLUMNAS. La altura de cada tarjeta está calculada para que entren
-     CUATRO por pantalla (2×2) sin scrollear: media pantalla menos la barra de
-     arriba. Si entraran tres, la cuarta se vería a medias y eso es peor que
-     no verla. */
+  /* LOS AJUSTES VAN AL PIE. Son ajustes, no estado: se tocan una vez por día y
+     después se miran cero veces. Estaban arriba de todo, empujando el número
+     del día a la mitad de la columna. */
+  .bloque.ajustes{background:var(--fondo)}
+  .ctrl{display:flex;align-items:center;gap:8px;padding:4px 0;
+        font-size:var(--t2);color:var(--texto-2)}
+  .ctrl .u{color:var(--texto-3);font-family:var(--fuente-num)}
+  .ctrl input{width:70px;margin-left:auto;background:var(--fondo-2);
+              border:1px solid var(--linea-2);border-radius:7px;
+              color:var(--texto);font-family:var(--fuente-num);
+              font-variant-numeric:tabular-nums;font-size:var(--t3);
+              padding:4px 9px;text-align:right}
+  .ctrl input:focus{outline:none;border-color:var(--acento)}
+
+  /* ============================================================= scanner === */
+  /* La watchlist estaba arriba, plegada, como un formulario. Acá abajo de la
+     columna es donde se mira: la lista de lo que hay hoy, con su precio y su
+     estado, como cualquier terminal. Editarla es una acción secundaria y por
+     eso vive detrás de un botón. */
+  #wl{background:var(--fondo-2);border-radius:var(--radio-2);
+      box-shadow:var(--sombra);overflow:hidden}
+  .wl-cab{display:flex;align-items:center;gap:8px;padding:11px var(--e4) 8px}
+  .wl-cab h2{margin:0;font-size:var(--t0);font-weight:600;
+             color:var(--texto-3);letter-spacing:.06em;text-transform:uppercase}
+  #wl-n{color:var(--texto-3);font-size:var(--t1);font-family:var(--fuente-num)}
+  #wl-editar{margin-left:auto;background:none;border:0;cursor:pointer;
+             color:var(--texto-3);font-size:var(--t1);font-family:inherit;
+             padding:3px 8px;border-radius:6px}
+  #wl-editar:hover{color:var(--texto);background:var(--fondo-3)}
+
+  .wl-fila{display:grid;grid-template-columns:7px 1fr auto auto;
+           align-items:center;gap:10px;padding:6px var(--e4);cursor:pointer;
+           font-size:var(--t2);border-top:1px solid var(--linea)}
+  .wl-fila:hover{background:var(--fondo-3)}
+  .wl-fila .luz{width:6px;height:6px;border-radius:50%;background:var(--fondo-4)}
+  .wl-fila.opera .luz{background:var(--pos);
+                      box-shadow:0 0 0 3px rgba(46,168,143,.16)}
+  .wl-fila.espera .luz{background:var(--acento)}
+  .wl-fila .tk3{font-weight:600;letter-spacing:-.01em}
+  .wl-fila .p,.wl-fila .v{font-family:var(--fuente-num);
+                          font-variant-numeric:tabular-nums;text-align:right}
+  .wl-fila .p{color:var(--texto-2)}
+  .wl-fila .v{width:56px}
+
+  #wl-editor{padding:var(--e3) var(--e4) var(--e4);border-top:1px solid var(--linea)}
+  #wl-txt{width:100%;height:130px;resize:vertical;background:var(--fondo);
+          color:var(--texto);border:1px solid var(--linea-2);
+          border-radius:8px;padding:9px;
+          font-family:var(--fuente-num);font-size:var(--t2);line-height:1.7}
+  .wl-pie{display:flex;align-items:center;gap:10px;margin-top:9px}
+  #wl-guardar{background:var(--fondo-3);color:var(--texto);cursor:pointer;
+              border:1px solid var(--linea-2);border-radius:7px;
+              padding:5px 15px;font-size:var(--t1);font-family:inherit}
+  #wl-guardar:hover{background:var(--fondo-4)}
+  #wl-msg{font-size:var(--t0)}
+  #wl-editor p{color:var(--texto-3);font-size:var(--t0);margin:10px 0 0;
+               line-height:1.6}
+
+  /* ============================================================ tarjetas === */
+  /* DOS COLUMNAS. La altura está calculada para que entren CUATRO por pantalla
+     (2×2) sin scrollear. Si entraran tres, la cuarta se vería a medias y eso es
+     peor que no verla. */
   .grilla{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
           gap:var(--e4)}
   @media (max-width:1100px){.grilla{grid-template-columns:1fr}}
 
-  .papel{border:1px solid var(--borde);border-radius:var(--radio);
-         background:var(--fondo-2);overflow:hidden;display:flex;
+  .papel{border-radius:var(--radio-2);background:var(--fondo-2);
+         box-shadow:var(--sombra);overflow:hidden;display:flex;
          flex-direction:column}
-  .papel.opera{border-color:rgba(38,166,154,.45)}
+  /* El papel que se está operando es el único con color en el marco. Es UNA
+     cosa por pantalla, no seis: por eso se puede dar el lujo de un anillo. */
+  .papel.opera{box-shadow:var(--sombra),inset 0 0 0 1px rgba(46,168,143,.45)}
+  /* El descartado se apaga, no se pinta de rojo: no perdiste plata, hoy no
+     califica. Y se recupera entero al pasar el mouse. */
+  .papel.fuera{opacity:.6;transition:opacity .18s ease}
+  .papel.fuera:hover{opacity:1}
 
   /* EL ENCABEZADO, EN DOS FILAS. Antes eran cuatro: identidad, una tira de
      metadatos con puntos medios, una banda con el motivo, y las cifras con
-     rotulos en versalitas espaciadas. Cuatro filas de chrome antes del
-     grafico, que es lo unico que uno quiere mirar. */
-  .cab{display:flex;align-items:center;gap:10px;
-       padding:11px var(--e4) 0}
-  .cab .tk{font-size:16px;font-weight:600;letter-spacing:-.02em}
+     rótulos en versalitas espaciadas. Cuatro filas de cromo antes del gráfico,
+     que es lo único que uno quiere mirar. */
+  .cab{display:flex;align-items:center;gap:9px;padding:13px var(--e4) 0}
+  .cab .tk{font-size:17px;font-weight:650;letter-spacing:-.025em}
   .cab .px{font-family:var(--fuente-num);font-size:15px;
-           font-variant-numeric:tabular-nums;color:var(--texto)}
+           font-variant-numeric:tabular-nums;color:var(--texto-2);
+           letter-spacing:-.01em}
   .cab .chg{font-family:var(--fuente-num);font-size:var(--t2);
-            font-variant-numeric:tabular-nums}
+            font-variant-numeric:tabular-nums;font-weight:500}
 
-  /* El estado en una palabra. Sin mayusculas ni borde: es un matiz, no una
-     alarma — las alarmas son las otras dos. */
-  .sello{padding:2px 8px;border-radius:99px;background:var(--fondo-3);
-         color:var(--texto-3);font-size:var(--t1);line-height:1.5}
-  .alerta-sello{background:rgba(229,84,79,.16);color:var(--neg)}
+  /* El estado en una palabra. Sin mayúsculas ni borde: es un matiz, no una
+     alarma. */
+  .sello{padding:2px 9px;border-radius:99px;background:var(--fondo-3);
+         color:var(--texto-3);font-size:var(--t1);line-height:1.6;
+         white-space:nowrap}
+  /* "sin datos 6 min" en ÁMBAR, no en rojo: el dato está viejo, no perdiste
+     plata. Con seis tarjetas rancias al mismo tiempo, en rojo la pantalla
+     entera gritaba y el PnL negativo se perdía adentro del ruido. */
+  .alerta-sello{background:var(--ambar-fondo);color:var(--ambar)}
 
   /* Segmentado, como el de iOS: un riel y una pastilla que se mueve. La
      temporalidad es SOLO VISUAL — la estrategia se mide en velas de 1 minuto
      pase lo que pase acá. */
-  .tfs{margin-left:auto;display:flex;gap:1px;padding:2px;
+  .tfs{margin-left:auto;display:flex;gap:2px;padding:2px;
        background:var(--fondo);border-radius:8px}
   .tf{border:0;cursor:pointer;background:none;color:var(--texto-3);
       font-family:var(--fuente-num);font-size:var(--t1);
@@ -186,70 +246,71 @@
   .tf.on{background:var(--fondo-4);color:var(--texto)}
 
   .lupa{background:none;border:0;color:var(--texto-3);cursor:pointer;
-        font-size:14px;padding:2px 4px;line-height:1;border-radius:6px;
+        font-size:14px;padding:4px 5px;line-height:1;border-radius:7px;
         transition:color .14s ease,background .14s ease}
   .lupa:hover{color:var(--texto);background:var(--fondo-3)}
 
-  /* El rotulo va DESPUES del numero, en minuscula y apagado: el numero es lo
-     que se lee, el rotulo es lo que se consulta. */
+  /* El rótulo va DESPUES del número, en minúscula y apagado: el número es lo
+     que se lee, el rótulo es lo que se consulta. */
   .datos{display:flex;align-items:baseline;gap:var(--e4);flex-wrap:wrap;
-         padding:5px var(--e4) 10px;font-size:var(--t1);color:var(--texto-3)}
+         padding:7px var(--e4) 11px;font-size:var(--t1);color:var(--texto-3)}
   .dato b{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
           font-size:var(--t3);font-weight:500;color:var(--texto);
           margin-right:5px}
   .dato b.pos{color:var(--pos)} .dato b.neg{color:var(--neg)}
-  .motivo{margin-left:auto;color:var(--texto-3);opacity:.85}
+  /* El motivo del descarte: gris, al final de la fila. No es una banda roja
+     aparte — el papel se sigue viendo aunque hoy no se opere. */
+  .motivo{margin-left:auto;color:var(--texto-3);opacity:.8;font-style:italic}
 
-  .papel.fuera{opacity:.78}
-  .papel.fuera:hover{opacity:1}
+  /* El tope diario SI es rojo: es la única cosa de la tarjeta que significa
+     "esto te está costando plata". */
+  .alerta{padding:6px var(--e4);background:rgba(229,84,79,.12);
+          color:var(--neg);font-size:var(--t1)}
 
-  .alerta{padding:5px var(--e4);background:rgba(239,83,80,.12);
-          color:var(--rojo);font-size:var(--t0)}
-  /* El motivo del descarte es una BANDA, no un reemplazo del grafico: el
-     papel se sigue viendo aunque hoy no se opere. */
-  .descarte{padding:5px var(--e4);color:var(--texto-3);font-size:var(--t0);
-            background:var(--fondo-3);display:flex;gap:var(--e4);flex-wrap:wrap}
-  .papel.fuera{opacity:.72}
-  .papel.fuera:hover{opacity:1}
+  .g{height:296px}
 
-  .g{height:270px}
-  .papel details{border-top:1px solid var(--borde)}
-  .papel summary{padding:5px var(--e4);cursor:pointer;color:var(--texto-3);
+  .papel details{border-top:1px solid var(--linea)}
+  .papel summary{padding:6px var(--e4);cursor:pointer;color:var(--texto-3);
                  font-size:var(--t0);text-transform:uppercase;
-                 letter-spacing:.06em;user-select:none}
+                 letter-spacing:.07em;user-select:none}
   .papel summary:hover{color:var(--texto-2)}
 
   table{width:100%;border-collapse:collapse;font-size:var(--t0);
         font-family:var(--fuente-num);font-variant-numeric:tabular-nums}
   th{color:var(--texto-3);font-weight:500;text-transform:uppercase;
      font-size:9px;letter-spacing:.06em;text-align:right;
-     padding:4px var(--e3);border-bottom:1px solid var(--borde)}
+     padding:5px var(--e3);border-bottom:1px solid var(--linea-2)}
   th:first-child,td:first-child{text-align:left}
-  td{padding:3px var(--e3);border-bottom:1px solid var(--borde-2)}
+  td{padding:4px var(--e3);border-bottom:1px solid var(--linea)}
   td:not(:first-child){text-align:right}
   tr.cerrada td{color:var(--texto-3)}
-  .chip{display:inline-block;padding:0 6px;border-radius:99px;font-size:9px}
-  .chip.ab{background:rgba(38,166,154,.16);color:var(--verde)}
-  .chip.st{background:rgba(239,83,80,.16);color:var(--rojo)}
+  .chip{display:inline-block;padding:0 7px;border-radius:99px;font-size:9px}
+  .chip.ab{background:rgba(46,168,143,.16);color:var(--pos)}
+  .chip.st{background:var(--fondo-3);color:var(--texto-2)}
 
   .vacio{padding:var(--e6);text-align:center;color:var(--texto-3)}
   .vacio code{color:var(--texto-2)}
-  .aviso{margin-top:var(--e4);padding:var(--e3) var(--e4);
-         border:1px solid var(--borde);border-radius:var(--radio);
-         color:var(--texto-3);font-size:var(--t0)}
+  .aviso{margin-top:var(--e5);padding:var(--e3) var(--e4);
+         border-radius:var(--radio-2);background:var(--fondo-2);
+         color:var(--texto-3);font-size:var(--t1);line-height:1.7;
+         max-width:96ch}
+  .aviso b{color:var(--texto-2);font-weight:500}
 
   /* El popup: el mismo gráfico, grande. Se crea uno solo y se reusa — crear un
      chart por apertura deja instancias colgadas y el navegador se come la RAM. */
-  #modal{position:fixed;inset:0;z-index:50;background:rgba(8,11,16,.85);
+  #modal{position:fixed;inset:0;z-index:50;
+         background:rgba(8,11,16,.78);backdrop-filter:blur(14px);
          display:none;padding:var(--e5)}
   #modal.abierto{display:flex;flex-direction:column}
   #modal .barra{display:flex;align-items:baseline;gap:var(--e4);
+                height:auto;background:none;border-radius:0;margin:0;
                 padding-bottom:var(--e3);flex-wrap:wrap}
-  #modal .cerrar{margin-left:auto;background:none;border:1px solid var(--borde);
-                 color:var(--texto-2);border-radius:var(--radio);cursor:pointer;
-                 padding:3px 12px}
-  #gmodal{flex:1;min-height:0;border:1px solid var(--borde);
-          border-radius:var(--radio);overflow:hidden}
+  #modal .cerrar{margin-left:auto;background:var(--fondo-2);border:0;
+                 color:var(--texto-2);border-radius:8px;cursor:pointer;
+                 padding:5px 14px;font-size:var(--t2)}
+  #modal .cerrar:hover{background:var(--fondo-3);color:var(--texto)}
+  #gmodal{flex:1;min-height:0;background:var(--fondo-2);
+          border-radius:var(--radio-2);overflow:hidden}
 </style>
 </head>
 <body>

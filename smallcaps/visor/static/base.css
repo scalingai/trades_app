@@ -18,6 +18,15 @@
    2. El color significa algo. Verde gana, rojo pierde, azul es "aca estas
       parado", ambar es marca manual. Nada decorativo puede usar esos cuatro,
       porque si el verde tambien sirve de adorno deja de leerse como ganancia.
+
+      ESTA REGLA SE HABIA ROTO EN /vivo, que es donde mas importa. El rojo
+      estaba diciendo cuatro cosas distintas al mismo tiempo: el feed se corto,
+      este papel tiene datos viejos, este precio baja, este papel quedo
+      descartado. Tres de esas cuatro no son plata perdida. Con el rojo
+      significando "prestame atencion" en general, la pantalla entera grita y
+      la unica que importaba —el numero en rojo— deja de saltar.
+
+      El ambar existe para eso: "ojo con esto, pero no perdiste plata".
    ========================================================================== */
 
 :root{
@@ -34,7 +43,7 @@
   /* ---- texto: tres niveles, ni uno mas ---------------------------------- */
   --texto:#dce2eb;
   --texto-2:#8b96a8;      /* secundario: unidades, metadatos, prosa de apoyo */
-  --texto-3:#5f6979;      /* terciario: rotulos y cabeceras de tabla */
+  --texto-3:#6d7788;      /* terciario: rotulos y cabeceras de tabla */
 
   /* ---- color con significado (y solo con significado) ------------------- */
   --pos:#2ea88f;
@@ -65,7 +74,22 @@
 
   --nav:192px;            /* ancho de la barra lateral, expandida */
   --nav-corta:56px;       /* colapsada: solo iconos */
-  --radio:5px;            /* unico radio del sistema: controles y badges */
+  --radio:5px;            /* controles, badges, celdas: cosas chicas */
+  /* El segundo radio existe para las TARJETAS. Un panel de 400px con el mismo
+     radio de 5px de un badge se lee como un rectangulo con las esquinas mal
+     cortadas; a 12px se lee como una superficie. Es la diferencia entre una
+     herramienta de dev y algo que da gusto mirar ocho horas. */
+  --radio-2:12px;
+
+  /* Profundidad, no bordes. Un borde de 1px entre dos grises casi iguales no
+     separa nada: solo ensucia. Una sombra suave levanta la tarjeta del papel
+     y ademas deja de competir con las lineas del grafico que tiene adentro. */
+  --sombra:0 1px 2px rgba(0,0,0,.28), 0 10px 28px -14px rgba(0,0,0,.7);
+
+  /* Ambar de fondo, para avisos que NO son perdida de plata. Ver la nota de
+     abajo sobre por que esto hacia falta. */
+  --ambar-fondo:rgba(212,161,30,.13);
+  --ambar-borde:rgba(212,161,30,.32);
 
   /* ---- alias heredados --------------------------------------------------
      El JS ya escrito y los marcadores de los graficos piden estos nombres. Se
