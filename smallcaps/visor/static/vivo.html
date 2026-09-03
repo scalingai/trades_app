@@ -14,17 +14,47 @@
   body{height:auto;min-height:100%}
   main{padding:var(--e3) var(--e4) var(--e6);max-width:none}
 
+  /* LA BARRA DE ARRIBA ERA UN CAJON DE SASTRE: titulo, dos inputs, un checkbox
+     pelado, la receta de la estrategia y dos tiras de metadatos con puntos
+     medios. Seis cosas sin relacion en una fila.
+
+     Se queda con lo unico que CAMBIA EL COMPORTAMIENTO —riesgo y piso— mas el
+     latido. La receta se fue al panel de sesion, que es donde vive lo que rige
+     el dia; el reloj local se fue del todo porque el que importa es el de Nueva
+     York y ya esta en el panel. Dos relojes en husos distintos en la misma
+     pantalla es peor que uno solo. */
   .tope{position:sticky;top:0;z-index:20;background:var(--fondo);
-        padding:var(--e3) 0;display:flex;align-items:center;
-        gap:var(--e4);flex-wrap:wrap;border-bottom:1px solid var(--borde)}
-  .tope input{width:74px}
+        padding:10px 0;display:flex;align-items:center;gap:var(--e3);
+        border-bottom:1px solid var(--borde)}
+
+  .campo{display:flex;align-items:center;gap:7px;
+         padding:4px 10px 4px 12px;border-radius:8px;
+         background:var(--fondo-2);border:1px solid var(--borde);
+         color:var(--texto-3);font-size:var(--t1)}
+  .campo:focus-within{border-color:var(--acento)}
+  .campo input{width:52px;background:none;border:0;color:var(--texto);
+               font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
+               font-size:var(--t3);padding:0;text-align:right}
+  .campo input:focus{outline:none}
+
+  /* El latido es un BOTON, no un checkbox suelto con una etiqueta al lado:
+     apagar el refresco es una accion, y el punto dice si esta vivo. */
+  .latido{margin-left:auto;display:flex;align-items:center;gap:8px;
+          padding:5px 12px;border-radius:8px;cursor:pointer;
+          background:var(--fondo-2);border:1px solid var(--borde);
+          color:var(--texto-2);font-size:var(--t1);font-family:var(--fuente-num)}
+  .latido:hover{color:var(--texto)}
+  .latido[aria-pressed="false"]{opacity:.6}
   .pulso{display:inline-block;width:7px;height:7px;border-radius:50%;
-         background:var(--verde);margin-right:6px;vertical-align:middle}
+         background:var(--pos);flex:none}
   .pulso.frio{background:var(--texto-3)}
   @keyframes lat{0%,100%{opacity:1}50%{opacity:.25}}
   .vivo .pulso{animation:lat 2s ease-in-out infinite}
-  .receta{color:var(--texto-3);font-size:var(--t1);
-          font-family:var(--fuente-num)}
+
+  .receta{color:var(--texto-3);font-size:var(--t0);
+          font-family:var(--fuente-num);line-height:1.7}
+  .bloque .receta{margin-top:9px;padding-top:8px;
+                  border-top:1px solid var(--linea)}
 
   /* La watchlist se edita ACA. Antes vivía en un archivo de texto que había
      que abrir a mano, o peor, se armaba clickeando menús en la plataforma. Que
@@ -229,14 +259,11 @@
 <body>
 <main>
   <div class="tope" id="tope">
-    <h1 style="margin:0;font-size:var(--t4)">
-      <span class="pulso" id="pulso"></span>En vivo
-    </h1>
-    <label>riesgo <input id="riesgo" type="number" value="400" step="50" min="50"></label>
-    <label>piso <input id="piso" type="number" value="2" step="0.5" min="0"></label>
-    <label><input id="auto" type="checkbox" checked> refrescar</label>
-    <span class="receta" id="receta"></span>
-    <span class="receta" id="reloj" style="margin-left:auto"></span>
+    <label class="campo">riesgo<input id="riesgo" type="number" value="400" step="50" min="50"></label>
+    <label class="campo">piso<input id="piso" type="number" value="2" step="0.5" min="0"></label>
+    <button id="auto" class="latido" type="button" aria-pressed="true">
+      <span class="pulso" id="pulso"></span><span id="reloj">en vivo</span>
+    </button>
   </div>
   <details id="wl">
     <summary>watchlist — <span id="wl-n">…</span></summary>

@@ -472,7 +472,13 @@
     eventos.sort((a, b) => b.h - a.h);
 
     $('mando').innerHTML = [
-      bloque('sesión · nueva york ' + hhmm(c.ahora), relojSesion(c)),
+      bloque('sesión · nueva york ' + hhmm(c.ahora), relojSesion(c)
+        /* La receta vive ACA y no en la barra de arriba: no cambia nunca, asi
+           que no es estado — es la regla que rige el dia, y su lugar es junto
+           a los hitos de la sesion. */
+        + `<div class="receta">${c.apertura} · expansión ≥${c.expansion}%`
+        + ` · stop ${c.stop}% · piso $${n($('piso').value, 0)}`
+        + ` · sostiene al cierre · p50 ${n(c.mfe50, 1)}%</div>`),
 
       bloque('simulado hoy',
         `<div class="gran ${neto >= 0 ? 'pos' : 'neg'}">${signo(neto)}$${n(Math.abs(neto))}</div>`
@@ -553,7 +559,7 @@
       const r = await fetch(`/api/vivo?riesgo=${$('riesgo').value}&piso=${$('piso').value}`);
       d = await r.json();
     } catch (err) {
-      $('reloj').textContent = 'sin conexión con el visor';
+      $('reloj').textContent = 'sin conexión';
       $('tope').classList.remove('vivo');
       return;
     }
@@ -563,11 +569,6 @@
     }
     ultimo = d;
     const c = d.config || {};
-    $('receta').textContent = `${c.apertura} · exp ≥${c.expansion}% · desde `
-      + `${hhmm(c.desde)} · stop ${c.stop}%`
-      + (c.corte ? ` · corte ${hhmm(c.corte)} si no gana ${c.corte_umbral}%` : '')
-      + ` · p50 ${n(c.mfe50, 1)}%`;
-
     if (!d.existe) {
       charts.clear();
       $('cuerpo').innerHTML = `<div class="vacio"><p>No hay feed todavía.</p>`
@@ -625,13 +626,17 @@
     }
     pintarMando(d);
     const con = d.papeles.filter((p) => (p.trades_estrategia || []).length).length;
-    $('reloj').textContent = `${con} con señal · ${d.papeles.length} en pantalla · `
-      + new Date().toLocaleTimeString('es-AR');
+    /* El reloj de la barra dice si el REFRESCO esta vivo, no la hora: la hora
+       que importa es la de Nueva York y esa vive en el panel de sesion. */
+    $('reloj').textContent = $('auto').getAttribute('aria-pressed') === 'true'
+      ? 'en vivo' : 'pausado';
   }
 
   function reprogramar() {
     if (timer) clearInterval(timer);
-    if ($('auto').checked) timer = setInterval(tick, 20000);
+    if ($('auto').getAttribute('aria-pressed') === 'true') {
+      timer = setInterval(tick, 20000);
+    }
   }
 
   document.addEventListener('click', (ev) => {
@@ -706,7 +711,13 @@
   cargarWatchlist();
 
   ['riesgo', 'piso'].forEach((k) => $(k).addEventListener('change', tick));
-  $('auto').addEventListener('change', reprogramar);
+  $('auto').addEventListener('click', () => {
+    const on = $('auto').getAttribute('aria-pressed') === 'true';
+    $('auto').setAttribute('aria-pressed', String(!on));
+    reprogramar();
+    if (!on) tick();
+    else $('reloj').textContent = 'pausado';
+  });
   tick();
   reprogramar();
 })();
