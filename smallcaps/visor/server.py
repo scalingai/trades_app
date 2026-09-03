@@ -21,7 +21,7 @@ import re
 import sys
 import threading
 import webbrowser
-from datetime import date
+from datetime import date, datetime
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -322,6 +322,12 @@ def payload_vivo(riesgo: float, piso: float) -> dict:
                        "mfe50": _vivo.MFE_P50, "mfe75": _vivo.MFE_P75,
                        "corte": _vivo.CORTE_H,
                        "corte_umbral": _vivo.CORTE_UMBRAL,
+                       # La hora de NUEVA YORK, no la de la maquina. El reloj de
+                       # la sesion se mide contra el mercado: la maquina puede
+                       # estar en cualquier huso y el navegador tambien.
+                       "ahora": (lambda t: t.hour + t.minute / 60.0)(
+                           datetime.now(_vivo.NY)),
+                       "cierre": CIERRE_RTH,
                        "rancio": _vivo.RANCIO_MIN}}
     if not salida["existe"]:
         return salida

@@ -55,6 +55,67 @@
           background:rgba(239,83,80,.14);color:var(--rojo);font-size:var(--t2);
           border:1px solid rgba(239,83,80,.35)}
 
+  /* EL PUESTO DE MANDO. La pantalla anterior era un MONITOR: seis gráficos del
+     mismo tamaño, y lo único accionable —"0 con señal"— era una cadena gris de
+     12px arriba a la derecha. Mientras la operativa se simula acá, lo que hace
+     falta ver es qué está operando, qué está esperando y cómo viene el día.
+     Los gráficos son el contexto de eso, no al revés. */
+  .vista{display:grid;grid-template-columns:300px minmax(0,1fr);
+         gap:var(--e4);margin-top:var(--e4);align-items:start}
+  @media (max-width:1200px){.vista{grid-template-columns:1fr}}
+
+  #mando{position:sticky;top:56px;display:flex;flex-direction:column;gap:1px;
+         background:var(--linea);border:1px solid var(--borde);
+         border-radius:var(--radio);overflow:hidden}
+  .bloque{background:var(--fondo-2);padding:10px var(--e4) 12px}
+  .bloque h2{margin:0 0 8px;font-size:var(--t0);font-weight:500;
+             color:var(--texto-3);letter-spacing:.04em}
+  .bloque .nada{color:var(--texto-3);font-size:var(--t2)}
+
+  /* El reloj de la sesión: la estrategia es HORARIA y hasta ahora no había
+     forma de saber cuánto faltaba para el corte sin mirar el reloj de al lado. */
+  .hito{display:flex;align-items:baseline;gap:8px;font-size:var(--t2);
+        padding:2px 0;color:var(--texto-2)}
+  .hito .cuando{margin-left:auto;font-family:var(--fuente-num);
+                color:var(--texto-3)}
+  .hito.paso{color:var(--texto-3);opacity:.6}
+  .hito.ahora{color:var(--texto)}
+  .hito.ahora .cuando{color:var(--acento)}
+
+  .gran{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
+        font-size:22px;line-height:1.1;letter-spacing:-.02em}
+  .sub{color:var(--texto-3);font-size:var(--t1);margin-top:3px}
+
+  /* La barra de riesgo. No es decoración: dice si entra otro tramo. */
+  .barra{height:4px;border-radius:2px;background:var(--fondo-4);
+         margin-top:8px;overflow:hidden}
+  .barra i{display:block;height:100%;background:var(--acento);
+           transition:width .3s ease}
+  .barra i.lleno{background:var(--neg)}
+
+  .pos-fila{display:grid;grid-template-columns:1fr auto;gap:4px var(--e3);
+            padding:6px 0;border-top:1px solid var(--linea)}
+  .pos-fila:first-of-type{border-top:0}
+  .pos-fila .tk2{font-weight:600;font-size:var(--t3)}
+  .pos-fila .num{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
+                 font-size:var(--t3);text-align:right}
+  .pos-fila .det{grid-column:1/-1;color:var(--texto-3);font-size:var(--t1);
+                 font-family:var(--fuente-num)}
+
+  .chips{display:flex;gap:5px;flex-wrap:wrap}
+  .chip2{padding:2px 8px;border-radius:99px;background:var(--fondo-3);
+         color:var(--texto-2);font-size:var(--t1)}
+  .chip2.espera{background:rgba(91,141,239,.14);color:var(--acento)}
+
+  /* La cinta: qué pasó, en orden, lo último arriba. */
+  .cinta{max-height:220px;overflow-y:auto;margin:-2px -4px 0}
+  .ev{display:grid;grid-template-columns:38px 1fr auto;gap:8px;
+      padding:4px;border-radius:5px;font-size:var(--t1);align-items:baseline}
+  .ev:hover{background:var(--fondo-3)}
+  .ev .h{font-family:var(--fuente-num);color:var(--texto-3)}
+  .ev .q{color:var(--texto-2)}
+  .ev .m{font-family:var(--fuente-num);font-variant-numeric:tabular-nums}
+
   /* DOS COLUMNAS. La altura de cada tarjeta está calculada para que entren
      CUATRO por pantalla (2×2) sin scrollear: media pantalla menos la barra de
      arriba. Si entraran tres, la cuarta se vería a medias y eso es peor que
@@ -194,7 +255,10 @@
     </div>
   </details>
   <div id="alarma"></div>
-  <div id="cuerpo"></div>
+  <div class="vista">
+    <aside id="mando" aria-label="Estado de la operativa"></aside>
+    <div id="cuerpo"></div>
+  </div>
   <div class="aviso">
     Las órdenes las ponés vos. Esta pantalla no manda nada. Velas de
     <b>1 minuto</b>, sólo la ya <b>cerrada</b>. La línea verde punteada es hasta

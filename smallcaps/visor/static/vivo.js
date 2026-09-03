@@ -405,6 +405,116 @@
     pintarChart(c, p);
   }
 
+  /* --------------------------------------------------------------- mando */
+
+  /* QUE ESTA PASANDO, EN UNA COLUMNA. Mientras la operativa se simula acá, esto
+     es lo que hay que mirar: qué está operando, qué está esperando, y cómo
+     viene el día. Los gráficos son el contexto de eso, no al revés. */
+
+  function relojSesion(c) {
+    const ahora = c.ahora;
+    if (ahora == null) return '';
+    const hitos = [
+      [c.desde, 'clasifica la apertura y empiezan las entradas'],
+      [c.corte, `corta lo que no gane ${c.corte_umbral}%`],
+      [c.cierre, 'cierra todo'],
+    ];
+    return hitos.map(([h, que]) => {
+      const falta = (h - ahora) * 60;
+      const cls = falta < 0 ? 'paso' : (falta < 30 ? 'ahora' : '');
+      const cuando = falta < 0 ? 'pasó'
+        : falta < 60 ? `en ${Math.round(falta)} min`
+        : `en ${Math.floor(falta / 60)}h ${Math.round(falta % 60)}m`;
+      return `<div class="hito ${cls}"><b>${hhmm(h)}</b>`
+        + `<span>${que}</span><span class="cuando">${cuando}</span></div>`;
+    }).join('');
+  }
+
+  function pintarMando(d) {
+    const c = d.config || {};
+    const ps = d.papeles || [];
+    const conTramos = ps.filter((p) => (p.trades_estrategia || []).length);
+    const esperando = ps.filter((p) => !(p.trades_estrategia || []).length
+      && !(p.estado?.descartes || []).length);
+    const fuera = ps.filter((p) => (p.estado?.descartes || []).length);
+
+    /* El dia simulado: lo cerrado ya es plata, lo abierto todavia se puede dar
+       vuelta. Sumarlos en un solo numero esconde justo esa diferencia. */
+    const cerrado = conTramos.reduce((a, p) => a + (p.estado.pnl_cerrado || 0), 0);
+    const abierto = conTramos.reduce((a, p) => a + (p.estado.pnl_abierto || 0), 0);
+    const com = conTramos.reduce((a, p) => a + (p.estado.comision || 0), 0);
+    const tramos = conTramos.reduce((a, p) => a + p.trades_estrategia.length, 0);
+    const neto = cerrado + abierto - com;
+
+    /* Riesgo consumido: cuanto de la caja del dia esta comprometido. Es lo que
+       dice si entra otro tramo, y hasta ahora no estaba en ningun lado. */
+    const riesgo = Number($('riesgo').value) || 400;
+    const usado = Math.max(0, -Math.min(0, cerrado + abierto));
+    const pct = Math.min(100, 100 * usado / riesgo);
+
+    const bloque = (titulo, cuerpo) =>
+      `<div class="bloque"><h2>${titulo}</h2>${cuerpo}</div>`;
+
+    /* La cinta: todos los eventos del dia de todos los papeles, en orden, lo
+       ultimo arriba. Es "como viene la operativa" leido de un tiron. */
+    const eventos = [];
+    conTramos.forEach((p) => {
+      (p.trades_estrategia || []).forEach((t, i) => {
+        eventos.push({ h: t.hora_entrada, tk: p.ticker,
+          que: `short ${n(t.acciones, 0)} acc`, m: '$' + n(t.precio_entrada) });
+        if (t.motivo !== 'abierta' && t.hora_salida != null) {
+          eventos.push({ h: t.hora_salida, tk: p.ticker, que: t.motivo,
+            m: signo(t.pnl) + '$' + n(Math.abs(t.pnl)),
+            cls: t.pnl >= 0 ? 'pos' : 'neg' });
+        }
+      });
+    });
+    eventos.sort((a, b) => b.h - a.h);
+
+    $('mando').innerHTML = [
+      bloque('sesión · nueva york ' + hhmm(c.ahora), relojSesion(c)),
+
+      bloque('simulado hoy',
+        `<div class="gran ${neto >= 0 ? 'pos' : 'neg'}">${signo(neto)}$${n(Math.abs(neto))}</div>`
+        + `<div class="sub">${tramos} tramo${tramos === 1 ? '' : 's'}`
+        + ` · cerrado ${signo(cerrado)}$${n(Math.abs(cerrado))}`
+        + ` · abierto ${signo(abierto)}$${n(Math.abs(abierto))}</div>`
+        + `<div class="barra"><i class="${pct > 85 ? 'lleno' : ''}" style="width:${pct}%"></i></div>`
+        + `<div class="sub">riesgo $${n(usado, 0)} de $${n(riesgo, 0)}</div>`),
+
+      bloque(`operando · ${conTramos.length}`, conTramos.length
+        ? conTramos.map((p) => {
+          const e = p.estado;
+          return '<div class="pos-fila">'
+            + `<span class="tk2">${p.ticker}</span>`
+            + `<span class="num ${(e.pnl_abierto || 0) >= 0 ? 'pos' : 'neg'}">`
+            + `${signo(e.pnl_abierto || 0)}$${n(Math.abs(e.pnl_abierto || 0))}</span>`
+            + `<span class="det">${n(e.vivas, 0)} acc · prom $${n(e.precio_prom)}`
+            + ` · stop $${n(e.stop_prom)}</span></div>`;
+        }).join('')
+        : '<div class="nada">nada abierto</div>'),
+
+      bloque(`esperando señal · ${esperando.length}`, esperando.length
+        ? '<div class="chips">' + esperando.map((p) =>
+            `<span class="chip2 espera">${p.ticker}</span>`).join('') + '</div>'
+        : '<div class="nada">ninguno califica</div>'),
+
+      bloque(`fuera · ${fuera.length}`, fuera.length
+        ? '<div class="chips">' + fuera.map((p) =>
+            `<span class="chip2" title="${(p.estado.descartes || []).join(' · ')}">`
+            + `${p.ticker}</span>`).join('') + '</div>'
+        : '<div class="nada">ninguno descartado</div>'),
+
+      bloque('cinta', eventos.length
+        ? '<div class="cinta">' + eventos.map((x) =>
+            `<div class="ev"><span class="h">${hhmm(x.h)}</span>`
+            + `<span class="q"><b>${x.tk}</b> ${x.que}</span>`
+            + `<span class="m ${x.cls || ''}">${x.m}</span></div>`).join('')
+          + '</div>'
+        : '<div class="nada">sin movimientos</div>'),
+    ].join('');
+  }
+
   /* ----------------------------------------------------------------- popup */
 
   function abrirModal(tk) {
@@ -498,11 +608,22 @@
         }
       });
       d.papeles.forEach(pintarPapel);
+      /* Los que operan primero: en una pantalla que se mira de reojo, lo
+         accionable no puede estar abajo de seis graficos descartados. */
+      const grilla = $('cuerpo').querySelector('.grilla');
+      d.papeles.slice().sort((a, b) =>
+        (b.trades_estrategia || []).length - (a.trades_estrategia || []).length
+        || (a.estado?.descartes || []).length - (b.estado?.descartes || []).length
+      ).forEach((p) => {
+        const el = document.getElementById('p-' + p.ticker);
+        if (el) grilla.appendChild(el);
+      });
       if (abierto) {
         const p = d.papeles.find((x) => x.ticker === abierto);
         if (p) pintarModal(p); else cerrarModal();
       }
     }
+    pintarMando(d);
     const con = d.papeles.filter((p) => (p.trades_estrategia || []).length).length;
     $('reloj').textContent = `${con} con señal · ${d.papeles.length} en pantalla · `
       + new Date().toLocaleTimeString('es-AR');
