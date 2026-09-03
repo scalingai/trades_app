@@ -121,23 +121,50 @@
   .sub{color:var(--texto-3);font-size:var(--t1);margin-top:6px;
        font-family:var(--fuente-num)}
 
-  /* El reloj de la sesión: la estrategia es HORARIA y hasta ahora no había
-     forma de saber cuánto faltaba para el corte sin mirar el reloj de al lado. */
-  .hito{display:flex;align-items:baseline;gap:9px;font-size:var(--t2);
+  /* EL EMBUDO. Cada fila es un filtro del motor, en el orden en que los
+     aplica, y el número es cuántos papeles lo sobrevivieron. La barra de fondo
+     dibuja esa proporción: leído de arriba abajo se ve DONDE se cae la
+     watchlist sin tener que comparar números. */
+  /* Se llama `.filtro` y no `.paso` porque `.paso` YA existía: es la clase que
+     marca un hito de la sesión que ya ocurrió (`.hito.paso`). Con el mismo
+     nombre, la grilla del embudo le caía encima a los hitos y los desarmaba. */
+  .filtro{position:relative;display:grid;grid-template-columns:20px 1fr auto;
+        align-items:baseline;gap:9px;padding:4px 6px;margin:0 -6px;
+        border-radius:6px;font-size:var(--t2);color:var(--texto-2)}
+  .pf{position:absolute;left:0;top:0;bottom:0;border-radius:6px;
+      background:rgba(91,141,239,.11);transition:width .35s ease}
+  .filtro > b,.filtro > .q,.filtro > i{position:relative}
+  .filtro b{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
+            font-weight:600;color:var(--texto);text-align:right;
+          letter-spacing:-.01em}
+  .filtro .q em{font-style:normal;color:var(--texto-3)}
+  .filtro i{font-family:var(--fuente-num);font-size:var(--t1);
+            color:var(--texto-3);font-style:normal}
+  /* Cuando un filtro deja pasar cero, la fila se apaga entera: ahí termina el
+     día y no hace falta leer las de abajo. */
+  .filtro.seco{color:var(--texto-3)}
+  .filtro.seco b{color:var(--texto-3)}
+
+  /* LO QUE FALTA DEL DIA: las dos cosas que el sistema hace solo. No son
+     filtros, así que van separadas por una línea. */
+  .pendientes{margin-top:11px;padding-top:10px;border-top:1px solid var(--linea)}
+  .hito{display:grid;grid-template-columns:12px 32px 1fr auto;
+        align-items:baseline;gap:8px;font-size:var(--t2);
         padding:3px 0;color:var(--texto-2)}
   .hito b{font-family:var(--fuente-num);color:var(--texto-3);font-weight:500}
-  .hito .cuando{margin-left:auto;font-family:var(--fuente-num);
-                font-size:var(--t1);color:var(--texto-3)}
-  .hito.paso{opacity:.45}
+  .hito .cuando{font-family:var(--fuente-num);font-size:var(--t1);
+                color:var(--texto-3);text-align:right}
+  /* El tilde reemplaza a la palabra "pasó", que ocupaba lugar para no decir
+     nada. Lo que dice ahora es cuántos cortó. */
+  .hito .tick{width:11px;height:11px;color:var(--pos);align-self:center}
+  .hito.paso{color:var(--texto-3)}
   .hito.ahora{color:var(--texto)}
   .hito.ahora b{color:var(--texto)}
   .hito.ahora .cuando{color:var(--ambar)}
 
-  /* La receta: la regla que rige el día. No cambia nunca, así que no es
-     estado — por eso va apagada y separada de los hitos por una línea. */
-  .receta{margin-top:10px;padding-top:10px;border-top:1px solid var(--linea);
-          color:var(--texto-3);font-size:var(--t1);line-height:1.75}
-  .receta b{color:var(--texto-2);font-weight:500}
+  /* La receta ya no vive en la columna —el embudo dice lo mismo con números en
+     vez de prosa—, pero sigue rotulando el gráfico del popup. */
+  #modal .receta{color:var(--texto-3);font-size:var(--t2)}
 
   .pos-fila{display:grid;grid-template-columns:1fr auto;gap:3px var(--e3);
             padding:7px 0;border-top:1px solid var(--linea)}

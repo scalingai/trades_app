@@ -444,22 +444,95 @@
      es lo que hay que mirar: qué está operando, qué está esperando, y cómo
      viene el día. Los gráficos son el contexto de eso, no al revés. */
 
-  function relojSesion(c) {
-    const ahora = c.ahora;
-    if (ahora == null) return '';
+  /* EL EMBUDO DE LA JORNADA.
+
+     Antes esto era un reloj: tres horas con la palabra "pasó" al costado y,
+     debajo, la receta escrita en prosa. Decía CUANDO pasan las cosas y no
+     QUE PASO — que es lo único que uno quiere saber a media rueda.
+
+     Ahora es lo que realmente hace `evaluar()` en puente/vivo.py: una fila de
+     filtros, en el mismo orden en que los aplica el motor, con cuántos papeles
+     sobrevivieron a cada uno. Leído de arriba abajo se ve exactamente dónde se
+     cae la watchlist — y hoy se cae entera en "abrió reclaim", que es la
+     razón por la que no hay trades.
+
+     El orden NO es decorativo: es el orden del motor. Un papel que muere en
+     "expansión" nunca llega a que se le mire la apertura, así que no puede
+     contarse en las filas de abajo. */
+  const NIVELES = [
+    'en la watchlist',
+    'abrió el mercado',
+    'con pre-market medido',
+    'corrió en pre-market',
+    'apertura clasificada',
+    'abrió',
+    'dio señal',
+  ];
+
+  /* Cuántos filtros sobrevivió un papel. Las preguntas van en el orden del
+     motor y devuelven en cuál se quedó: un papel que muere temprano no tiene
+     información sobre los filtros de más abajo, y eso es correcto — nunca se
+     los aplicaron. */
+  function nivel(p) {
+    const e = p.estado || {};
+    const d = (e.descartes || []).join(' · ');
+    if (d.includes('todavia en pre-market')) return 0;
+    if (e.sin_premarket || d.includes('no se parece')) return 1;
+    if (d.includes('expansion')) return 2;
+    if (d.includes('se clasifica a las 10:00')) return 3;
+    if (d.includes('se opera')) return 4;
+    if (!(p.trades_estrategia || []).length) return 5;
+    return 6;
+  }
+
+  function embudo(ps, c) {
+    const total = ps.length;
+    const niveles = ps.map(nivel);
+    /* La hora que habilita cada filtro, donde exista. Las dos primeras las
+       fija el mercado; la de la apertura la fija la estrategia. */
+    const horas = [null, 9.5, null, null, c.desde, null, null];
+    /* El detalle es el UMBRAL del filtro, no una segunda descripcion: sin el,
+       "corrió en pre-market" no dice contra que se compara. */
+    const detalle = [null, null, null, `≥${c.expansion}%`,
+                     null, c.apertura, null];
+    return NIVELES.map((rot, i) => {
+      const n0 = i === 0 ? total : niveles.filter((v) => v >= i).length;
+      const pct = total ? Math.round(100 * n0 / total) : 0;
+      return `<div class="filtro${n0 ? '' : ' seco'}">`
+        + `<span class="pf" style="width:${pct}%"></span>`
+        + `<b>${n0}</b><span class="q">${rot}`
+        + (detalle[i] ? `<em> ${detalle[i]}</em>` : '') + '</span>'
+        + (horas[i] ? `<i>${hhmm(horas[i])}</i>` : '<i></i>')
+        + '</div>';
+    }).join('');
+  }
+
+  /* LO QUE FALTA DEL DIA. Son las dos cosas que el sistema HACE solo, y por eso
+     no son filtros: a las 11 corta lo que no está ganando, a las 16 cierra
+     todo. La palabra "pasó" no decía nada — ahora dice cuántos cortó. */
+  function pendientes(ps, c) {
+    if (c.ahora == null) return '';
+    const cortados = ps.reduce((a, p) => a + (p.trades_estrategia || [])
+      .filter((t) => t.motivo === 'corte').length, 0);
     const hitos = [
-      [c.desde, 'clasifica la apertura y empiezan las entradas'],
-      [c.corte, `corta lo que no gane ${c.corte_umbral}%`],
-      [c.cierre, 'cierra todo'],
+      [c.corte, `corta lo que no gane ${c.corte_umbral}%`,
+       cortados ? `${cortados} cortado${cortados === 1 ? '' : 's'}` : 'ninguno'],
+      [c.cierre, 'cierra todo', null],
     ];
-    return hitos.map(([h, que]) => {
-      const falta = (h - ahora) * 60;
-      const cls = falta < 0 ? 'paso' : (falta < 30 ? 'ahora' : '');
-      const cuando = falta < 0 ? 'pasó'
+    return hitos.map(([h, que, hecho]) => {
+      const falta = (h - c.ahora) * 60;
+      const paso = falta < 0;
+      const cuando = paso ? (hecho || 'listo')
         : falta < 60 ? `en ${Math.round(falta)} min`
         : `en ${Math.floor(falta / 60)}h ${Math.round(falta % 60)}m`;
-      return `<div class="hito ${cls}"><b>${hhmm(h)}</b>`
-        + `<span>${que}</span><span class="cuando">${cuando}</span></div>`;
+      return `<div class="hito ${paso ? 'paso' : (falta < 30 ? 'ahora' : '')}">`
+        + (paso
+          ? '<svg class="tick" viewBox="0 0 16 16" fill="none" stroke="currentColor"'
+            + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+            + '<path d="M3.4 8.4l3.1 3.1 6.1-6.6"/></svg>'
+          : '<span class="tick"></span>')
+        + `<b>${hhmm(h)}</b><span>${que}</span>`
+        + `<span class="cuando">${cuando}</span></div>`;
     }).join('');
   }
 
@@ -577,16 +650,13 @@
         }).join('')
         : '<div class="nada">nada abierto</div>'),
 
-      /* 3. EL RELOJ. La estrategia es HORARIA: sin esto no había forma de saber
-         cuánto faltaba para el corte de las 11 sin mirar el reloj de al lado.
-         La receta va acá abajo y no en una barra suelta: no cambia nunca, así
-         que no es estado — es la regla que rige el día. */
-      bloque('sesión · nueva york ' + hhmm(c.ahora), relojSesion(c)
-        + `<div class="receta">shorteamos la apertura <b>${c.apertura}</b>`
-        + ` que haya corrido <b>≥${c.expansion}%</b> en pre-market,`
-        + ` stop <b>${c.stop}%</b> por tramo,`
-        + ` y sostenemos hasta el cierre. Un ganador típico llega a dar`
-        + ` <b>${n(c.mfe50, 1)}%</b> a favor.</div>`),
+      /* 3. EL EMBUDO. Antes acá había un reloj —tres horas con la palabra
+         "pasó" al costado— y la receta escrita en prosa. Decía CUANDO pasan
+         las cosas y no QUE PASO, que es lo único que uno quiere saber a media
+         rueda. Ahora son los filtros del motor en orden, con cuántos papeles
+         sobrevivió cada uno. */
+      bloque('sesión · nueva york ' + hhmm(c.ahora),
+        embudo(ps, c) + '<div class="pendientes">' + pendientes(ps, c) + '</div>'),
 
       bloque(`esperando señal · ${esperando.length}`, esperando.length
         ? '<div class="chips">' + esperando.map((p) =>
