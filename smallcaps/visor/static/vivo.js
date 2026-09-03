@@ -473,12 +473,21 @@
     }).join('');
   }
 
+  const relojLocal = () => new Date().toLocaleTimeString('es-AR',
+    { hour: '2-digit', minute: '2-digit', hour12: false });
+
   function pintarMando(d) {
     const c = d.config || {};
     const ps = d.papeles || [];
+    /* DOS LISTAS, Y LA DIFERENCIA IMPORTA. `conTramos` son los papeles que
+       OPERARON hoy —de ahi salen las cifras del dia, que incluyen lo ya
+       cerrado— y `abiertos` los que tienen algo VIVO ahora mismo.
+       Con una sola lista, un papel cortado a las 11:00 seguia figurando bajo
+       "operando" a las 13:20 con 0 acciones y guiones en el promedio y el
+       stop. */
     const conTramos = ps.filter((p) => (p.trades_estrategia || []).length);
-    const esperando = ps.filter((p) => !(p.trades_estrategia || []).length
-      && !(p.estado?.descartes || []).length);
+    const abiertos = conTramos.filter((p) =>
+      (p.trades_estrategia || []).some((t) => t.motivo === 'abierta'));
 
     /* El dia simulado: lo cerrado ya es plata, lo abierto todavia se puede dar
        vuelta. Sumarlos en un solo numero esconde justo esa diferencia. */
@@ -575,8 +584,8 @@
 
       /* 2. QUE TENGO ABIERTO. Es lo único de la pantalla sobre lo que se puede
          actuar ahora mismo, así que va pegado al número. */
-      bloque(`operando · ${conTramos.length}`, conTramos.length
-        ? conTramos.map((p) => {
+      bloque(`operando · ${abiertos.length}`, abiertos.length
+        ? abiertos.map((p) => {
           const e = p.estado;
           return '<div class="pos-fila">'
             + `<span class="tk2">${p.ticker}</span>`
@@ -599,12 +608,14 @@
          entrando, se lee más rápido la lista.
 
          Lo que sí valía se mudó al scanner, comprimido a un renglón. */
-      bloque('sesión · nueva york ' + hhmm(c.ahora), pendientes(ps, c)),
-
-      bloque(`esperando señal · ${esperando.length}`, esperando.length
-        ? '<div class="chips">' + esperando.map((p) =>
-            `<span class="chip2 espera">${p.ticker}</span>`).join('') + '</div>'
-        : '<div class="nada">ninguno califica</div>'),
+      /* LAS DOS HORAS, porque las dos se usan. El sistema razona en Nueva
+         York —el corte son las 11:00 DE ALLA— pero el que mira la pantalla
+         está acá. Restarlo de cabeza a las 11 de la mañana es justo cuando
+         uno no quiere hacer cuentas. La local sale del navegador y no de una
+         suma fija: Argentina no cambia la hora y Nueva York sí, así que la
+         diferencia es +1 en verano boreal y +2 en invierno. */
+      bloque('sesión · nueva york ' + hhmm(c.ahora)
+        + `<span class="aca">acá ${relojLocal()}</span>`, pendientes(ps, c)),
 
       bloque('cinta', eventos.length
         ? '<div class="cinta">' + eventos.map((x) =>

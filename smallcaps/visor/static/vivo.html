@@ -71,7 +71,12 @@
          box-shadow:var(--sombra);overflow:hidden}
   .bloque{background:var(--fondo-2);padding:11px var(--e4) 13px}
   .bloque h2{margin:0 0 7px;font-size:var(--t0);font-weight:600;
-             color:var(--texto-3);letter-spacing:.06em;text-transform:uppercase}
+             color:var(--texto-3);letter-spacing:.06em;text-transform:uppercase;
+             display:flex;align-items:baseline;gap:8px}
+  /* La hora de acá, apagada: la que manda es la de Nueva York, esta es para
+     no tener que restar de cabeza a las once de la mañana. */
+  .bloque h2 .aca{margin-left:auto;font-weight:500;letter-spacing:.04em;
+                  color:var(--texto-3);opacity:.7}
   .bloque .nada{color:var(--texto-3);font-size:var(--t2)}
 
   /* EL BLOQUE JEFE: el número del día. Uno por pantalla. Lleva el rótulo al

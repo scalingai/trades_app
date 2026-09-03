@@ -340,11 +340,31 @@ def evaluar(dia, riesgo, piso):
         return out
 
     px = dia.bars[-1][4] or 0
+    h_ahora = hora(dia.bars[-1])
     tramos, equity = [], 0.0
     for t in j["detalle"]:
-        # `h_sal` es la ultima barra disponible para los que siguen abiertos, y
-        # la barra del stop para los que saltaron. Se distinguen por el motivo.
-        viva = t["motivo"] not in ("stop", "objetivo")
+        # UN TRAMO ESTA VIVO SI SU SALIDA TODAVIA NO PASO. Punto.
+        #
+        # Esto decia `t["motivo"] not in ("stop", "objetivo")`, o sea: una LISTA
+        # DE MOTIVOS que cuentan como cerrado. El dia que el motor gano el corte
+        # de las 11:00 —el mecanismo que hace la estrategia operable en una
+        # cuenta de fondeo— nadie agrego "corte" a esa lista, y la pantalla
+        # empezo a mostrar como ABIERTAS posiciones que el sistema habia cerrado
+        # dos horas antes.
+        #
+        # Lo vio Agus el 2026-09-03 con CHPT: tres tramos cortados a las 11:00
+        # que a las 13:16 seguian figurando vivos, perdiendo $47 que ya no se
+        # estaban perdiendo. Y no era solo el cartel: `pnl_abierto`,
+        # `pnl_cerrado`, las acciones a sostener, el precio promedio, la linea
+        # del stop y el presupuesto de riesgo del panel salen todos de este
+        # booleano.
+        #
+        # La causa no es el olvido, es la forma: enumerar motivos obliga a que
+        # cada motivo nuevo del motor se acuerde de pasar por aca, y `tsc` no
+        # existe en Python para avisarlo. Preguntar por la HORA no se puede
+        # desactualizar — un motivo que todavia no existe igual va a tener su
+        # `h_sal`.
+        viva = t["h_sal"] is None or t["h_sal"] > h_ahora
         tramos.append({
             "h": t["h_ent"], "precio": t["p_ent"],
             "stop": t["p_ent"] * (1 + STOP_PCT / 100.0),
