@@ -64,12 +64,14 @@
      muestra. No es proporcional del todo porque la comision minima de $0.75
      por orden NO escala — son los mismos $1.566 sobre una ganancia menor, o
      sea del 7,2% al 11,5%. */
-  let RIESGO = 150, PISO = 2;
+  let RIESGO = 75, PISO = 2.05;
   /* EL MODO: evaluacion o fondeada. Las dos fases tienen reglas distintas y
      por eso configuraciones distintas (ver MODOS en puente/vivo.py). Se manda
      al servidor en cada pedido y se recuerda: cambiar de fase es una decision
      que se toma una vez cuando se pasa la evaluacion, no cada mañana. */
-  let MODO = 'evaluacion';
+  /* 'propia' es la cuenta de TradeZero: sin reglas de programa. Ver MODOS. */
+  let MODO = 'propia';
+  let RIESGO_AL_MODO = false;
   try { MODO = localStorage.getItem('visor.vivo.modo') || MODO; } catch (e) {}
   /* NULL = hoy, la sesion en vivo. Cualquier otra cosa es una fecha del censo:
      misma vista, mismo motor, otras barras. */
@@ -399,6 +401,8 @@
         cifra(e.expansion != null ? signo(e.expansion) + n(e.expansion, 0) + '%' : null,
               'pre-market'),
         cifra(e.barras, 'barras'),
+        cifra(e.locate != null ? '$' + n(e.locate, 2) : null, 'locate',
+              e.locate != null && e.locate > 0.10 ? 'neg' : ''),
       ].join(''))
       + ((e.descartes || []).length
         ? `<span class="motivo">${e.descartes.join(' · ')}</span>` : '')
@@ -485,8 +489,13 @@
         + ` llegar a <b>$${n(c.tope, 0)}</b> de ganancia en el día`
         + ' · sin corte de las 11 · todos los papeles</div>';
     }
-    return '<div class="receta">modo <b>fondeada</b> · un papel por día'
-      + ' · sin corte · sostiene al cierre</div>';
+    if (c.modo === 'fondeada') {
+      return '<div class="receta">modo <b>fondeada</b> · un papel por día'
+        + ' · sin corte · sostiene al cierre</div>';
+    }
+    return '<div class="receta">modo <b>cuenta propia</b> · todos los papeles'
+      + ' · sin corte · sostiene al cierre · <b>anotá el locate</b> de cada'
+      + ' papel antes de operar</div>';
   }
 
   function pendientes(ps, c) {
@@ -733,6 +742,13 @@
     }
     ultimo = d;
     const c = d.config || {};
+    if (RIESGO_AL_MODO && c.riesgo_modo) {
+      RIESGO_AL_MODO = false;
+      RIESGO = c.riesgo_modo;
+      $('riesgo').value = RIESGO;
+      tick();
+      return;
+    }
     if (!d.existe) {
       charts.clear();
       $('cuerpo').innerHTML = `<div class="vacio"><p>No hay feed todavía.</p>`
@@ -971,6 +987,26 @@
      cierre previo". Es la variable del filtro y hasta ahora sólo se veía
      adentro de la tarjeta rotulada "expansión", que no le decía a nadie que
      estaba hablando del pre-market. */
+  /* Se anota contra la FECHA que se esta mirando, no contra hoy: si estas
+     revisando un dia viejo y cargas el locate que viste ese dia, va a ese dia. */
+  async function anotarLocate(tk, v) {
+    const f = FECHA || (ultimo && ultimo.papeles && ultimo.papeles[0]
+      && ultimo.papeles[0].d) || new Date().toISOString().slice(0, 10);
+    try {
+      const r = await fetch('/api/locate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticker: tk, f: f, locate: v }),
+      });
+      const d = await r.json();
+      $('wl-msg').className = d.error ? 'ambar' : 'tenue';
+      $('wl-msg').textContent = d.error ? d.error
+        : `${tk} locate $${n(v, 2)} · ${d.anotados} anotados`;
+    } catch (e) {
+      $('wl-msg').className = 'ambar';
+      $('wl-msg').textContent = 'no se pudo anotar';
+    }
+  }
+
   function pintarScanner(d) {
     const ps = d.papeles || [];
     $('wl-n').textContent = String(ps.length);
@@ -993,7 +1029,8 @@
 
     $('wl-lista').innerHTML =
       '<div class="wl-cols"><span></span><span>papel</span>'
-      + '<span>precio</span><span>día</span><span>pm</span></div>'
+      + '<span>precio</span><span>día</span><span>pm</span>'
+      + '<span title="locate $/acción, anotado a mano">loc</span></div>'
       + conEstado.map(({ p, k }) => {
         const e = p.estado || {};
         const nv = p.niveles || {};
@@ -1010,6 +1047,15 @@
           + `${v == null ? '—' : signo(v) + n(v, 1) + '%'}</span>`
           + `<span class="pm">${e.expansion == null ? '—'
               : signo(e.expansion) + n(e.expansion, 0) + '%'}</span>`
+          /* EL LOCATE, anotado a mano. Es el numero que decide si el negocio
+             existe y no esta en ninguna fuente publica: se pide en la
+             plataforma sin aceptarlo y se escribe aca. Va en la fila porque
+             es POR PAPEL Y POR DIA — el mismo papel cuesta 3 centavos un dia
+             normal y 5% del nominal el dia que gapea. */
+          + `<input class="loc" id="locate-in" data-tk="${p.ticker}" type="number"`
+          + ` step="0.01" min="0" placeholder="loc" aria-label="Locate ${p.ticker}"`
+          + `${e.locate != null ? ` value="${e.locate}"` : ''}`
+          + `${e.locate != null && e.locate > 0.10 ? ' data-caro="1"' : ''}>`
           + '</div>';
       }).join('');
   }
@@ -1072,6 +1118,7 @@
   });
 
   $('wl-lista').addEventListener('click', (ev) => {
+    if (ev.target.closest('input')) return;
     const f = ev.target.closest('.wl-fila');
     if (!f || !f.dataset.tk) return;
     document.getElementById('p-' + f.dataset.tk)
@@ -1091,7 +1138,15 @@
     if (ev.target.name === 'modo' && ev.target.checked) {
       MODO = ev.target.value;
       try { localStorage.setItem('visor.vivo.modo', MODO); } catch (e) {}
+      /* Cada modo trae su riesgo por defecto (MODOS en vivo.py): cambiar de
+         fase sin cambiar el tamaño es como cambiar de cuenta sin cambiar de
+         posicion. Se puede pisar despues en el mismo popover. */
+      RIESGO_AL_MODO = true;
       tick();
+    }
+    if (ev.target.id === 'locate-in') {
+      const v = Number(ev.target.value);
+      if (Number.isFinite(v) && v >= 0) anotarLocate(ev.target.dataset.tk, v);
     }
   });
 

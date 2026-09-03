@@ -29,7 +29,8 @@ nuestro. El locate caro y el buen setup son la misma cosa. Este test dice a qué
 precio muere el negocio; NO dice qué precio vamos a pagar. Eso solo lo dice
 Zimtra, papel por papel, y hay que preguntárselo.
 
-    python test_bono_locates.py
+    python test_bono_locates.py            # la grilla: a que precio muere
+    python test_bono_locates.py --reales   # con los locates ANOTADOS en la app
 """
 
 from __future__ import annotations
@@ -101,6 +102,63 @@ def anual(base_pd, fechas_tk, esc, *, loc_accion=0.0, loc_pct=0.0):
     return tot / (len(meses) / 12.0)
 
 
+def reales(base_pd, fechas_tk, minimo=100.0):
+    """El veredicto con los locates que se anotaron en /vivo.
+
+    `locates.jsonl` lo escribe la app cuando se carga el precio del locate en
+    la fila del scanner: (fecha, ticker, $/accion). Aca se cruza con los
+    papeles-dia del censo por ticker y fecha —los anotados son de HOY en
+    adelante, asi que al principio van a coincidir con pocos— y sobre todo se
+    mira la DISTRIBUCION de lo anotado: la mediana dice que precio esperar un
+    dia cualquiera, el p75 y el maximo dicen que pasa el dia que gapea.
+    """
+    import config, json
+    ruta = config.data_dir() / "locates.jsonl"
+    if not ruta.exists():
+        print("  No hay locates anotados todavia. Se anotan en /vivo, columna 'loc'.")
+        return
+    loc = {}
+    for linea in ruta.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            r = json.loads(linea)
+            loc[(r["f"], r["tk"])] = float(r["locate"])
+        except Exception:
+            continue
+    vals = sorted(loc.values())
+    if not vals:
+        print("  El archivo existe pero no tiene anotaciones legibles.")
+        return
+    q = lambda p: vals[min(len(vals) - 1, int(p * len(vals)))]
+    print()
+    print(f"  LOCATES ANOTADOS: {len(vals)} papeles-dia · mediana ${statistics.median(vals):.3f}"
+          f" · p75 ${q(0.75):.3f} · maximo ${vals[-1]:.3f} · "
+          f"{100 * sum(1 for v in vals if v > 0.10) / len(vals):.0f}% arriba de $0,10")
+    cruzados = [k for k in loc if k in base_pd]
+    print(f"  cruzan con el censo: {len(cruzados)} (los anotados son de hoy en adelante)")
+    print()
+    print("  {:>7} {:>22} {:>22} {:>22}".format(
+        "riesgo", "neto/año @ mediana", "neto/año @ p75", "neto/año @ maximo"))
+    print("  " + "-" * 78)
+    for riesgo in (50, 60, 75, 100):
+        esc = riesgo / R_REF
+        fila = []
+        for precio in (statistics.median(vals), q(0.75), vals[-1]):
+            tot = 0.0
+            meses = set()
+            for f, tk in fechas_tk:
+                b = base_pd[(tk, f)]
+                neto = b["bruto"] * esc - 2 * COMISION * b["acciones"] * esc
+                neto -= precio * max(b["pico"] * esc, minimo)
+                tot += neto
+                meses.add(f[:7])
+            fila.append(tot / (len(meses) / 12.0) - PLATAFORMA_ANUAL)
+        print("  {:>7} {:>21} {:>21} {:>21}".format(
+            f"${riesgo}", *[f"${v:,.0f}" + ("  muere" if v <= 0 else "") for v in fila]))
+    print()
+    print("  Con minimo de 100 acciones por pedido y ~$100/mes de plataforma. Si el")
+    print("  p75 deja plata, el negocio existe; si la mediana no, no existe.")
+
+
 if __name__ == "__main__":
     pob = [d for d in poblacion(universo(), min_ratio_vol=0.0, min_expansion=0.0,
                                 min_dolar=0.0, max_float=47e6)
@@ -108,6 +166,10 @@ if __name__ == "__main__":
     pob.sort(key=lambda d: (d.d, d.ticker))
     base_pd = base(pob)
     fechas_tk = sorted(((f, tk) for tk, f in base_pd))
+
+    if "--reales" in sys.argv:
+        reales(base_pd, fechas_tk)
+        raise SystemExit(0)
 
     precios = [b["precio"] for b in base_pd.values()]
     picos = [b["pico"] for b in base_pd.values()]

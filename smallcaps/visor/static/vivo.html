@@ -276,7 +276,7 @@
   .grupo.cero{opacity:.45}
   .grupo.cero b{color:var(--texto-3)}
 
-  .wl-cols,.wl-fila{display:grid;grid-template-columns:15px 1fr auto 52px 46px;
+  .wl-cols,.wl-fila{display:grid;grid-template-columns:15px 1fr auto 52px 42px 50px;
                     align-items:center;gap:9px;padding:5px var(--e4)}
   .wl-cols{color:var(--texto-3);font-size:9px;text-transform:uppercase;
            letter-spacing:.07em;padding-bottom:6px}
@@ -291,6 +291,17 @@
   /* El pre-market NO se pinta de verde ni de rojo: no es plata, es cuánto
      corrió antes de abrir. Verde y rojo están reservados para el resultado. */
   .wl-fila .pm{color:var(--texto-3)}
+  /* EL LOCATE, a mano. Un input chico en la fila, mono, alineado con los
+     numeros. Arriba de $0,10 se pinta ambar: es la regla operativa que salio
+     de medir el punto de muerte (10-19 centavos con minimo de 100 acciones). */
+  .wl-fila .loc{width:50px;background:var(--fondo);border:1px solid var(--linea-2);
+                border-radius:6px;color:var(--texto);font-family:var(--fuente-num);
+                font-variant-numeric:tabular-nums;font-size:var(--t1);
+                padding:2px 5px;text-align:right;-moz-appearance:textfield}
+  .wl-fila .loc::-webkit-inner-spin-button{-webkit-appearance:none}
+  .wl-fila .loc::placeholder{color:var(--texto-3);opacity:.6}
+  .wl-fila .loc:focus{outline:none;border-color:var(--acento)}
+  .wl-fila .loc[data-caro]{color:var(--ambar);border-color:var(--ambar-borde)}
   .wl-vacio{padding:var(--e3) var(--e4) var(--e4);color:var(--texto-3);
             font-size:var(--t2)}
 
@@ -506,13 +517,16 @@
        de las 11. Ver MODOS en puente/vivo.py. -->
   <div class="ctrl">modo
     <span class="seg" role="radiogroup" aria-label="Modo de la cuenta">
+      <label><input type="radio" name="modo" value="propia"><span>propia</span></label>
       <label><input type="radio" name="modo" value="evaluacion"><span>evaluación</span></label>
       <label><input type="radio" name="modo" value="fondeada"><span>fondeada</span></label>
     </span></div>
   <p>Cuánta plata estás dispuesto a perder en <b>un papel</b> en el día — de ahí
   sale el tamaño de cada tramo — y el precio por debajo del cual no se opera.
-  El <b>modo</b> sigue la fase de la cuenta: en evaluación se cierra cada símbolo
-  al tocar el tope de consistencia; fondeada no tiene tope.</p>
+  El <b>modo</b> sigue la cuenta: <b>propia</b> (TradeZero) no tiene reglas de
+  programa y opera todos los papeles; <b>evaluación</b> cierra cada símbolo al
+  tocar el tope de consistencia; <b>fondeada</b> un papel por día. Cambiar de
+  modo pone el riesgo por defecto de ese modo.</p>
 </div>
 
 <div id="modal">

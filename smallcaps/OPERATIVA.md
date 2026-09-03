@@ -30,7 +30,49 @@ documento daba mal.
 
 ---
 
-## 0. El modo: evaluación o fondeada
+## 0. Dónde se opera: cuenta propia en TradeZero (fase de medición)
+
+**La decisión (2026-09-03):** Trade The Pool no sirve para esta estrategia — la
+regla de retiro de FLEX (3 días con $125 en 14) no se cumple con 2–7 sesiones
+por mes, y MAX vence a los 60 días. Se opera con **cuenta propia en TradeZero
+International**: sin PDT (nunca lo tuvo para no residentes de EE.UU., y FINRA lo
+eliminó para todos el 2026-06-04), sin consistencia, sin días mínimos, locates
+de 14 fuentes **con el precio a la vista antes de aceptar**, y los que no se
+usan se revenden.
+
+**Se arranca con $500, y con $500 NO se opera: se mide.** El único número que
+decide si el negocio existe es lo que cobran por localizar NUESTROS papeles el
+día que gapean, y no está en ninguna fuente pública. Medido con la estrategia
+actual, el negocio muere con locate arriba de **$0,11–0,19 por acción** (según
+riesgo, con el mínimo de 100 acciones por pedido). Un día normal cuesta ~$0,03;
+un día caliente puede costar el 5% del nominal —$0,26 en nuestro papel
+mediano—, y ese día es justamente el nuestro.
+
+**El protocolo, dos o tres semanas:**
+
+1. Cada mañana, pedir el locate de cada papel del scanner en TradeZero **sin
+   aceptarlo**. Mirar el precio cuesta cero.
+2. Anotarlo en `/vivo`, columna **loc** del scanner. Se guarda en
+   `locates.jsonl`. Arriba de $0,10 se pinta ámbar.
+3. Al cabo, `python test_bono_locates.py --reales` da el veredicto con la
+   mediana, el p75 y el máximo anotados.
+
+**Por qué con $500 no se opera:** TradeZero cobra $0 sólo en órdenes de 100+
+acciones; debajo, 0,5¢/acción con **mínimo $0,49 por orden**. Nuestros tramos
+son de 3 a 23 acciones, así que TODOS pagan $0,98 de ida y vuelta: **$726 por
+año, a cualquier tamaño**. A $20 de riesgo por papel (lo que aguanta una cuenta
+de $500) el bruto es $1.008/año → quedan $282 antes de locates. A $75 (cuenta de
+~$2.000–2.500, 6:1) quedan **$3.053** antes de locates. Operar empieza ahí.
+
+**La regla operativa cuando se opere:** no tocar el papel si el locate supera
+**$0,10 por acción**. Convierte la incógnita en un filtro: el costo de la regla
+es perderse los días caros, que son los peligrosos.
+
+**Configuración:** modo **propia** en la app —todos los papeles, sin corte, sin
+tope, riesgo por defecto $75—. Piso de precio **$2,05**: TradeZero no deja
+shortear en margen bajo $2.
+
+## 0b. Los modos de Trade The Pool: evaluación o fondeada (quedan medidos, no se usan)
 
 La evaluación y la cuenta fondeada de Trade The Pool tienen **reglas distintas**,
 así que el sistema tiene **dos configuraciones** y se elige una en la ruedita de

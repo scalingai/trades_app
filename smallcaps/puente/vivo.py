@@ -60,7 +60,10 @@ STOP_PCT = 45.0
 DESDE = 10.0
 EXPANSION_MIN = 0.0            # la variante de 7,5 sesiones/mes
 APERTURA = "reclaim"
-PISO_DEFECTO = 2.0
+# $2,05 y no $2,00: TradeZero International opera "stocks below $2" solo en
+# cash, o sea sin short. Con el piso exactamente en $2 un papel a $2,00 pasaba
+# el filtro y no se podia operar. Cinco centavos de aire.
+PISO_DEFECTO = 2.05
 MAX_TRAMOS = 40               # "sin tope": el mismo de test_costos_reales
 
 # EL CORTE DE LAS 11:00. Si a esa hora la posicion no esta al menos 5% a favor,
@@ -109,8 +112,15 @@ MODOS = {
                    "riesgo": 150.0, "papeles": "todos"},
     "fondeada":   {"corte_h": None, "tope_usd": None,
                    "riesgo": 150.0, "papeles": 1},
+    # CUENTA PROPIA (TradeZero International). Sin reglas de programa: ni
+    # consistencia ni dias minimos ni plazo. La estrategia completa, todos los
+    # papeles —medido: es lo que mas deja ($3.751/año a $75 contra $3.133 con
+    # uno—. El riesgo por defecto es el de una cuenta de ~$2.500 (6:1); con
+    # los $500 iniciales NO se opera, se miden locates (ver OPERATIVA.md §0).
+    "propia":     {"corte_h": None, "tope_usd": None,
+                   "riesgo": 75.0, "papeles": "todos"},
 }
-MODO_DEFECTO = "evaluacion"
+MODO_DEFECTO = "propia"
 
 # HASTA DONDE LLEGAN A FAVOR, MEDIDO — no es un objetivo de salida.
 #

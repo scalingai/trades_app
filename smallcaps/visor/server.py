@@ -323,6 +323,31 @@ def _drawdown_dia(papeles_r: list[dict]) -> float:
     return round(dd, 2)
 
 
+# ---------------------------------------------------------------- locates
+
+LOCATES = config.data_dir() / "locates.jsonl"
+
+
+def _locates() -> dict:
+    """{(fecha, ticker): precio_por_accion} de todo lo anotado.
+
+    Append-only: la ultima anotacion de un (fecha, ticker) gana, asi que
+    corregir un numero es volver a escribirlo. Un archivo de texto en el
+    directorio de datos, como la watchlist — es lo que se va a cargar en
+    `test_bono_locates.py --reales` para decidir si el negocio existe.
+    """
+    out = {}
+    if not LOCATES.exists():
+        return out
+    for linea in LOCATES.read_text(encoding="utf-8", errors="replace").splitlines():
+        try:
+            r = json.loads(linea)
+            out[(r["f"], r["tk"])] = float(r["locate"])
+        except Exception:
+            continue
+    return out
+
+
 # ------------------------------------------------------------- portafolio
 
 @lru_cache(maxsize=8)
@@ -458,7 +483,8 @@ def _papel_vivo(tk: str, f: str, dia, r: dict, _vivo) -> dict:
                     "rth_open": dia.rth_open},
         "sesion": {"apertura": ts(b_ap[0]) if b_ap else None,
                    "cierre": ts(b_ci[0]) if b_ci else None},
-        "estado": {"hora": r.get("hora"), "precio": r.get("precio"),
+        "estado": {"locate": _locates().get((f, tk)),
+                   "hora": r.get("hora"), "precio": r.get("precio"),
                    "barras": r.get("bars"), "expansion": r.get("expansion"),
                    "apertura": r.get("apertura"),
                    "descartes": r.get("descartes") or [],
@@ -725,9 +751,38 @@ class Handler(BaseHTTPRequestHandler):
         que hacia —tickers con formato, precio numerico— ya no hace falta
         porque nadie escribe a mano: los simbolos vienen de Yahoo.
         """
-        if urlparse(self.path).path != "/api/escaner":
+        ruta = urlparse(self.path).path
+        if ruta == "/api/locate":
+            return self._locate()
+        if ruta != "/api/escaner":
             return self._json({"error": "no existe"}, 404)
         return self._escanear()
+
+    def _locate(self):
+        """Anota el precio del locate de un papel en un dia.
+
+        POR QUE EXISTE. El unico numero que decide si el negocio existe —que
+        cobran por localizar NUESTROS papeles el dia que gapean— no esta en
+        ninguna fuente publica. La forma de conseguirlo es pedir el locate cada
+        mañana en la plataforma SIN aceptarlo y anotar el precio. Esto es la
+        libreta: (fecha, ticker, $/accion), append-only.
+        """
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            d = json.loads(self.rfile.read(n) or b"{}")
+            tk = str(d.get("ticker", "")).upper()
+            f = str(d.get("f", ""))
+            precio = float(d.get("locate"))
+        except Exception as e:
+            return self._json({"error": f"cuerpo invalido: {e}"}, 400)
+        if not _RE_TICKER.match(tk) or not _RE_FECHA.match(f) or not (0 <= precio < 50):
+            return self._json({"error": "ticker, fecha o precio invalidos"}, 400)
+        fila = json.dumps({"f": f, "tk": tk, "locate": precio,
+                           "ts": datetime.now().isoformat(timespec="seconds")})
+        with open(LOCATES, "a", encoding="utf-8") as fh:
+            fh.write(fila + chr(10))
+        return self._json({"ok": True, "f": f, "ticker": tk, "locate": precio,
+                           "anotados": len(_locates())})
 
     def _escanear(self):
         """Arma la watchlist del dia y la escribe.
@@ -817,7 +872,7 @@ class Handler(BaseHTTPRequestHandler):
         if ruta == "/api/vivo":
             try:
                 riesgo = float((q.get("riesgo") or ["250"])[0])
-                piso = float((q.get("piso") or ["2"])[0])
+                piso = float((q.get("piso") or ["2.05"])[0])
             except ValueError:
                 return self._json({"error": "riesgo/piso inválidos"}, 400)
             # `d` vacio o el dia de hoy = la sesion en vivo. Cualquier otra
