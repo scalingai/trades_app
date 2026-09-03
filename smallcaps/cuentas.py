@@ -30,6 +30,7 @@ from collections import defaultdict
 sys.path.insert(0, ".")
 
 from chavineta import clasificar_apertura as _cl
+from dias import hora
 from motor import COSTO_ACCION, jornada, poblacion, universo
 from sesion import señales_swing
 
@@ -98,7 +99,13 @@ def sig(d):
 
 
 def pnl_de(dia):
-    """Lo que dejó ese papel ese día, neto de comisiones reales."""
+    """Lo que dejó ese papel ese día, con el detalle que la página necesita.
+
+    Devuelve el neto, el DRAWDOWN INTRADIA de la posición, y los tramos. El
+    drawdown no es un adorno: el plan mide desde el pico, así que un día que
+    cierra en +$50 después de haber ido -$300 gastó $300 del tope de $800 y el
+    PnL final no lo dice.
+    """
     j = jornada(dia, sig, lado="short", stop_pct=STOP, riesgo=RIESGO_PAPEL,
                 max_trades=MAXT, corte_h=CORTE_H, corte_umbral=CORTE_UMBRAL,
                 corte_reentra=CORTE_REENTRA)
@@ -109,7 +116,29 @@ def pnl_de(dia):
         # El motor cobra $0,04/acción; se revierte y se cobra la comisión real
         # de Trade The Pool, que son dos órdenes con su mínimo de $0,75.
         b += t["acciones"] * COSTO_ACCION - comision(t["acciones"])
-    return b
+
+    # LA CURVA INTRADIA, marcada a mercado barra a barra. Es la unica forma de
+    # saber cuanto del tope se gasto: el PnL de cierre esconde el pozo.
+    # Se mide SIN comisiones —son un offset chico y constante— y con la misma
+    # cuenta que usa `puente/vivo.py`, para que la pagina y el vivo coincidan.
+    i0 = min((dia.idx_en(t["h_ent"]) or 0) for t in j["detalle"])
+    pico = dd = 0.0
+    for k in range(i0, len(dia.bars)):
+        pk = dia.bars[k][4]
+        if not pk:
+            continue
+        hk = hora(dia.bars[k])
+        eq = 0.0
+        for t in j["detalle"]:
+            if t["h_ent"] > hk:
+                continue
+            if t["h_sal"] is not None and t["h_sal"] <= hk:
+                eq += t["pnl"]
+            else:
+                eq += t["acciones"] * (t["p_ent"] - pk)
+        pico = max(pico, eq)
+        dd = min(dd, eq - pico)
+    return {"pnl": b, "dd": dd, "tramos": len(j["detalle"])}
 
 
 class Cuenta:
@@ -125,7 +154,7 @@ class Cuenta:
         self.pasadas = 0
         self.quemadas = 0
         self.dias_fondeada = 0
-        self.historia = []          # (fecha, pnl_dia, estado_al_cierre)
+        self.historia = []          # un dict por dia operado, con el papel
         # El peor drawdown que atravesó. Sin esto el informe dice "0 quemadas"
         # y no se sabe si fue por lejos o por un pelo, que es toda la diferencia.
         self.peor_dd = 0.0
@@ -146,7 +175,7 @@ class Cuenta:
 
     TOPEAR_DIA = False
 
-    def dia(self, fecha, pnl):
+    def dia(self, fecha, pnl, ticker=None, dd_dia=0.0, tramos=0):
         if self.estado == "quemada":
             return
         # TOPEAR LA PERDIDA DIARIA ES OPTIMISTA, y por eso viene apagado.
@@ -185,7 +214,14 @@ class Cuenta:
             # Al pasar, el contador arranca de nuevo: lo de la evaluación es
             # virtual, no es plata que se cobre.
             self.balance = self.pico = 0.0
-        self.historia.append((fecha, pnl, self.estado))
+        # Se guarda el TICKER y el drawdown de ese papel ese dia. Sin el
+        # ticker la pagina no puede bajar de la cuenta al papel, que es
+        # justamente lo que hay que poder auditar.
+        self.historia.append({
+            "f": fecha, "tk": ticker, "pnl": round(pnl, 2),
+            "dd": round(dd_dia, 2), "tramos": tramos,
+            "estado": self.estado, "balance": round(self.balance, 2),
+            "retirado": round(self.retirado, 2)})
 
     def puede_retirar(self, fecha):
         """Las tres condiciones del plan, verificadas en tradethepool.com.
@@ -243,6 +279,95 @@ class Cuenta:
         return sacar
 
 
+class _Vista:
+    """Los campos de una `Cuenta` como objeto.
+
+    Existe para que el reporte de terminal —que itera objetos— no haya que
+    reescribirlo ahora que `simular` devuelve diccionarios.
+    """
+
+    def __init__(self, d):
+        self.__dict__.update(d)
+
+
+def simular(*, n_cuentas=3, desde="2026-01-01", riesgo=None,
+            reentra=False, topear=False, sin_hoy=False):
+    """El ciclo de vida completo, devuelto como DATOS en vez de impreso.
+
+    Se extrajo de `main` para que la pagina de portafolio y la terminal miren
+    exactamente lo mismo. Es la misma razon por la que `_papel_vivo` es una
+    sola funcion para hoy y para un dia pasado: dos caminos que calculan lo
+    mismo se separan solos, y en una proyeccion de plata eso no se puede.
+    """
+    global CORTE_REENTRA, RIESGO_PAPEL
+    CORTE_REENTRA = reentra
+    if riesgo is not None:
+        RIESGO_PAPEL = riesgo
+    Cuenta.TOPEAR_DIA = topear
+
+    pob = [d for d in poblacion(universo(), min_ratio_vol=0.0,
+                                min_expansion=0.0, min_dolar=0.0,
+                                max_float=47e6)
+           if _cl(d, hasta=10.0) == "reclaim" and d.d >= desde]
+    por_fecha = defaultdict(list)
+    for d in pob:
+        por_fecha[d.d].append(d)
+
+    # HOY NO ESTA EN EL CENSO: el censo se arma de barras historicas y termina
+    # ayer. El dia de hoy sale del feed que escribe la plataforma, que es el
+    # mismo camino que usa la pantalla en vivo.
+    avisos = []
+    if not sin_hoy:
+        try:
+            import os
+            sys.path.insert(0, os.path.join(os.path.dirname(
+                os.path.abspath(__file__)), "puente"))
+            import vivo as _v
+            for (tk, f), datos in _v.leer_feed().items():
+                if f < desde or f in por_fecha:
+                    continue
+                dia = _v.armar_dia(tk, f, datos)
+                if dia and _cl(dia, hasta=10.0) == "reclaim":
+                    por_fecha[f].append(dia)
+        except Exception as e:
+            avisos.append(f"sin feed en vivo: {e}")
+
+    fechas = sorted(por_fecha)
+    cuentas = [Cuenta(i + 1) for i in range(n_cuentas)]
+    for f in fechas:
+        papeles = sorted(por_fecha[f], key=lambda d: d.ticker)
+        pnls = [(d.ticker, pnl_de(d)) for d in papeles]
+        pnls = [(tk, r) for tk, r in pnls if r is not None]
+        if not pnls:
+            continue
+        # REPARTO: cada cuenta un papel distinto. Con menos papeles que cuentas
+        # se superponen — es lo que pasa de verdad los dias de un solo gapper.
+        for i, c in enumerate(cuentas):
+            tk, r = pnls[i % len(pnls)]
+            c.dia(f, r["pnl"], ticker=tk, dd_dia=r["dd"], tramos=r["tramos"])
+            c.retirar(f)
+
+    return {
+        "desde": desde, "fechas": fechas, "avisos": avisos,
+        "riesgo": RIESGO_PAPEL,
+        "plan": {"nombre": PLAN, "poder": PODER, "objetivo": OBJETIVO,
+                 "tope_dd": TOPE_DD, "lim_dia": LIM_DIA, "eval": EVAL_USD,
+                 "split": SPLIT, "consistencia": CONSISTENCIA,
+                 "min_retiro": MIN_RETIRO, "dias_entre": DIAS_ENTRE_RETIROS,
+                 "dia_bueno": DIA_BUENO, "buenos_pedidos": BUENOS_PEDIDOS,
+                 "ventana_buenos": VENTANA_BUENOS},
+        "cuentas": [{
+            "n": c.n, "estado": c.estado, "balance": round(c.balance, 2),
+            "retirado": round(c.retirado, 2), "gastado": round(c.gastado, 2),
+            "pasadas": c.pasadas, "quemadas": c.quemadas,
+            "dias_fondeada": c.dias_fondeada,
+            "peor_dd": round(c.peor_dd, 2), "peor_dia": round(c.peor_dia, 2),
+            "bloqueado": c.bloqueado, "motivos": dict(c.motivos),
+            "historia": c.historia,
+        } for c in cuentas],
+    }
+
+
 def main(argv=None) -> int:
     # `global` tiene que ir antes de cualquier uso del nombre en la funcion, y
     # `RIESGO_PAPEL` se usa como default del argumento unas lineas abajo.
@@ -262,53 +387,16 @@ def main(argv=None) -> int:
                     help="no leer el feed en vivo (el censo termina ayer)")
     args = ap.parse_args(argv)
 
-    pob = [d for d in poblacion(universo(), min_ratio_vol=0.0,
-                                min_expansion=0.0, min_dolar=0.0,
-                                max_float=47e6)
-           if _cl(d, hasta=10.0) == "reclaim" and d.d >= args.desde]
-    por_fecha = defaultdict(list)
-    for d in pob:
-        por_fecha[d.d].append(d)
-
-    # HOY NO ESTA EN EL CENSO: el censo se arma de barras historicas y termina
-    # ayer. El dia de hoy sale del feed que escribe la plataforma, que es el
-    # mismo camino que usa la pantalla en vivo.
-    if not args.sin_hoy:
-        try:
-            sys.path.insert(0, "puente")
-            import vivo as _v
-            for (tk, f), datos in _v.leer_feed().items():
-                if f < args.desde or f in por_fecha:
-                    continue
-                dia = _v.armar_dia(tk, f, datos)
-                if dia and _cl(dia, hasta=10.0) == "reclaim":
-                    por_fecha[f].append(dia)
-        except Exception as e:
-            print(f"  (sin feed en vivo: {e})")
-    fechas = sorted(por_fecha)
+    r = simular(n_cuentas=args.cuentas, desde=args.desde, riesgo=args.riesgo,
+                reentra=args.reentra, topear=args.topear_dia,
+                sin_hoy=args.sin_hoy)
+    for a in r["avisos"]:
+        print(f"  ({a})")
+    fechas = r["fechas"]
     if not fechas:
         print(f"  No hay sesiones desde {args.desde}.")
         return 1
-
-    CORTE_REENTRA = args.reentra
-    RIESGO_PAPEL = args.riesgo
-    Cuenta.TOPEAR_DIA = args.topear_dia
-    cuentas = [Cuenta(i + 1) for i in range(args.cuentas)]
-
-    for f in fechas:
-        papeles = sorted(por_fecha[f], key=lambda d: d.ticker)
-        pnls = [(d.ticker, pnl_de(d)) for d in papeles]
-        pnls = [(tk, p) for tk, p in pnls if p is not None]
-        if not pnls:
-            continue
-        # REPARTO: cada cuenta un papel distinto. Con menos papeles que cuentas
-        # se superponen — es lo que pasa de verdad los días de un solo gapper, y
-        # es exactamente cuando las tres cuentas dejan de estar diversificadas.
-        for i, c in enumerate(cuentas):
-            tk, p = pnls[i % len(pnls)]
-            c.dia(f, p)
-            # Se intenta TODOS los dias: las condiciones del plan deciden.
-            c.retirar(f)
+    cuentas = [_Vista(d) for d in r["cuentas"]]
 
     hoy = fechas[-1]
     d_hoy = dt.date.fromisoformat(hoy)
@@ -316,7 +404,8 @@ def main(argv=None) -> int:
     mes = hoy[:7]
 
     def suma(desde_f):
-        return sum(p for c in cuentas for fe, p, _ in c.historia if fe >= desde_f)
+        return sum(h["pnl"] for c in cuentas for h in c.historia
+                   if h["f"] >= desde_f)
 
     print(f"\n  CUENTAS DE FONDEO DESDE {args.desde}")
     print(f"  {len(fechas)} días operados · último {hoy} · "

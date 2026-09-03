@@ -34,6 +34,12 @@
       + '<path d="M3.4 12.6 12 17.2l8.6-4.6"/>',
     replay: '<path d="M8.2 5.4 18.4 12 8.2 18.6z"/>',
     cartera: '<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v8.5h8.5"/>',
+    /* Portafolio: un maletin. Es la unica pagina que habla de PLATA propia
+       —cuentas, retiros, lo gastado— y conviene que se distinga de un vistazo
+       de las que hablan de mercado. */
+    portafolio: '<rect x="3" y="7.5" width="18" height="12" rx="2.2"/>'
+      + '<path d="M8.6 7.5V5.8a1.8 1.8 0 0 1 1.8-1.8h3.2a1.8 1.8 0 0 1 1.8 1.8v1.7"/>'
+      + '<path d="M3 12.5h18"/>',
     bitacora: '<rect x="5" y="3.5" width="14" height="17" rx="2"/>'
       + '<path d="M9.2 3.5v17M12.4 9h4M12.4 13h4"/>',
   };
@@ -44,6 +50,8 @@
     { href: '/historial', label: 'Historial', icono: 'historial', alias: ['/historial.html'] },
     { href: '/papeles', label: 'Papeles', icono: 'papeles', alias: ['/papeles.html'] },
     { href: '/replay', label: 'Reproducción', icono: 'replay', alias: ['/replay.html'] },
+    { href: '/portafolio', label: 'Portafolio', icono: 'portafolio',
+      alias: ['/portafolio.html'] },
     { href: '/cartera', label: 'Cartera', icono: 'cartera', alias: ['/cartera.html'] },
     { href: '/bitacora', label: 'Bitácora', icono: 'bitacora', alias: ['/bitacora.html'] },
   ];

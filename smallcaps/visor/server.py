@@ -323,6 +323,21 @@ def _drawdown_dia(papeles_r: list[dict]) -> float:
     return round(dd, 2)
 
 
+# ------------------------------------------------------------- portafolio
+
+@lru_cache(maxsize=8)
+def _portafolio(n: int, desde: str, riesgo: float) -> dict:
+    """El ciclo de vida de las cuentas, cacheado por parametros.
+
+    Cachea porque `simular` levanta el universo entero del censo y corre el
+    motor dia por dia: son decenas de segundos. Los parametros son la clave,
+    asi que cambiar el riesgo o la fecha vuelve a calcular y repetir la misma
+    consulta no.
+    """
+    import cuentas
+    return cuentas.simular(n_cuentas=n, desde=desde, riesgo=riesgo)
+
+
 def _config_vivo(_vivo, ahora=None) -> dict:
     """Los parametros de la operativa. Los mismos para hoy y para un dia viejo.
 
@@ -770,6 +785,23 @@ class Handler(BaseHTTPRequestHandler):
 
         if ruta == "/vivo" or ruta == "/vivo.html":
             return self._archivo(ESTATICOS / "vivo.html")
+
+        if ruta == "/portafolio" or ruta == "/portafolio.html":
+            return self._archivo(ESTATICOS / "portafolio.html")
+
+        if ruta == "/api/portafolio":
+            try:
+                n = max(1, min(10, int((q.get("cuentas") or ["3"])[0])))
+                riesgo = float((q.get("riesgo") or ["250"])[0])
+            except ValueError:
+                return self._json({"error": "parámetros inválidos"}, 400)
+            desde = (q.get("desde") or ["2026-01-01"])[0]
+            if not _RE_FECHA.match(desde):
+                return self._json({"error": "fecha inválida"}, 400)
+            try:
+                return self._json(_portafolio(n, desde, riesgo))
+            except Exception as e:
+                return self._json({"error": f"{type(e).__name__}: {e}"}, 500)
 
         if ruta == "/api/vivo/fechas":
             return self._json({"fechas": fechas_disponibles()})

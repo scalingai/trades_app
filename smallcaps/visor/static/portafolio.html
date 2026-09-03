@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portafolio · small caps</title>
+<link rel="icon" href="/static/favicon.ico">
+<link rel="stylesheet" href="/static/base.css">
+<style>
+  /* EL PORTAFOLIO: el ciclo de vida de cada cuenta de fondeo, hasta el papel.
+
+     POR QUE ANIDADO Y NO UNA TABLA PLANA. Una tabla de mil filas de trades no
+     contesta la pregunta que uno tiene, que es "¿esta cuenta va bien?". La
+     jerarquía es la de la plata: la CUENTA es la unidad que se quema o cobra,
+     el DIA es la unidad contra la que mide el límite diario, y el PAPEL es lo
+     único que uno opera. Cada nivel muestra su profit y su drawdown, porque el
+     plan mide desde el pico y el resultado final esconde el pozo.
+
+     Los números salen de `cuentas.simular()`, la MISMA función que imprime el
+     informe de terminal. No hay un segundo cálculo. */
+
+  body{height:auto;min-height:100%}
+  main{padding:var(--e4) var(--e5) var(--e6);max-width:1180px}
+
+  h1{margin:0 0 3px;font-size:var(--t4);font-weight:600;letter-spacing:-.01em}
+  .sub{color:var(--texto-3);font-size:var(--t2);margin:0 0 var(--e4)}
+
+  /* Los controles: cuántas cuentas, desde cuándo, con cuánto riesgo. Son los
+     tres parámetros de los que depende TODO lo de abajo. */
+  .mandos{display:flex;flex-wrap:wrap;align-items:center;gap:var(--e4);
+          background:var(--fondo-2);border-radius:var(--radio-2);
+          box-shadow:var(--sombra);padding:11px var(--e4);margin-bottom:var(--e4)}
+  .mandos label{display:flex;align-items:center;gap:7px;color:var(--texto-2);
+                font-size:var(--t2)}
+  .mandos input{width:92px;background:var(--fondo);border:1px solid var(--linea-2);
+                border-radius:7px;color:var(--texto);padding:4px 9px;
+                font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
+                font-size:var(--t3);text-align:right}
+  .mandos input:focus{outline:none;border-color:var(--acento)}
+  #cargando{margin-left:auto;color:var(--texto-3);font-size:var(--t1)}
+
+  /* EL RESUMEN. Una sola línea con lo que decide todo: qué hay en el bolsillo. */
+  .caja{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+        background:var(--linea);border-radius:var(--radio-2);gap:1px;
+        box-shadow:var(--sombra);overflow:hidden;margin-bottom:var(--e4)}
+  .caja > div{background:var(--fondo-2);padding:13px var(--e4) 14px}
+  .caja b{display:block;font:500 21px/1.1 var(--fuente-num);letter-spacing:-.025em;
+          font-variant-numeric:tabular-nums}
+  .caja span{display:block;color:var(--texto-3);font-size:9px;margin-top:5px;
+             text-transform:uppercase;letter-spacing:.07em}
+
+  /* UNA TARJETA POR CUENTA. Se despliega a los días, y cada día a su papel. */
+  .cuenta{background:var(--fondo-2);border-radius:var(--radio-2);
+          box-shadow:var(--sombra);margin-bottom:var(--e3);overflow:hidden}
+  .cuenta.quemada{box-shadow:var(--sombra),inset 0 0 0 1px rgba(229,84,79,.35)}
+  .cab{display:grid;grid-template-columns:76px 1fr repeat(4,minmax(74px,auto));
+       align-items:center;gap:var(--e3);padding:12px var(--e4);cursor:pointer;
+       user-select:none}
+  .cab:hover{background:var(--fondo-3)}
+  .cab .id{font-weight:650;font-size:var(--t3);letter-spacing:-.01em}
+  .cab .estado{padding:2px 9px;border-radius:99px;font-size:var(--t1);
+               background:var(--fondo-3);color:var(--texto-2);justify-self:start}
+  .cab .estado.fondeada{background:rgba(46,168,143,.16);color:var(--pos)}
+  .cab .estado.evaluacion{background:rgba(91,141,239,.14);color:var(--acento)}
+  .cab .m{text-align:right}
+  .cab .m b{display:block;font:500 var(--t3)/1.2 var(--fuente-num);
+            font-variant-numeric:tabular-nums}
+  .cab .m span{display:block;color:var(--texto-3);font-size:9px;margin-top:2px;
+               text-transform:uppercase;letter-spacing:.06em}
+
+  /* La barra de margen contra el tope de drawdown. Es el numero que decide si
+     la cuenta sigue viva, asi que se dibuja y no solo se escribe. */
+  .margen{grid-column:1/-1;height:3px;border-radius:2px;background:var(--fondo-4);
+          overflow:hidden;margin-top:2px}
+  .margen i{display:block;height:100%;background:var(--pos)}
+  .margen i.apretado{background:var(--ambar)}
+  .margen i.perforado{background:var(--neg)}
+
+  .dias{border-top:1px solid var(--linea)}
+  .dia{display:grid;grid-template-columns:88px 62px 1fr repeat(3,minmax(78px,auto));
+       align-items:baseline;gap:var(--e3);padding:6px var(--e4);
+       font-size:var(--t2);border-top:1px solid var(--linea)}
+  .dia:first-child{border-top:0}
+  .dia:hover{background:var(--fondo-3)}
+  .dia .f{font-family:var(--fuente-num);color:var(--texto-3);font-size:var(--t1)}
+  .dia .tk{font-weight:600;letter-spacing:-.01em}
+  .dia .n{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
+          text-align:right}
+  .dia .tenue{color:var(--texto-3)}
+  /* El día en que la cuenta cambió de vida se marca: es el evento, no el PnL. */
+  .dia.hito{background:rgba(91,141,239,.07)}
+  .dia .hito-txt{color:var(--acento);font-size:var(--t1)}
+  .dia.quema{background:rgba(229,84,79,.08)}
+  /* El día que habría reventado la cuenta y no figura como quemada. */
+  .dia.revienta{background:var(--ambar-fondo)}
+  .dia .dd-mal{color:var(--ambar);font-weight:500}
+  .aviso-dd{grid-column:1/-1;margin-top:9px;padding:7px 10px;
+            border-radius:8px;background:var(--ambar-fondo);
+            border:1px solid var(--ambar-borde);color:var(--texto-2);
+            font-size:var(--t1);line-height:1.6}
+  .aviso-dd b{color:var(--ambar)}
+  .dia.quema .hito-txt{color:var(--neg)}
+
+  .cols{display:grid;grid-template-columns:88px 62px 1fr repeat(3,minmax(78px,auto));
+        gap:var(--e3);padding:7px var(--e4) 6px;color:var(--texto-3);
+        font-size:9px;text-transform:uppercase;letter-spacing:.07em;
+        border-top:1px solid var(--linea);background:var(--fondo)}
+  .cols span:nth-child(n+4){text-align:right}
+
+  /* Por qué no se pudo retirar. Es lo que la proyección escondía. */
+  .trabas{padding:11px var(--e4) 13px;border-top:1px solid var(--linea);
+          background:var(--fondo);color:var(--texto-3);font-size:var(--t1);
+          line-height:1.7}
+  .trabas b{color:var(--texto-2);font-family:var(--fuente-num);font-weight:500}
+
+  .plan{color:var(--texto-3);font-size:var(--t1);line-height:1.75;
+        background:var(--fondo-2);border-radius:var(--radio-2);
+        padding:var(--e3) var(--e4);margin-top:var(--e4);max-width:96ch}
+  .plan b{color:var(--texto-2);font-weight:500}
+  .vacio{padding:var(--e6);text-align:center;color:var(--texto-3)}
+</style>
+</head>
+<body>
+<main>
+  <h1>Portafolio</h1>
+  <p class="sub" id="titulo">cuentas de fondeo, día por día y papel por papel</p>
+
+  <div class="mandos">
+    <label>cuentas <input id="m-cuentas" type="number" min="1" max="10" step="1"></label>
+    <label>desde <input id="m-desde" type="date"></label>
+    <label>riesgo por papel <input id="m-riesgo" type="number" min="50" step="50"></label>
+    <span id="cargando"></span>
+  </div>
+
+  <div class="caja" id="caja"></div>
+  <div id="lista"><div class="vacio">cargando…</div></div>
+  <div class="plan" id="plan"></div>
+</main>
+
+<script src="/static/portafolio.js"></script>
+<script src="/static/chrome.js"></script>
+</body>
+</html>
