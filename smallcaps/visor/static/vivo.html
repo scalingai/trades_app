@@ -76,22 +76,50 @@
 
   /* EL BLOQUE JEFE: el número del día. Uno por pantalla. Lleva el rótulo al
      lado y no arriba, para que nada le compita el primer golpe de vista. */
-  .bloque.jefe{padding:var(--e4)}
+  .bloque.jefe{padding:var(--e4);position:relative}
   .jefe-cab{display:flex;align-items:baseline;gap:9px}
   .gran{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
-        font-size:30px;line-height:1;letter-spacing:-.025em;font-weight:500}
+        font-size:32px;line-height:1;letter-spacing:-.03em;font-weight:500}
   .gran.cero{color:var(--texto-2)}
   .jefe-cab .que{color:var(--texto-3);font-size:var(--t1);
                  text-transform:uppercase;letter-spacing:.06em}
-  .sub{color:var(--texto-3);font-size:var(--t1);margin-top:6px;
-       font-family:var(--fuente-num)}
+  /* CERRADO Y ABIERTO SON COSAS DISTINTAS: uno ya es plata, el otro todavía se
+     puede dar vuelta. Estaban en la misma cadena separados por puntos medios,
+     que los hacía parecer lo mismo. Tres columnas, cada número con su rótulo
+     debajo y una línea fina entre medio. */
+  .jefe-desglose{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+                 margin-top:15px;padding-top:13px;
+                 border-top:1px solid var(--linea)}
+  .cifra2{display:flex;flex-direction:column;gap:3px;padding-left:var(--e3)}
+  .cifra2:first-child{padding-left:0}
+  .cifra2+.cifra2{border-left:1px solid var(--linea)}
+  .cifra2 b{font:500 var(--t3)/1.15 var(--fuente-num);letter-spacing:-.015em;
+            font-variant-numeric:tabular-nums;color:var(--texto)}
+  .cifra2 span{color:var(--texto-3);font-size:9px;letter-spacing:.07em;
+               text-transform:uppercase}
 
-  /* La barra de riesgo. No es decoración: dice si entra otro tramo. */
-  .barra{height:3px;border-radius:2px;background:var(--fondo-4);
-         margin-top:11px;overflow:hidden}
-  .barra i{display:block;height:100%;background:var(--acento);
+  /* EL RIESGO, COMO MEDIDOR Y NO COMO RENGLON. Con el día en cero la barra
+     quedaba vacía y se leía como una línea divisoria: parecía decoración en
+     vez de estar midiendo algo. Ahora el rótulo y el número van arriba y la
+     barra abajo, y el relleno nunca baja de 2% para que se vea de dónde
+     arranca. */
+  .riesgo{margin-top:15px}
+  .riesgo-cab{display:flex;align-items:baseline;justify-content:space-between;
+              gap:var(--e2);margin-bottom:7px;
+              color:var(--texto-3);font-size:9px;letter-spacing:.07em;
+              text-transform:uppercase}
+  .riesgo-cab b{font:500 var(--t1)/1 var(--fuente-num);color:var(--texto-2);
+                font-variant-numeric:tabular-nums;letter-spacing:0;
+                text-transform:none}
+  .riesgo-cab b i{color:var(--texto-3);font-style:normal}
+  .barra{height:4px;border-radius:3px;background:var(--fondo-4);
+         overflow:hidden}
+  .barra i{display:block;height:100%;border-radius:3px;background:var(--acento);
            transition:width .3s ease}
   .barra i.lleno{background:var(--neg)}
+
+  .sub{color:var(--texto-3);font-size:var(--t1);margin-top:6px;
+       font-family:var(--fuente-num)}
 
   /* El reloj de la sesión: la estrategia es HORARIA y hasta ahora no había
      forma de saber cuánto faltaba para el corte sin mirar el reloj de al lado. */
@@ -138,7 +166,10 @@
      cero veces: no se ganan un renglón permanente en la única columna que se
      mira operando. Van en la esquina del bloque del día, que es lo que
      gobiernan. */
-  .rueda{margin-left:auto;background:none;border:0;cursor:pointer;padding:3px;
+  /* Se saca del flujo: en la fila competía por la línea de base con el número
+     del día, que es lo único que tiene que mandar ahí arriba. */
+  .rueda{position:absolute;top:11px;right:11px;
+         background:none;border:0;cursor:pointer;padding:3px;
          color:var(--texto-3);border-radius:7px;line-height:0;
          transition:color .14s ease,background .14s ease,transform .3s ease}
   .rueda svg{width:15px;height:15px;display:block}

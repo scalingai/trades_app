@@ -239,8 +239,8 @@
        colapsar la barra lateral y agrandar la ventana. */
     if (window.ResizeObserver) {
       c.ro = new ResizeObserver(() => {
-        if (c.ultimo && !c.tocado) {
-          try { encuadrar(c, c.ultimo.p, c.ultimo.off); } catch (e) {}
+        if (c.datos.length && !c.tocado) {
+          try { encuadrar(c); } catch (e) {}
         }
       });
       c.ro.observe(el);
@@ -273,8 +273,7 @@
         price: p.niveles.pm_high, color: '#5b8def', lineWidth: 1,
         lineStyle: 3, axisLabelVisible: true, title: 'máx pm' });
     }
-    c.ultimo = { p: p, off: off };
-    if (!c.tocado) encuadrar(c, p, off);
+    if (!c.tocado) encuadrar(c);
   }
 
   /* DESDE LA PRIMERA VELA, y en indices de vela y no en horas.
@@ -282,31 +281,21 @@
      espaciado de barra que tenga en ese momento — por eso fallaba sin avisar.
      `setVisibleLogicalRange` trabaja con indices: es la misma cuenta que usa
      `fitContent` por dentro y no depende del ancho que el chart crea tener. */
-  function encuadrar(c, p, off) {
+  function encuadrar(c) {
     const total = (c.datos || []).length;
     if (!total) return;
-    const ap = p.sesion && p.sesion.apertura;
 
-    let desde = 0;
-    if (ap) {
-      /* Cuantas velas quedan ANTES de la apertura. Todas tienen volumen —lo
-         verifique contra el feed— asi que no hay tramo vacio que saltear: el
-         pre-market son velas de verdad, chiquitas. */
-      const i = c.datos.findIndex((v) => v.time >= ap + off);
-      const pre = i < 0 ? total : i;
-      const rth = total - pre;
-      /* LA UNICA EXCEPCION AL "desde la primera vela". Hay papeles que operan
-         mas en pre-market que en la sesion —hoy RDAC tiene 94 velas de 123
-         antes de las 09:30, tres cuartas partes del grafico— y ahi la sesion,
-         que es donde se opera, queda apretada contra el borde derecho.
-         Cuando el pre-market pesa mas que la sesion, se arranca mas tarde;
-         nunca mostrando menos de hora y media. */
-      if (pre > rth) desde = Math.min(pre - rth, Math.max(0, total - 90));
-    }
-    /* Media vela de aire a la izquierda y tres a la derecha, para que la ultima
-       no quede pegada al eje de precios. */
+    /* DESDE LA PRIMERA VELA, SIEMPRE. Hubo un tope —si el pre-market pesaba
+       mas que la sesion, arrancaba mas tarde— y Agus lo saco: prefiere ver el
+       dia entero aunque un papel como RDAC opere tres cuartas partes antes de
+       las 09:30. Es defendible: en small caps el pre-market ES parte de la
+       historia del papel, y el maximo de pre-market es el nivel del que
+       depende toda la estrategia.
+
+       Media vela de aire a la izquierda y tres a la derecha, para que la
+       ultima no quede pegada al eje de precios. */
     try {
-      c.chart.timeScale().setVisibleLogicalRange({ from: desde - 0.5, to: total + 2.5 });
+      c.chart.timeScale().setVisibleLogicalRange({ from: -0.5, to: total + 2.5 });
     } catch (err) {
       try { c.chart.timeScale().fitContent(); } catch (e2) {}
     }
@@ -498,6 +487,12 @@
     const bloque = (titulo, cuerpo) =>
       `<div class="bloque"><h2>${titulo}</h2>${cuerpo}</div>`;
 
+    /* Una cifra con su rotulo debajo. El cero va en gris y no en verde: no
+       ganaste nada, y pintarlo de verde lo haria parecer un resultado. */
+    const par = (v, rotulo) =>
+      `<div class="cifra2"><b class="${v > 0 ? 'pos' : v < 0 ? 'neg' : ''}">`
+      + `${signo(v)}$${n(Math.abs(v))}</b><span>${rotulo}</span></div>`;
+
     /* La cinta: todos los eventos del dia de todos los papeles, en orden, lo
        ultimo arriba. Es "como viene la operativa" leido de un tiron. */
     const eventos = [];
@@ -524,11 +519,17 @@
        ruedita en la esquina del primer bloque: se tocan una vez por día y
        después se miran cero veces — no se ganan un renglón permanente. */
     $('mando').innerHTML = [
-      /* 1. EL NUMERO DEL DIA. Uno por pantalla, y es este. */
-      `<div class="bloque jefe"><div class="jefe-cab">`
-      + `<span class="gran ${neto > 0 ? 'pos' : neto < 0 ? 'neg' : 'cero'}">`
-      + `${signo(neto)}$${n(Math.abs(neto))}</span>`
-      + '<span class="que">operado hoy</span>'
+      /* 1. EL NUMERO DEL DIA. Uno por pantalla, y es este.
+
+         Antes esto eran tres renglones grises del mismo peso: el numero, una
+         cadena "0 tramos · cerrado +$0.00 · abierto +$0.00" con todo mezclado,
+         y otra cadena con el riesgo. Cerrado y abierto son cosas DISTINTAS
+         —uno ya es plata, el otro todavia se puede dar vuelta— y meterlos en
+         la misma linea separados por puntos medios los hace parecer lo mismo.
+
+         Encima, con el dia en cero, la barra de riesgo quedaba vacia y se leia
+         como una linea divisoria: parecia decoracion en vez de medir algo. */
+      `<div class="bloque jefe">`
       + '<button class="rueda" id="aj-abrir" type="button" aria-label="Ajustes">'
       + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
       + ' stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
@@ -540,12 +541,27 @@
       + 'a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V2.2'
       + 'a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1'
       + 'a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1h.2'
-      + 'a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg></button></div>'
-      + `<div class="sub">${tramos} tramo${tramos === 1 ? '' : 's'}`
-      + ` · cerrado ${signo(cerrado)}$${n(Math.abs(cerrado))}`
-      + ` · abierto ${signo(abierto)}$${n(Math.abs(abierto))}</div>`
-      + `<div class="barra"><i class="${pct > 85 ? 'lleno' : ''}" style="width:${pct}%"></i></div>`
-      + `<div class="sub">riesgo $${n(usado, 0)} de $${n(riesgo, 0)}</div></div>`,
+      + 'a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg></button>'
+      + '<div class="jefe-cab">'
+      + `<span class="gran ${neto > 0 ? 'pos' : neto < 0 ? 'neg' : 'cero'}">`
+      + `${signo(neto)}$${n(Math.abs(neto))}</span>`
+      + '<span class="que">operado hoy</span></div>'
+
+      /* Cerrado y abierto, cada uno con su rotulo abajo y su columna. La
+         diferencia entre los dos es la unica que importa a media rueda. */
+      + '<div class="jefe-desglose">'
+      + par(cerrado, 'cerrado') + par(abierto, 'abierto')
+      + `<div class="cifra2"><b>${tramos}</b>`
+      + `<span>tramo${tramos === 1 ? '' : 's'}</span></div>`
+      + '</div>'
+
+      /* El riesgo, como medidor y no como renglon: el rotulo y el numero
+         arriba, la barra abajo. Asi en cero se lee "no gastaste nada" en vez
+         de parecer un separador. */
+      + '<div class="riesgo"><div class="riesgo-cab"><span>riesgo del día</span>'
+      + `<b>$${n(usado, 0)} <i>de $${n(riesgo, 0)}</i></b></div>`
+      + `<div class="barra"><i class="${pct > 85 ? 'lleno' : ''}"`
+      + ` style="width:${Math.max(pct, pct > 0 ? 2 : 0)}%"></i></div></div></div>`,
 
       /* 2. QUE TENGO ABIERTO. Es lo único de la pantalla sobre lo que se puede
          actuar ahora mismo, así que va pegado al número. */
