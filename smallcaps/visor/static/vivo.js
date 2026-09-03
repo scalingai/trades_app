@@ -49,6 +49,7 @@
      que el timeframe se filtre al motor — y ese es exactamente el tipo de error
      que no avisa. */
   let TF = 1;
+  let RIESGO = 400, PISO = 2;
 
   function agregar(velas, m) {
     if (m <= 1 || !velas || !velas.length) return velas || [];
@@ -448,7 +449,7 @@
 
     /* Riesgo consumido: cuanto de la caja del dia esta comprometido. Es lo que
        dice si entra otro tramo, y hasta ahora no estaba en ningun lado. */
-    const riesgo = Number($('riesgo').value) || 400;
+    const riesgo = RIESGO;
     const usado = Math.max(0, -Math.min(0, cerrado + abierto));
     const pct = Math.min(100, 100 * usado / riesgo);
 
@@ -471,13 +472,25 @@
     });
     eventos.sort((a, b) => b.h - a.h);
 
+    /* LOS CONTROLES, ARRIBA DE TODO Y CON NOMBRE. Se llamaban "riesgo" y
+       "piso" en una barra suelta y no decian nada: uno es cuanta plata estas
+       dispuesto a perder en un papel en un dia —de ahi sale el tamaño de cada
+       tramo— y el otro el precio minimo para operarlo. Puestos junto a lo que
+       gobiernan, el nombre alcanza. */
+    const controles =
+      '<div class="ctrl">riesgo por papel<span class="u">$</span>'
+      + `<input id="riesgo" type="number" value="${RIESGO}" step="50" min="50"></div>`
+      + '<div class="ctrl">precio mínimo<span class="u">$</span>'
+      + `<input id="piso" type="number" value="${PISO}" step="0.5" min="0"></div>`;
+
     $('mando').innerHTML = [
+      bloque('cómo se opera hoy', controles),
       bloque('sesión · nueva york ' + hhmm(c.ahora), relojSesion(c)
         /* La receta vive ACA y no en la barra de arriba: no cambia nunca, asi
            que no es estado — es la regla que rige el dia, y su lugar es junto
            a los hitos de la sesion. */
         + `<div class="receta">${c.apertura} · expansión ≥${c.expansion}%`
-        + ` · stop ${c.stop}% · piso $${n($('piso').value, 0)}`
+        + ` · stop ${c.stop}%`
         + ` · sostiene al cierre · p50 ${n(c.mfe50, 1)}%</div>`),
 
       bloque('simulado hoy',
@@ -556,11 +569,14 @@
   async function tick() {
     let d;
     try {
-      const r = await fetch(`/api/vivo?riesgo=${$('riesgo').value}&piso=${$('piso').value}`);
+      const r = await fetch(`/api/vivo?riesgo=${RIESGO}&piso=${PISO}`);
       d = await r.json();
     } catch (err) {
-      $('reloj').textContent = 'sin conexión';
-      $('tope').classList.remove('vivo');
+      /* Sin barra donde avisar, la falta de conexion se dice donde se mira:
+         en el panel, que es lo unico que queda arriba. */
+      $('mando').innerHTML =
+        '<div class="bloque"><h2>sin conexión</h2>'
+        + '<div class="nada">el visor no responde</div></div>';
       return;
     }
     if (d.error) {
@@ -574,13 +590,8 @@
       $('cuerpo').innerHTML = `<div class="vacio"><p>No hay feed todavía.</p>`
         + `<p>Poné el indicador <code>TTPFeedMulti</code> en un gráfico y escribí`
         + ` la watchlist.</p><p style="margin-top:1em"><code>${d.feed}</code></p></div>`;
-      $('tope').classList.remove('vivo');
-      $('pulso').classList.add('frio');
       return;
     }
-    $('tope').classList.add('vivo');
-    $('pulso').classList.remove('frio');
-
     /* El aviso global usa el papel MENOS atrasado: si hasta el más fresco está
        viejo, se cortó todo. El por-papel va en cada cabecera, porque con un
        aviso sólo global uno que sigue llegando tapa a los demás. */
@@ -625,18 +636,16 @@
       }
     }
     pintarMando(d);
+    pintarScanner(d);
     const con = d.papeles.filter((p) => (p.trades_estrategia || []).length).length;
-    /* El reloj de la barra dice si el REFRESCO esta vivo, no la hora: la hora
-       que importa es la de Nueva York y esa vive en el panel de sesion. */
-    $('reloj').textContent = $('auto').getAttribute('aria-pressed') === 'true'
-      ? 'en vivo' : 'pausado';
   }
 
+  /* El refresco es incondicional: no hay boton para apagarlo porque no hay
+     razon para apagarlo. Una pantalla de operar que se puede congelar sin
+     querer es una trampa. */
   function reprogramar() {
     if (timer) clearInterval(timer);
-    if ($('auto').getAttribute('aria-pressed') === 'true') {
-      timer = setInterval(tick, 20000);
-    }
+    timer = setInterval(tick, 20000);
   }
 
   document.addEventListener('click', (ev) => {
@@ -664,6 +673,35 @@
     }
   });
   /* ------------------------------------------------------------ watchlist */
+
+  /* EL SCANNER. La lista de lo que hay hoy con su precio, su variacion y un
+     punto de estado — verde opera, azul espera, gris fuera. Se clickea para
+     saltar al grafico. Es lo que uno mira de reojo para saber donde parar. */
+  function pintarScanner(d) {
+    const ps = d.papeles || [];
+    if (!ps.length) {
+      $('wl-lista').innerHTML = '<div class="wl-fila"><span></span>'
+        + '<span class="tk3" style="font-weight:400;color:var(--texto-3)">'
+        + 'sin datos todavía</span><span></span><span></span></div>';
+      return;
+    }
+    $('wl-lista').innerHTML = ps.map((p) => {
+      const e = p.estado || {};
+      const nv = p.niveles || {};
+      const opera = (p.trades_estrategia || []).length;
+      const fuera = (e.descartes || []).length;
+      const cls = opera ? 'opera' : (fuera ? '' : 'espera');
+      const v = (e.precio && nv.prev_close)
+        ? 100 * (e.precio - nv.prev_close) / nv.prev_close : null;
+      return `<div class="wl-fila ${cls}" data-tk="${p.ticker}"
+                   title="${fuera ? (e.descartes || []).join(' · ') : (opera ? 'operando' : 'esperando señal')}">`
+        + '<span class="luz"></span>'
+        + `<span class="tk3">${p.ticker}</span>`
+        + `<span class="p">$${n(e.precio)}</span>`
+        + `<span class="v ${v >= 0 ? 'pos' : 'neg'}">${v == null ? '' : signo(v) + n(v, 1) + '%'}</span>`
+        + '</div>';
+    }).join('');
+  }
 
   async function cargarWatchlist() {
     try {
@@ -695,7 +733,7 @@
       msg.textContent = `guardada · ${d.papeles} papeles`
         + (d.sin_precio ? ` · ${d.sin_precio} SIN PRECIO` : '');
       msg.className = d.sin_precio ? 'neg' : 'pos';
-      $('wl-n').textContent = `${d.papeles} papeles`;
+      $('wl-n').textContent = String(d.papeles);
       /* Refrescar enseguida: el indicador relee el archivo en su proximo ciclo,
          asi que la pantalla se pone al dia sola en menos de un minuto. */
       tick();
@@ -708,16 +746,27 @@
   try { TF = Number(localStorage.getItem('visor.vivo.tf')) || 1; } catch (e) {}
 
   $('wl-guardar').addEventListener('click', guardarWatchlist);
+  $('wl-editar').addEventListener('click', () => {
+    const ed = $('wl-editor');
+    const abierto2 = ed.hidden;
+    ed.hidden = !abierto2;
+    $('wl-editar').setAttribute('aria-expanded', String(abierto2));
+    $('wl-editar').textContent = abierto2 ? 'listo' : 'editar';
+  });
+  $('wl-lista').addEventListener('click', (ev) => {
+    const f = ev.target.closest('.wl-fila');
+    if (!f || !f.dataset.tk) return;
+    document.getElementById('p-' + f.dataset.tk)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  /* Los controles se repintan con el mando, asi que el listener va en el
+     documento y no en el nodo — que a los 20 segundos ya no es el mismo. */
+  document.addEventListener('change', (ev) => {
+    if (ev.target.id === 'riesgo') { RIESGO = Number(ev.target.value) || 400; tick(); }
+    if (ev.target.id === 'piso') { PISO = Number(ev.target.value) || 2; tick(); }
+  });
   cargarWatchlist();
 
-  ['riesgo', 'piso'].forEach((k) => $(k).addEventListener('change', tick));
-  $('auto').addEventListener('click', () => {
-    const on = $('auto').getAttribute('aria-pressed') === 'true';
-    $('auto').setAttribute('aria-pressed', String(!on));
-    reprogramar();
-    if (!on) tick();
-    else $('reloj').textContent = 'pausado';
-  });
   tick();
   reprogramar();
 })();

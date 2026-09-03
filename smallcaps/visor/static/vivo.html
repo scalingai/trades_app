@@ -14,72 +14,68 @@
   body{height:auto;min-height:100%}
   main{padding:var(--e3) var(--e4) var(--e6);max-width:none}
 
-  /* LA BARRA DE ARRIBA ERA UN CAJON DE SASTRE: titulo, dos inputs, un checkbox
-     pelado, la receta de la estrategia y dos tiras de metadatos con puntos
-     medios. Seis cosas sin relacion en una fila.
+  /* NO HAY BARRA DE ARRIBA. Tenia el titulo, dos controles con nombres que no
+     decian nada ("riesgo", "piso"), un boton de latido y la receta de la
+     estrategia. Los controles se fueron a la columna, junto a lo que gobiernan;
+     la receta al bloque de sesion; el latido y el reloj local, afuera. Todo
+     sube una fila. */
+  main{padding:var(--e3) var(--e4) var(--e6);max-width:none}
 
-     Se queda con lo unico que CAMBIA EL COMPORTAMIENTO —riesgo y piso— mas el
-     latido. La receta se fue al panel de sesion, que es donde vive lo que rige
-     el dia; el reloj local se fue del todo porque el que importa es el de Nueva
-     York y ya esta en el panel. Dos relojes en husos distintos en la misma
-     pantalla es peor que uno solo. */
-  .tope{position:sticky;top:0;z-index:20;background:var(--fondo);
-        padding:10px 0;display:flex;align-items:center;gap:var(--e3);
-        border-bottom:1px solid var(--borde)}
+  .vista{display:grid;grid-template-columns:300px minmax(0,1fr);
+         gap:var(--e4);align-items:start}
+  @media (max-width:1200px){.vista{grid-template-columns:1fr}}
+  .lateral{display:flex;flex-direction:column;gap:var(--e4);
+           position:sticky;top:var(--e3)}
 
-  .campo{display:flex;align-items:center;gap:7px;
-         padding:4px 10px 4px 12px;border-radius:8px;
-         background:var(--fondo-2);border:1px solid var(--borde);
-         color:var(--texto-3);font-size:var(--t1)}
-  .campo:focus-within{border-color:var(--acento)}
-  .campo input{width:52px;background:none;border:0;color:var(--texto);
-               font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
-               font-size:var(--t3);padding:0;text-align:right}
-  .campo input:focus{outline:none}
+  /* Los dos controles, con nombres que se entienden y su unidad a la vista. */
+  .ctrl{display:flex;align-items:center;gap:8px;padding:5px 0;
+        font-size:var(--t2);color:var(--texto-2)}
+  .ctrl input{width:64px;margin-left:auto;background:var(--fondo);
+              border:1px solid var(--borde);border-radius:6px;
+              color:var(--texto);font-family:var(--fuente-num);
+              font-variant-numeric:tabular-nums;font-size:var(--t3);
+              padding:3px 8px;text-align:right}
+  .ctrl input:focus{outline:none;border-color:var(--acento)}
+  .ctrl .u{color:var(--texto-3)}
 
-  /* El latido es un BOTON, no un checkbox suelto con una etiqueta al lado:
-     apagar el refresco es una accion, y el punto dice si esta vivo. */
-  .latido{margin-left:auto;display:flex;align-items:center;gap:8px;
-          padding:5px 12px;border-radius:8px;cursor:pointer;
-          background:var(--fondo-2);border:1px solid var(--borde);
-          color:var(--texto-2);font-size:var(--t1);font-family:var(--fuente-num)}
-  .latido:hover{color:var(--texto)}
-  .latido[aria-pressed="false"]{opacity:.6}
-  .pulso{display:inline-block;width:7px;height:7px;border-radius:50%;
-         background:var(--pos);flex:none}
-  .pulso.frio{background:var(--texto-3)}
-  @keyframes lat{0%,100%{opacity:1}50%{opacity:.25}}
-  .vivo .pulso{animation:lat 2s ease-in-out infinite}
+  /* EL SCANNER, estilo terminal: ticker, precio, variacion y un punto de
+     estado. Se clickea para saltar a su grafico. */
+  #wl{background:var(--fondo-2);border:1px solid var(--borde);
+      border-radius:var(--radio);overflow:hidden}
+  .wl-cab{display:flex;align-items:center;gap:8px;padding:9px var(--e4) 7px}
+  .wl-cab h2{margin:0;font-size:var(--t0);font-weight:500;
+             color:var(--texto-3);letter-spacing:.04em}
+  #wl-n{color:var(--texto-3);font-size:var(--t1);font-family:var(--fuente-num)}
+  #wl-editar{margin-left:auto;background:none;border:0;cursor:pointer;
+             color:var(--texto-3);font-size:var(--t1);font-family:inherit;
+             padding:2px 6px;border-radius:5px}
+  #wl-editar:hover{color:var(--texto);background:var(--fondo-3)}
 
-  .receta{color:var(--texto-3);font-size:var(--t0);
-          font-family:var(--fuente-num);line-height:1.7}
-  .bloque .receta{margin-top:9px;padding-top:8px;
-                  border-top:1px solid var(--linea)}
+  .wl-fila{display:grid;grid-template-columns:9px 1fr auto auto;
+           align-items:center;gap:9px;padding:5px var(--e4);cursor:pointer;
+           font-size:var(--t2);border-top:1px solid var(--linea)}
+  .wl-fila:hover{background:var(--fondo-3)}
+  .wl-fila .luz{width:6px;height:6px;border-radius:50%;background:var(--texto-3)}
+  .wl-fila.opera .luz{background:var(--pos)}
+  .wl-fila.espera .luz{background:var(--acento)}
+  .wl-fila .tk3{font-weight:600;letter-spacing:-.01em}
+  .wl-fila .p,.wl-fila .v{font-family:var(--fuente-num);
+                          font-variant-numeric:tabular-nums;text-align:right}
+  .wl-fila .v{width:56px}
 
-  /* La watchlist se edita ACA. Antes vivía en un archivo de texto que había
-     que abrir a mano, o peor, se armaba clickeando menús en la plataforma. Que
-     la única pantalla con la que se opera no pueda cambiar lo que mira es un
-     agujero de diseño. */
-  #wl{margin-top:var(--e3);border:1px solid var(--borde);
-      border-radius:var(--radio);background:var(--fondo-2)}
-  #wl summary{padding:6px var(--e4);cursor:pointer;color:var(--texto-2);
-              font-size:var(--t1);user-select:none}
-  #wl summary:hover{color:var(--texto)}
-  #wl-n{color:var(--texto-3);font-family:var(--fuente-num)}
-  .wl-caja{display:grid;grid-template-columns:260px 1fr;gap:var(--e4);
-           padding:0 var(--e4) var(--e4)}
-  @media (max-width:900px){.wl-caja{grid-template-columns:1fr}}
-  #wl-txt{width:100%;height:160px;resize:vertical;
-          font-family:var(--fuente-num);font-size:var(--t2);line-height:1.6;
-          background:var(--fondo);color:var(--texto);
-          border:1px solid var(--borde);border-radius:var(--radio);
-          padding:var(--e3)}
-  .wl-lado p{color:var(--texto-3);font-size:var(--t0);margin:var(--e3) 0 0}
+  #wl-editor{padding:var(--e3) var(--e4) var(--e4);border-top:1px solid var(--linea)}
+  #wl-txt{width:100%;height:130px;resize:vertical;background:var(--fondo);
+          color:var(--texto);border:1px solid var(--borde);
+          border-radius:6px;padding:8px;
+          font-family:var(--fuente-num);font-size:var(--t2);line-height:1.7}
+  .wl-pie{display:flex;align-items:center;gap:10px;margin-top:8px}
   #wl-guardar{background:var(--fondo-3);color:var(--texto);cursor:pointer;
-              border:1px solid var(--borde);border-radius:var(--radio);
-              padding:5px 16px;font-size:var(--t1)}
+              border:1px solid var(--borde);border-radius:6px;
+              padding:4px 14px;font-size:var(--t1);font-family:inherit}
   #wl-guardar:hover{background:var(--borde)}
-  #wl-msg{margin-left:var(--e3);font-size:var(--t0)}
+  #wl-msg{font-size:var(--t0)}
+  #wl-editor p{color:var(--texto-3);font-size:var(--t0);margin:9px 0 0;
+               line-height:1.6}
 
   .alarma{margin-top:var(--e3);padding:var(--e3) var(--e4);border-radius:var(--radio);
           background:rgba(239,83,80,.14);color:var(--rojo);font-size:var(--t2);
@@ -94,7 +90,7 @@
          gap:var(--e4);margin-top:var(--e4);align-items:start}
   @media (max-width:1200px){.vista{grid-template-columns:1fr}}
 
-  #mando{position:sticky;top:56px;display:flex;flex-direction:column;gap:1px;
+  #mando{display:flex;flex-direction:column;gap:1px;
          background:var(--linea);border:1px solid var(--borde);
          border-radius:var(--radio);overflow:hidden}
   .bloque{background:var(--fondo-2);padding:10px var(--e4) 12px}
@@ -151,7 +147,7 @@
      arriba. Si entraran tres, la cuarta se vería a medias y eso es peor que
      no verla. */
   .grilla{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-          gap:var(--e4);margin-top:var(--e4)}
+          gap:var(--e4)}
   @media (max-width:1100px){.grilla{grid-template-columns:1fr}}
 
   .papel{border:1px solid var(--borde);border-radius:var(--radio);
@@ -258,32 +254,34 @@
 </head>
 <body>
 <main>
-  <div class="tope" id="tope">
-    <label class="campo">riesgo<input id="riesgo" type="number" value="400" step="50" min="50"></label>
-    <label class="campo">piso<input id="piso" type="number" value="2" step="0.5" min="0"></label>
-    <button id="auto" class="latido" type="button" aria-pressed="true">
-      <span class="pulso" id="pulso"></span><span id="reloj">en vivo</span>
-    </button>
-  </div>
-  <details id="wl">
-    <summary>watchlist — <span id="wl-n">…</span></summary>
-    <div class="wl-caja">
-      <textarea id="wl-txt" spellcheck="false" placeholder="FLYE 2.07&#10;BIAF 6.45"></textarea>
-      <div class="wl-lado">
-        <button id="wl-guardar">guardar</button>
-        <span id="wl-msg"></span>
-        <p>Un papel por línea, con su <b>precio de referencia</b> al lado. El
-        precio no es decoración: distingue papeles que comparten símbolo en
-        distintos mercados — SSM resolvía a uno de $59 cuando el nuestro estaba
-        a $3,85.</p>
-        <p>El indicador relee el archivo solo. Agregar un ticker a mitad de
-        rueda lo mete sin tocar la plataforma.</p>
-      </div>
-    </div>
-  </details>
   <div id="alarma"></div>
   <div class="vista">
-    <aside id="mando" aria-label="Estado de la operativa"></aside>
+    <aside class="lateral">
+      <div id="mando" aria-label="Estado de la operativa"></div>
+
+      <!-- EL SCANNER. La watchlist estaba arriba, plegada, como un formulario.
+           Acá abajo de la columna es donde se mira: la lista de lo que hay hoy,
+           con su precio y su estado, como cualquier terminal. Editarla es una
+           acción secundaria y por eso vive detrás de un botón. -->
+      <section id="wl">
+        <div class="wl-cab">
+          <h2>watchlist</h2>
+          <span id="wl-n"></span>
+          <button id="wl-editar" type="button" aria-expanded="false">editar</button>
+        </div>
+        <div id="wl-lista"></div>
+        <div id="wl-editor" hidden>
+          <textarea id="wl-txt" spellcheck="false"
+                    placeholder="FLYE 2.07&#10;BIAF 6.45"></textarea>
+          <div class="wl-pie">
+            <button id="wl-guardar" type="button">guardar</button>
+            <span id="wl-msg"></span>
+          </div>
+          <p>Un papel por línea con su <b>precio de referencia</b>. El precio
+          distingue papeles que comparten símbolo en distintos mercados.</p>
+        </div>
+      </section>
+    </aside>
     <div id="cuerpo"></div>
   </div>
   <div class="aviso">
