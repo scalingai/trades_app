@@ -121,33 +121,14 @@
   .sub{color:var(--texto-3);font-size:var(--t1);margin-top:6px;
        font-family:var(--fuente-num)}
 
-  /* EL EMBUDO. Cada fila es un filtro del motor, en el orden en que los
-     aplica, y el número es cuántos papeles lo sobrevivieron. La barra de fondo
-     dibuja esa proporción: leído de arriba abajo se ve DONDE se cae la
-     watchlist sin tener que comparar números. */
-  /* Se llama `.filtro` y no `.paso` porque `.paso` YA existía: es la clase que
-     marca un hito de la sesión que ya ocurrió (`.hito.paso`). Con el mismo
-     nombre, la grilla del embudo le caía encima a los hitos y los desarmaba. */
-  .filtro{position:relative;display:grid;grid-template-columns:20px 1fr auto;
-        align-items:baseline;gap:9px;padding:4px 6px;margin:0 -6px;
-        border-radius:6px;font-size:var(--t2);color:var(--texto-2)}
-  .pf{position:absolute;left:0;top:0;bottom:0;border-radius:6px;
-      background:rgba(91,141,239,.11);transition:width .35s ease}
-  .filtro > b,.filtro > .q,.filtro > i{position:relative}
-  .filtro b{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
-            font-weight:600;color:var(--texto);text-align:right;
-          letter-spacing:-.01em}
-  .filtro .q em{font-style:normal;color:var(--texto-3)}
-  .filtro i{font-family:var(--fuente-num);font-size:var(--t1);
-            color:var(--texto-3);font-style:normal}
-  /* Cuando un filtro deja pasar cero, la fila se apaga entera: ahí termina el
-     día y no hace falta leer las de abajo. */
-  .filtro.seco{color:var(--texto-3)}
-  .filtro.seco b{color:var(--texto-3)}
+  /* LO QUE FALTA DEL DIA: las dos cosas que el sistema hace solo.
 
-  /* LO QUE FALTA DEL DIA: las dos cosas que el sistema hace solo. No son
-     filtros, así que van separadas por una línea. */
-  .pendientes{margin-top:11px;padding-top:10px;border-top:1px solid var(--linea)}
+     ACA VIVIO UN EMBUDO de siete filas —los filtros del motor en orden, con
+     cuántos papeles sobrevivió cada uno— y duró una tarde. Con seis papeles
+     entrando, cada fila decía en agregado algo que el scanner ya dice papel
+     por papel tres centímetros más abajo, y con el precio al lado. Un embudo
+     se gana el espacio cuando arriba entran cientos y abajo salen cuatro.
+     Lo que valía era el conteo, y el conteo se mudó a un renglón del scanner. */
   .hito{display:grid;grid-template-columns:12px 32px 1fr auto;
         align-items:baseline;gap:8px;font-size:var(--t2);
         padding:3px 0;color:var(--texto-2)}
@@ -243,6 +224,19 @@
   /* CUATRO COLUMNAS CON ENCABEZADO, como cualquier terminal. La grilla se
      declara una sola vez y la comparten el encabezado y las filas: así el
      rótulo cae exactamente sobre su columna sin números mágicos. */
+  /* EL RESUMEN: el embudo comprimido a un renglón. Los grupos en cero se
+     apagan pero NO desaparecen — "0 esperan" es información, y una lista que
+     cambia de ancho cada veinte segundos no se puede leer de reojo. */
+  #wl-resumen{display:flex;flex-wrap:wrap;gap:3px 10px;
+              padding:0 var(--e4) 9px;font-size:var(--t1);color:var(--texto-3)}
+  #wl-resumen .g b{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
+                   font-weight:600;color:var(--texto-2);margin-right:3px}
+  #wl-resumen .g-opera b{color:var(--pos)}
+  #wl-resumen .g-esperan b{color:var(--acento)}
+  #wl-resumen .g-revisar b{color:var(--ambar)}
+  #wl-resumen .g.cero{opacity:.45}
+  #wl-resumen .g.cero b{color:var(--texto-3)}
+
   .wl-cols,.wl-fila{display:grid;grid-template-columns:15px 1fr auto 52px 46px;
                     align-items:center;gap:9px;padding:5px var(--e4)}
   .wl-cols{color:var(--texto-3);font-size:9px;text-transform:uppercase;
@@ -270,6 +264,13 @@
   .e-espera   .ico{color:var(--acento)}
   .e-revisar  .ico{color:var(--ambar)}
   .e-cerrado  .ico,.e-abriendo .ico{color:var(--texto-2)}
+  /* Un filo de color a la izquierda, del ancho de un pelo. Con la lista
+     ordenada por estado, ese filo agrupa de un vistazo dónde termina lo que
+     opera y dónde empieza lo que no — sin necesidad de encabezados de grupo,
+     que en una columna de 300px cuestan más de lo que aclaran. */
+  .e-operando{box-shadow:inset 2px 0 0 var(--pos)}
+  .e-espera{box-shadow:inset 2px 0 0 var(--acento)}
+  .e-revisar{box-shadow:inset 2px 0 0 var(--ambar)}
   /* Los que hoy no juegan se apagan enteros, y vuelven al pasar el mouse. */
   .e-nocalifica,.e-premarket{opacity:.55}
   .wl-fila:hover{opacity:1}
@@ -419,6 +420,7 @@
           <span id="wl-msg" class="tenue"></span>
           <button id="wl-buscar" type="button">buscar</button>
         </div>
+        <div id="wl-resumen"></div>
         <div id="wl-lista"></div>
       </section>
     </aside>

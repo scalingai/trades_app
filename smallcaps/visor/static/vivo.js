@@ -444,72 +444,9 @@
      es lo que hay que mirar: qué está operando, qué está esperando, y cómo
      viene el día. Los gráficos son el contexto de eso, no al revés. */
 
-  /* EL EMBUDO DE LA JORNADA.
-
-     Antes esto era un reloj: tres horas con la palabra "pasó" al costado y,
-     debajo, la receta escrita en prosa. Decía CUANDO pasan las cosas y no
-     QUE PASO — que es lo único que uno quiere saber a media rueda.
-
-     Ahora es lo que realmente hace `evaluar()` en puente/vivo.py: una fila de
-     filtros, en el mismo orden en que los aplica el motor, con cuántos papeles
-     sobrevivieron a cada uno. Leído de arriba abajo se ve exactamente dónde se
-     cae la watchlist — y hoy se cae entera en "abrió reclaim", que es la
-     razón por la que no hay trades.
-
-     El orden NO es decorativo: es el orden del motor. Un papel que muere en
-     "expansión" nunca llega a que se le mire la apertura, así que no puede
-     contarse en las filas de abajo. */
-  const NIVELES = [
-    'en la watchlist',
-    'abrió el mercado',
-    'con pre-market medido',
-    'corrió en pre-market',
-    'apertura clasificada',
-    'abrió',
-    'dio señal',
-  ];
-
-  /* Cuántos filtros sobrevivió un papel. Las preguntas van en el orden del
-     motor y devuelven en cuál se quedó: un papel que muere temprano no tiene
-     información sobre los filtros de más abajo, y eso es correcto — nunca se
-     los aplicaron. */
-  function nivel(p) {
-    const e = p.estado || {};
-    const d = (e.descartes || []).join(' · ');
-    if (d.includes('todavia en pre-market')) return 0;
-    if (e.sin_premarket || d.includes('no se parece')) return 1;
-    if (d.includes('expansion')) return 2;
-    if (d.includes('se clasifica a las 10:00')) return 3;
-    if (d.includes('se opera')) return 4;
-    if (!(p.trades_estrategia || []).length) return 5;
-    return 6;
-  }
-
-  function embudo(ps, c) {
-    const total = ps.length;
-    const niveles = ps.map(nivel);
-    /* La hora que habilita cada filtro, donde exista. Las dos primeras las
-       fija el mercado; la de la apertura la fija la estrategia. */
-    const horas = [null, 9.5, null, null, c.desde, null, null];
-    /* El detalle es el UMBRAL del filtro, no una segunda descripcion: sin el,
-       "corrió en pre-market" no dice contra que se compara. */
-    const detalle = [null, null, null, `≥${c.expansion}%`,
-                     null, c.apertura, null];
-    return NIVELES.map((rot, i) => {
-      const n0 = i === 0 ? total : niveles.filter((v) => v >= i).length;
-      const pct = total ? Math.round(100 * n0 / total) : 0;
-      return `<div class="filtro${n0 ? '' : ' seco'}">`
-        + `<span class="pf" style="width:${pct}%"></span>`
-        + `<b>${n0}</b><span class="q">${rot}`
-        + (detalle[i] ? `<em> ${detalle[i]}</em>` : '') + '</span>'
-        + (horas[i] ? `<i>${hhmm(horas[i])}</i>` : '<i></i>')
-        + '</div>';
-    }).join('');
-  }
-
-  /* LO QUE FALTA DEL DIA. Son las dos cosas que el sistema HACE solo, y por eso
-     no son filtros: a las 11 corta lo que no está ganando, a las 16 cierra
-     todo. La palabra "pasó" no decía nada — ahora dice cuántos cortó. */
+  /* LO QUE FALTA DEL DIA: las dos cosas que el sistema HACE solo. A las 11
+     corta lo que no está ganando, a las 16 cierra todo. La palabra "pasó" no
+     decía nada — ahora hay un tilde y, donde tiene sentido, cuántos cortó. */
   function pendientes(ps, c) {
     if (c.ahora == null) return '';
     const cortados = ps.reduce((a, p) => a + (p.trades_estrategia || [])
@@ -650,13 +587,19 @@
         }).join('')
         : '<div class="nada">nada abierto</div>'),
 
-      /* 3. EL EMBUDO. Antes acá había un reloj —tres horas con la palabra
-         "pasó" al costado— y la receta escrita en prosa. Decía CUANDO pasan
-         las cosas y no QUE PASO, que es lo único que uno quiere saber a media
-         rueda. Ahora son los filtros del motor en orden, con cuántos papeles
-         sobrevivió cada uno. */
-      bloque('sesión · nueva york ' + hhmm(c.ahora),
-        embudo(ps, c) + '<div class="pendientes">' + pendientes(ps, c) + '</div>'),
+      /* 3. LA SESION, y sólo eso: el reloj de Nueva York y las dos cosas que
+         el sistema hace solo.
+
+         ACA VIVIO UN EMBUDO de siete filas —los filtros del motor en orden,
+         con cuántos papeles sobrevivió cada uno— y duró una tarde. Con seis
+         papeles en la watchlist, un embudo es ceremonia: cada fila decía en
+         agregado algo que el scanner ya dice papel por papel, tres
+         centímetros más abajo y con el precio al lado. Un embudo se gana el
+         espacio cuando arriba entran cientos y abajo salen cuatro; con seis
+         entrando, se lee más rápido la lista.
+
+         Lo que sí valía se mudó al scanner, comprimido a un renglón. */
+      bloque('sesión · nueva york ' + hhmm(c.ahora), pendientes(ps, c)),
 
       bloque(`esperando señal · ${esperando.length}`, esperando.length
         ? '<div class="chips">' + esperando.map((p) =>
@@ -893,6 +836,23 @@
     + ' stroke="currentColor" stroke-width="1.5" stroke-linecap="round"'
     + ` stroke-linejoin="round">${ESTADOS[k].d}</svg>`;
 
+  /* EL ORDEN DE LA LISTA ES EL ORDEN EN QUE IMPORTAN. Alfabético es el orden
+     de nadie: pone a un papel descartado arriba de uno que está short. Los que
+     piden algo van primero, y los que hoy no juegan al fondo. */
+  const PRIORIDAD = ['operando', 'espera', 'revisar', 'abriendo',
+                     'cerrado', 'premarket', 'nocalifica'];
+
+  /* EL RESUMEN, QUE ES EL EMBUDO EN UN RENGLON. Había un embudo de siete filas
+     en el bloque de sesión y duró una tarde: con seis papeles entrando, cada
+     fila decía en agregado algo que estas filas ya dicen una por una. Lo que
+     valía era el conteo, y el conteo entra en una línea. */
+  const GRUPOS = [
+    ['opera',   ['operando', 'cerrado']],
+    ['esperan', ['espera']],
+    ['fuera',   ['nocalifica', 'premarket', 'abriendo']],
+    ['revisar', ['revisar']],
+  ];
+
   /* EL SCANNER. Cuatro columnas con encabezado, como cualquier terminal: qué
      es, a cuánto está, cuánto lleva hoy y cuánto corrió en pre-market.
 
@@ -902,18 +862,30 @@
      estaba hablando del pre-market. */
   function pintarScanner(d) {
     const ps = d.papeles || [];
+    $('wl-n').textContent = String(ps.length);
     if (!ps.length) {
+      $('wl-resumen').innerHTML = '';
       $('wl-lista').innerHTML = '<div class="wl-vacio">sin datos todavía</div>';
       return;
     }
-    $('wl-n').textContent = `${ps.length} papel${ps.length === 1 ? '' : 'es'}`;
+
+    const conEstado = ps.map((p) => ({ p: p, k: estadoDe(p) }));
+    const cuantos = (ks) => conEstado.filter((x) => ks.includes(x.k)).length;
+    $('wl-resumen').innerHTML = GRUPOS.map(([rot, ks]) => {
+      const n0 = cuantos(ks);
+      return `<span class="g${n0 ? '' : ' cero'} g-${rot}">`
+        + `<b>${n0}</b> ${rot}</span>`;
+    }).join('');
+
+    conEstado.sort((a, b) => (PRIORIDAD.indexOf(a.k) - PRIORIDAD.indexOf(b.k))
+      || a.p.ticker.localeCompare(b.p.ticker));
+
     $('wl-lista').innerHTML =
       '<div class="wl-cols"><span></span><span>papel</span>'
       + '<span>precio</span><span>día</span><span>pm</span></div>'
-      + ps.map((p) => {
+      + conEstado.map(({ p, k }) => {
         const e = p.estado || {};
         const nv = p.niveles || {};
-        const k = estadoDe(p);
         const st = ESTADOS[k];
         const v = (e.precio && nv.prev_close)
           ? 100 * (e.precio - nv.prev_close) / nv.prev_close : null;
