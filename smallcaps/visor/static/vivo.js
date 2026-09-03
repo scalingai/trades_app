@@ -413,7 +413,7 @@
       caja = document.createElement('section');
       caja.id = 'p-' + p.ticker;
       caja.innerHTML = '<div class="cab-wrap"></div>'
-        + `<div class="g" id="g-${p.ticker}"></div>`
+        + `<div class="grafico" id="g-${p.ticker}"></div>`
         + '<div class="tabla-wrap"></div>';
       $('cuerpo').querySelector('.grilla').appendChild(caja);
     }
@@ -873,7 +873,7 @@
     const cuantos = (ks) => conEstado.filter((x) => ks.includes(x.k)).length;
     $('wl-resumen').innerHTML = GRUPOS.map(([rot, ks]) => {
       const n0 = cuantos(ks);
-      return `<span class="g${n0 ? '' : ' cero'} g-${rot}">`
+      return `<span class="grupo${n0 ? '' : ' cero'} grupo-${rot}">`
         + `<b>${n0}</b> ${rot}</span>`;
     }).join('');
 

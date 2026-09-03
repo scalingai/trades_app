@@ -229,13 +229,13 @@
      cambia de ancho cada veinte segundos no se puede leer de reojo. */
   #wl-resumen{display:flex;flex-wrap:wrap;gap:3px 10px;
               padding:0 var(--e4) 9px;font-size:var(--t1);color:var(--texto-3)}
-  #wl-resumen .g b{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
-                   font-weight:600;color:var(--texto-2);margin-right:3px}
-  #wl-resumen .g-opera b{color:var(--pos)}
-  #wl-resumen .g-esperan b{color:var(--acento)}
-  #wl-resumen .g-revisar b{color:var(--ambar)}
-  #wl-resumen .g.cero{opacity:.45}
-  #wl-resumen .g.cero b{color:var(--texto-3)}
+  .grupo b{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
+           font-weight:600;color:var(--texto-2);margin-right:3px}
+  .grupo-opera b{color:var(--pos)}
+  .grupo-esperan b{color:var(--acento)}
+  .grupo-revisar b{color:var(--ambar)}
+  .grupo.cero{opacity:.45}
+  .grupo.cero b{color:var(--texto-3)}
 
   .wl-cols,.wl-fila{display:grid;grid-template-columns:15px 1fr auto 52px 46px;
                     align-items:center;gap:9px;padding:5px var(--e4)}
@@ -351,7 +351,12 @@
   .alerta{padding:6px var(--e4);background:rgba(229,84,79,.12);
           color:var(--neg);font-size:var(--t1)}
 
-  .g{height:296px}
+  /* SE LLAMABA `.g`, Y ESO COSTO UN BUG. Una clase de una sola letra en una
+     hoja compartida es una mina: el resumen del scanner usó `class="g"` para
+     sus grupos y se comió 296px de alto — un hueco enorme adentro de la
+     tarjeta, sin ningún error que lo delatara. Es la segunda colisión del día
+     (la otra fue `.paso`, del embudo contra los hitos). Nombres completos. */
+  .grafico{height:296px}
 
   .papel details{border-top:1px solid var(--linea)}
   .papel summary{padding:6px var(--e4);cursor:pointer;color:var(--texto-3);
