@@ -593,58 +593,56 @@ class Handler(BaseHTTPRequestHandler):
         con la que se opera no pueda cambiar lo que mira es un agujero de
         diseño, no una comodidad que falta.
 
-        El servidor escucha solo en 127.0.0.1 y esto escribe UN archivo de
-        texto en el directorio de datos. Aun asi se valida el formato: un
-        ticker mal escrito no falla ruidosamente, deja un papel afuera en
-        silencio — que es la peor clase de error para una pantalla de operar.
+        HUBO UN EDITOR ACA, y se fue. `POST /api/watchlist` recibia el texto de
+        un textarea, lo validaba y lo escribia. Con el escaner andando ese
+        camino dejo de tener sentido: estos datos salen del mercado, no hay
+        nada que un humano pueda tipear ahi que no sea un error. La validacion
+        que hacia —tickers con formato, precio numerico— ya no hace falta
+        porque nadie escribe a mano: los simbolos vienen de Yahoo.
         """
-        u = urlparse(self.path)
-        if u.path != "/api/watchlist":
+        if urlparse(self.path).path != "/api/escaner":
             return self._json({"error": "no existe"}, 404)
+        return self._escanear()
+
+    def _escanear(self):
+        """Arma la watchlist del dia y la escribe.
+
+        La primera version proponia la lista y dejaba que un humano la
+        confirmara, por prudencia: Yahoo es una API no oficial. Pero confirmar
+        una lista que uno no puede mejorar no es control de calidad, es
+        ceremonia — y era el mismo paso manual que este escaner vino a sacar.
+
+        El control quedo donde se puede ejercer: el censo dice 4,3 papeles por
+        dia, asi que un 40 o un 0 saltan a la vista en el contador. Y el
+        archivo sigue siendo un .txt en disco que se edita con cualquier cosa
+        si algun dia hace falta.
+        """
         try:
-            n = int(self.headers.get("Content-Length") or 0)
-            datos = json.loads(self.rfile.read(n) or b"{}")
+            sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+            import escaner
         except Exception as e:
-            return self._json({"error": f"cuerpo invalido: {e}"}, 400)
-
-        lineas, malas = [], []
-        for cruda in (datos.get("texto") or "").splitlines():
-            cruda = cruda.strip()
-            if not cruda or cruda.startswith("#"):
-                continue
-            partes = cruda.replace(",", " ").replace(";", " ").split()
-            tk = partes[0].upper()
-            if not _RE_TICKER.match(tk):
-                malas.append(cruda)
-                continue
-            # El precio NO es opcional en la practica: sin el, un simbolo que
-            # existe en varios mercados se resuelve al que venga primero. Se
-            # acepta sin precio pero se avisa.
-            px = None
-            if len(partes) > 1:
-                try:
-                    px = float(partes[1])
-                except ValueError:
-                    malas.append(cruda)
-                    continue
-            lineas.append(f"{tk} {px:g}" if px else tk)
-
-        if malas:
-            return self._json({"error": "lineas invalidas: " + "; ".join(malas)}, 400)
-
-        ruta = Path(config.data_dir()) / "watchlist.txt"
-        cab = chr(10).join([
-            f"# Watchlist escrita desde el visor · {date.today().isoformat()}",
-            "# TICKER precio_de_referencia",
-            "#",
-            "# El precio distingue papeles con el mismo simbolo en distintos",
-            "# mercados. SSM resolvia a uno de $59 cuando el nuestro estaba",
-            "# a $3,85.",
-            "",
-        ])
-        ruta.write_text(cab + chr(10).join(lineas) + chr(10), encoding="utf-8")
-        return self._json({"ok": True, "papeles": len(lineas),
-                           "sin_precio": sum(1 for x in lineas if " " not in x)})
+            return self._json({"error": f"no se pudo cargar el escaner: {e}"}, 500)
+        try:
+            y = escaner.Yahoo()
+            y.autenticar()
+            todos = escaner.escanear(y, gap=escaner.GAP_MIN)
+        except Exception as e:
+            return self._json(
+                {"error": f"Yahoo no respondio ({type(e).__name__}). "
+                          f"Es una API no oficial: si se cayo, la watchlist se "
+                          f"escribe a mano como siempre."}, 502)
+        piso = escaner.PISO_OPERATIVO
+        arriba = [p for p in todos if p["precio"] >= piso]
+        # Escribe el propio modulo del escaner: es el que sabe que cabecera
+        # lleva el archivo y por que el precio va al lado del ticker.
+        escaner.escribir(arriba, Path(config.data_dir()) / "watchlist.txt",
+                         piso=piso)
+        return self._json({
+            "papeles": arriba,
+            "abajo": len(todos) - len(arriba),
+            "piso": piso,
+            "llamadas": y.llamadas,
+        })
 
     def do_GET(self):
         u = urlparse(self.path)
@@ -670,15 +668,6 @@ class Handler(BaseHTTPRequestHandler):
 
         if ruta == "/vivo" or ruta == "/vivo.html":
             return self._archivo(ESTATICOS / "vivo.html")
-
-        if ruta == "/api/watchlist":
-            f = Path(config.data_dir()) / "watchlist.txt"
-            txt = f.read_text(encoding="utf-8", errors="replace") if f.exists() else ""
-            # Se devuelven solo las lineas utiles: los comentarios los reescribe
-            # el POST, y mostrarlos invita a editarlos.
-            utiles = [x.strip() for x in txt.splitlines()
-                      if x.strip() and not x.strip().startswith("#")]
-            return self._json({"texto": chr(10).join(utiles), "ruta": str(f)})
 
         if ruta == "/api/vivo":
             try:

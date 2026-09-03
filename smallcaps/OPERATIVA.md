@@ -32,18 +32,44 @@ documento daba mal.
 
 ## 1. Antes de la apertura — la watchlist
 
-En la plataforma: `Tools → Gainers/Losers list`, filtro `Vol>1M Price<10`.
-Van a `watchlist.txt` los que suban fuerte, con su precio al lado:
+**El botón `buscar` del scanner, en `/vivo`.** Tarda entre veinte segundos y un
+minuto y deja `watchlist.txt` escrito. Desde la terminal es lo mismo:
+
+```
+python escaner.py               # muestra qué encontró, no escribe
+python escaner.py --escribir    # reemplaza watchlist.txt
+```
+
+Aplica los criterios del **censo** (`poblacion_observable.py`), que son los que
+definen la población sobre la que se midió todo el proyecto:
+
+**gap ≥ 25% · liquidez previa ≥ $150k · precio previo $0.20–$20**, más el piso
+operativo de **$2**.
+
+Sobre 472 días hábiles eso da **4,3 papeles por día**. Si un día salen 40 o
+sale 0, el número lo canta y ese día no se opera hasta entender por qué.
+
+Los datos salen de Yahoo Finance, que es lo único gratis que ve el mercado
+entero en el día: Polygon free no ve el día en curso, y `TradeApi.dll` de Trade
+The Pool no expone el universo —sólo da precios de símbolos que uno ya nombró—.
+Yahoo elige los NOMBRES; los precios con los que se opera siguen saliendo de la
+plataforma.
+
+**Si Yahoo se cae**, que puede pasar porque es una API no oficial: `watchlist.txt`
+es un archivo de texto y se escribe a mano como antes, un papel por línea con su
+precio al lado. El precio no es decoración —un mismo símbolo existe en varios
+mercados y sin él el sistema baja los datos del papel equivocado.
 
 ```
 FLYE 2.07
 BIAF 6.45
 ```
 
-El precio no es decoración: un mismo símbolo existe en varios mercados y sin él
-el sistema puede bajar los datos del papel equivocado.
-
-**Filtros previos:** precio ≥ $2 · float ≤ 47M.
+**Lo que se hacía hasta el 2026-09-03:** abrir `Tools → Gainers/Losers list` con
+filtro `Vol>1M Price<10` y anotar "los que suban fuerte". Esa última frase era
+la única parte del sistema que no estaba medida ni era reproducible: dos días
+con el mismo mercado podían dar dos watchlists distintas según qué viste
+primero. **Filtro extra que no está en el censo:** float ≤ 47M.
 
 Y nada más. Se probó filtrar además por salud de la empresa —poca caja, mucha
 dilución, reverse splits— y aunque esos días **sí se derrumban más** (22,9%

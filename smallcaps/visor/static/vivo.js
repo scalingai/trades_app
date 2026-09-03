@@ -906,6 +906,7 @@
       $('wl-lista').innerHTML = '<div class="wl-vacio">sin datos todavía</div>';
       return;
     }
+    $('wl-n').textContent = `${ps.length} papel${ps.length === 1 ? '' : 'es'}`;
     $('wl-lista').innerHTML =
       '<div class="wl-cols"><span></span><span>papel</span>'
       + '<span>precio</span><span>día</span><span>pm</span></div>'
@@ -930,56 +931,46 @@
       }).join('');
   }
 
-  async function cargarWatchlist() {
-    try {
-      const d = await (await fetch('/api/watchlist')).json();
-      $('wl-txt').value = d.texto || '';
-      const n = (d.texto || '').split(/\r?\n/).filter((x) => x.trim()).length;
-      $('wl-n').textContent = n ? `${n} papeles` : 'vacía';
-    } catch (e) {
-      $('wl-n').textContent = 'no se pudo leer';
-    }
-  }
-
-  async function guardarWatchlist() {
-    const msg = $('wl-msg');
-    msg.textContent = 'guardando…';
-    msg.className = '';
-    try {
-      const r = await fetch('/api/watchlist', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ texto: $('wl-txt').value }),
-      });
-      const d = await r.json();
-      if (d.error) {
-        msg.textContent = d.error;
-        msg.className = 'neg';
-        return;
-      }
-      msg.textContent = `guardada · ${d.papeles} papeles`
-        + (d.sin_precio ? ` · ${d.sin_precio} SIN PRECIO` : '');
-      msg.className = d.sin_precio ? 'neg' : 'pos';
-      $('wl-n').textContent = String(d.papeles);
-      /* Refrescar enseguida: el indicador relee el archivo en su proximo ciclo,
-         asi que la pantalla se pone al dia sola en menos de un minuto. */
-      tick();
-    } catch (e) {
-      msg.textContent = 'no se pudo guardar';
-      msg.className = 'neg';
-    }
-  }
-
   try { TF = Number(localStorage.getItem('visor.vivo.tf')) || 1; } catch (e) {}
 
-  $('wl-guardar').addEventListener('click', guardarWatchlist);
-  $('wl-editar').addEventListener('click', () => {
-    const ed = $('wl-editor');
-    const abierto2 = ed.hidden;
-    ed.hidden = !abierto2;
-    $('wl-editar').setAttribute('aria-expanded', String(abierto2));
-    $('wl-editar').textContent = abierto2 ? 'listo' : 'editar';
+  /* BUSCAR ESCRIBE. La primera version proponia la lista en un textarea y
+     dejaba el "guardar" de siempre, por prudencia: Yahoo es una API no
+     oficial. Agus lo corto de raiz, y tenia razon — estos datos NO son
+     editables. Salen del mercado: no hay nada que un humano pueda escribir
+     ahi que no sea un error de tipeo. Un textarea que hay que revisar y
+     confirmar cada mañana es EXACTAMENTE el paso manual que este escaner vino
+     a eliminar.
+
+     El control de calidad no se fue, cambio de lugar: si Yahoo devuelve
+     cualquier cosa se ve en el numero —el censo dice 4,3 papeles por dia, y
+     40 o 0 saltan solos— y el archivo sigue en disco para editar a mano. */
+  $('wl-buscar').addEventListener('click', async () => {
+    const b = $('wl-buscar');
+    b.disabled = true;
+    b.textContent = 'buscando…';
+    $('wl-msg').className = 'tenue';
+    $('wl-msg').textContent = '';
+    try {
+      const r = await fetch('/api/escaner', { method: 'POST' });
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      $('wl-msg').className = d.papeles.length ? 'tenue' : 'ambar';
+      $('wl-msg').textContent = d.papeles.length
+        ? `${d.papeles.length} papeles`
+          + (d.abajo ? ` · ${d.abajo} bajo $${d.piso}` : '')
+        : 'ninguno pasa los filtros hoy';
+      /* El indicador relee el archivo en su proximo ciclo, asi que la pantalla
+         se pone al dia sola en menos de un minuto. Esto la adelanta. */
+      tick();
+    } catch (e) {
+      $('wl-msg').className = 'ambar';
+      $('wl-msg').textContent = String(e.message || e).slice(0, 140);
+    } finally {
+      b.disabled = false;
+      b.textContent = 'buscar';
+    }
   });
+
   $('wl-lista').addEventListener('click', (ev) => {
     const f = ev.target.closest('.wl-fila');
     if (!f || !f.dataset.tk) return;
@@ -1022,7 +1013,6 @@
   document.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape' && !$('ajustes').hidden) ajustes(false);
   });
-  cargarWatchlist();
 
   tick();
   reprogramar();
