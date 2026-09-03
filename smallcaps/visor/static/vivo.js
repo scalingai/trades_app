@@ -38,6 +38,65 @@
   let abierto = null;           // ticker que está en el popup
   let timer = null;
 
+  /* ------------------------------------------------------- temporalidad */
+
+  /* LA TEMPORALIDAD ES SOLO VISUAL. La estrategia se mide en velas de UN
+     minuto y ahi se queda: las señales, la clasificacion de apertura y el corte
+     salen del servidor calculados sobre 1m. Agregar aca, en el navegador,
+     garantiza que mirar el grafico en 5m no pueda cambiar ni una decision.
+
+     Si esto se hiciera en el servidor habria un camino, por corto que sea, para
+     que el timeframe se filtre al motor — y ese es exactamente el tipo de error
+     que no avisa. */
+  let TF = 1;
+
+  function agregar(velas, m) {
+    if (m <= 1 || !velas || !velas.length) return velas || [];
+    const out = [];
+    let b = null;
+    velas.forEach((v) => {
+      const t = Math.floor(v.time / (m * 60)) * (m * 60);
+      if (!b || b.time !== t) {
+        b = { time: t, open: v.open, high: v.high, low: v.low, close: v.close };
+        out.push(b);
+      } else {
+        b.high = Math.max(b.high, v.high);
+        b.low = Math.min(b.low, v.low);
+        b.close = v.close;
+      }
+    });
+    return out;
+  }
+
+  function agregarVol(vol, m) {
+    if (m <= 1 || !vol || !vol.length) return vol || [];
+    const out = [];
+    let b = null;
+    vol.forEach((v) => {
+      const t = Math.floor(v.time / (m * 60)) * (m * 60);
+      if (!b || b.time !== t) { b = { time: t, value: v.value, color: v.color }; out.push(b); }
+      else { b.value += v.value; b.color = v.color; }
+    });
+    return out;
+  }
+
+  function agregarLinea(pts, m) {
+    if (m <= 1 || !pts || !pts.length) return pts || [];
+    const out = [];
+    let b = null;
+    pts.forEach((v) => {
+      const t = Math.floor(v.time / (m * 60)) * (m * 60);
+      if (!b || b.time !== t) { b = { time: t, value: v.value }; out.push(b); }
+      else { b.value = v.value; }
+    });
+    return out;
+  }
+
+  /* Las marcas y las lineas de posicion viven en minutos exactos. En 5m no hay
+     vela en 10:03, asi que hay que llevarlas al comienzo de su bucket o la
+     libreria las descarta en silencio. */
+  const alBucket = (t) => (TF <= 1 ? t : Math.floor(t / (TF * 60)) * (TF * 60));
+
   /* ---------------------------------------------------------------- capas */
 
   /* Las líneas horizontales de decisión. Se borran y se rehacen en cada
@@ -65,7 +124,7 @@
     const comp = p.estado?.composicion || [];
     if (!comp.length) { c.comp.setData([]); return; }
     const base = ((p.sesion && p.sesion.apertura) || 0) + off;
-    const hAts = (h) => base + Math.round((h - 9.5) * 3600);
+    const hAts = (h) => alBucket(base + Math.round((h - 9.5) * 3600));
     const fin = base + Math.round(6.6 * 3600);
     const pts = [];
     comp.forEach((x, i) => {
@@ -101,9 +160,9 @@
     if (!ts.length) return;
 
     const base = ((p.sesion && p.sesion.apertura) || 0) + off;
-    const hAts = (h) => base + Math.round((h - 9.5) * 3600);
+    const hAts = (h) => alBucket(base + Math.round((h - 9.5) * 3600));
     const velas = p.velas || [];
-    const ahoraT = velas.length ? velas[velas.length - 1].time + off : null;
+    const ahoraT = velas.length ? alBucket(velas[velas.length - 1].time + off) : null;
     const ahoraP = velas.length ? velas[velas.length - 1].close : null;
     const LEAD = 8 * 60;   // el trazo horizontal en el precio de entrada
 
@@ -136,7 +195,7 @@
      tramo puede estar ABIERTO, que es un estado que el histórico no tiene. */
   function marcas(p, off) {
     const base = ((p.sesion && p.sesion.apertura) || 0) + off;
-    const hAts = (h) => base + Math.round((h - 9.5) * 3600);
+    const hAts = (h) => alBucket(base + Math.round((h - 9.5) * 3600));
     const m = [];
     (p.trades_estrategia || []).forEach(function (t, i) {
       m.push({ time: hAts(t.hora_entrada), position: 'aboveBar',
@@ -169,9 +228,9 @@
   function pintarChart(c, p) {
     const off = VisorGrafico.desfase(p);
     const map = (a) => (a || []).map((v) => Object.assign({}, v, { time: v.time + off }));
-    c.velas.setData(map(p.velas));
-    c.vol.setData(map(p.volumen));
-    c.vwap.setData(map(p.vwap));
+    c.velas.setData(agregar(map(p.velas), TF));
+    c.vol.setData(agregarVol(map(p.volumen), TF));
+    c.vwap.setData(agregarLinea(map(p.vwap), TF));
     c.velas.setMarkers(marcas(p, off));
     composicion(c, p, off);
     posiciones(c, p, off);
@@ -182,69 +241,108 @@
         lineStyle: 3, axisLabelVisible: true, title: 'máx pm' });
     }
     if (c.primera) {
-      /* Encuadre: desde las 09:00 hasta AHORA, no hasta las 16:10.
-         Pedir un `to` más allá del último dato hace que la librería rechace el
-         rango entero y caiga en `fitContent()`, que muestra desde las 04:00 —
-         y el premarket de un gapper es tan alto que aplasta toda la rueda
-         contra el piso del gráfico. En vivo el día todavía no terminó, así que
-         el borde derecho es el último minuto que llegó. */
-      const ap = p.sesion && p.sesion.apertura;
-      const velas = p.velas || [];
-      c.chart.timeScale().applyOptions({ rightOffset: 6 });
-      if (!ap || !velas.length) {
-        // EN PREMARKET TODAVIA NO HAY APERTURA RTH, y el encuadre se calcula
-        // desde ella. Sin esta rama el rango pedido no tiene sentido, la
-        // libreria lo rechaza y el grafico queda como salga.
-        c.chart.timeScale().fitContent();
-      } else {
-        const base = ap + off;
-        const fin = velas[velas.length - 1].time + off;
-        try {
-          c.chart.timeScale().setVisibleRange({ from: base - 1800, to: fin });
-        } catch (err) { c.chart.timeScale().fitContent(); }
-      }
+      encuadrar(c, p, off);
+      /* Y otra vez en el cuadro siguiente. El chart mide su contenedor al
+         crearse, y en ese momento la tarjeta todavia no termino de asentarse:
+         el encabezado y la tabla cambian la altura, y el ancho de la grilla se
+         resuelve despues. Sin este segundo pase las velas quedan apretadas
+         contra el borde derecho — se veia, y se arreglaba sola recien al
+         colapsar la barra lateral, que disparaba un resize. */
+      requestAnimationFrame(() => { try { encuadrar(c, p, off); } catch (e) {} });
       // Mientras no haya abierto la rueda el encuadre se rehace en cada
-      // refresco: en premarket entran velas nuevas todo el tiempo y un
-      // encuadre fijo dejaria las ultimas afuera.
+      // refresco: en premarket entran velas nuevas todo el tiempo.
       c.primera = !(p.sesion && p.sesion.apertura);
     }
   }
 
-  /* ---------------------------------------------------------------- tarjeta */
-
-  /* Lo que importa ANTES de la apertura: contra que se mide la expansion y
-     cuanto lleva. Sin esto el premarket es un grafico sin contexto. */
-  function premarket(p) {
-    const e = p.estado || {};
-    const nv = p.niveles || {};
-    if (e.tramos && e.tramos.length) return '';
-    const cif = (v, r) =>
-      `<div class="cif"><div class="n">${v}</div><div class="r">${r}</div></div>`;
-    const gap = (nv.rth_open && nv.prev_close)
-      ? 100 * (nv.rth_open - nv.prev_close) / nv.prev_close : null;
-    return '<div class="franja">'
-      + cif('$' + n(nv.prev_close), 'cierre previo')
-      + cif('$' + n(nv.pm_high), 'máx premarket')
-      + cif(e.expansion != null ? n(e.expansion, 0) + '%' : '—', 'expansión')
-      + (nv.rth_open ? cif('$' + n(nv.rth_open), 'abrió') : '')
-      + (gap != null ? cif(n(gap, 0) + '%', 'gap') : '')
-      + '</div>';
+  function encuadrar(c, p, off) {
+    const ap = p.sesion && p.sesion.apertura;
+    const velas = p.velas || [];
+    c.chart.timeScale().applyOptions({ rightOffset: 4 });
+    if (!ap || !velas.length) {
+      // EN PREMARKET TODAVIA NO HAY APERTURA RTH, y el encuadre se calcula
+      // desde ella. Sin esta rama el rango pedido no tiene sentido y la
+      // libreria lo rechaza.
+      c.chart.timeScale().fitContent();
+      return;
+    }
+    const base = ap + off;
+    const fin = alBucket(velas[velas.length - 1].time + off);
+    try {
+      c.chart.timeScale().setVisibleRange({ from: base - 1800, to: fin });
+    } catch (err) { c.chart.timeScale().fitContent(); }
   }
 
-  function franja(e) {
-    const cer = e.pnl_cerrado ?? 0, ab = e.pnl_abierto ?? 0;
-    const neto = (e.equity ?? 0) - (e.comision ?? 0);
-    const cif = (v, r, cls) =>
-      `<div class="cif"><div class="n ${cls || ''}">${v}</div><div class="r">${r}</div></div>`;
-    return '<div class="franja">'
-      + cif(n(e.vivas, 0), 'acciones abiertas')
-      + cif(n(e.pico, 0), 'pico · a localizar')
-      + cif('$' + n(e.precio_prom), 'promedio')
-      + cif(`${signo(cer)}$${n(cer)}`, 'pnl cerrado', cer >= 0 ? 'pos' : 'neg')
-      + cif(`${signo(ab)}$${n(ab)}`, 'pnl abierto', ab >= 0 ? 'pos' : 'neg')
-      + cif(`${signo(neto)}$${n(neto)}`, 'neto · lím $' + n(e.limite, 0),
-            neto >= 0 ? 'pos' : 'neg')
+  /* ---------------------------------------------------------------- tarjeta */
+
+  /* EL ENCABEZADO EN DOS FILAS, no en cuatro.
+     Tenia: identidad, una tira de metadatos con puntos medios, una banda con el
+     motivo del descarte, y una fila de cifras con rotulos en versalitas
+     espaciadas. Cuatro filas de chrome antes de llegar al grafico, que es lo
+     unico que uno quiere mirar.
+
+     Ahora: identidad y precio arriba, cifras abajo. Los rotulos van DESPUES del
+     numero, en minuscula y apagados — el numero es lo que se lee, el rotulo es
+     lo que se consulta. */
+
+  function cifra(v, rotulo, cls) {
+    if (v == null || v === '') return '';
+    return `<span class="dato"><b class="${cls || ''}">${v}</b>${rotulo}</span>`;
+  }
+
+  function encabezado(p) {
+    const e = p.estado || {};
+    const nv = p.niveles || {};
+    const cambio = (e.precio && nv.prev_close)
+      ? 100 * (e.precio - nv.prev_close) / nv.prev_close : null;
+
+    /* El estado del papel en una palabra. La razon completa va abajo con las
+       cifras: aca solo hace falta saber de un vistazo si este papel esta en
+       juego o no. */
+    const estado = e.tramos && e.tramos.length ? null
+      : (e.apertura || ((e.descartes || []).some((d) => d.includes('pre-market'))
+          ? 'pre-market' : null));
+    const rancio = (e.atraso != null && e.atraso > (ultimo?.config?.rancio ?? 3))
+      ? `<span class="sello alerta-sello">sin datos ${n(e.atraso, 0)} min</span>` : '';
+
+    const tfs = [1, 5, 15].map((m) =>
+      `<button class="tf${m === TF ? ' on' : ''}" data-tf="${m}">${m}m</button>`
+    ).join('');
+
+    const fila1 = '<div class="cab">'
+      + `<span class="tk">${p.ticker}</span>`
+      + `<span class="px">$${n(e.precio)}</span>`
+      + (cambio != null
+        ? `<span class="chg ${cambio >= 0 ? 'pos' : 'neg'}">${signo(cambio)}${n(cambio, 1)}%</span>`
+        : '')
+      + rancio
+      + (estado ? `<span class="sello">${estado}</span>` : '')
+      + `<div class="tfs" role="group" aria-label="Temporalidad">${tfs}</div>`
+      + `<button class="lupa" data-tk="${p.ticker}" aria-label="Ampliar ${p.ticker}">⤢</button>`
       + '</div>';
+
+    const abierto = e.tramos && e.tramos.length;
+    const fila2 = '<div class="datos">'
+      + (abierto ? [
+        cifra(n(e.vivas, 0), 'acciones'),
+        cifra(n(e.pico, 0), 'pico a localizar'),
+        cifra('$' + n(e.precio_prom), 'promedio'),
+        cifra('$' + n(e.stop_prom), 'stop'),
+        cifra(signo(e.pnl_cerrado ?? 0) + '$' + n(Math.abs(e.pnl_cerrado ?? 0)),
+              'cerrado', (e.pnl_cerrado ?? 0) >= 0 ? 'pos' : 'neg'),
+        cifra(signo(e.pnl_abierto ?? 0) + '$' + n(Math.abs(e.pnl_abierto ?? 0)),
+              'abierto', (e.pnl_abierto ?? 0) >= 0 ? 'pos' : 'neg'),
+      ].join('') : [
+        cifra('$' + n(nv.prev_close), 'previo'),
+        cifra('$' + n(nv.pm_high), 'máx pm'),
+        cifra(e.expansion != null ? n(e.expansion, 0) + '%' : null, 'expansión'),
+        cifra(e.barras, 'barras'),
+      ].join(''))
+      + ((e.descartes || []).length
+        ? `<span class="motivo">${e.descartes.join(' · ')}</span>` : '')
+      + '</div>';
+
+    return fila1 + fila2;
   }
 
   function tabla(trades) {
@@ -266,64 +364,44 @@
       + filas + '</tbody></table></details>';
   }
 
-  function cabecera(p) {
-    const e = p.estado || {};
-    const meta = `${hhmm(e.hora)} · ${e.barras} barras`
-      + (e.expansion != null ? ` · exp ${n(e.expansion, 0)}%` : '')
-      + (e.apertura ? ` · ${e.apertura}` : '');
-    const rancio = (e.atraso != null && e.atraso > (ultimo?.config?.rancio ?? 3))
-      ? `<span class="rancio">SIN DATOS HACE ${n(e.atraso, 0)} MIN</span>` : '';
-    return '<div class="cab">'
-      + `<span class="tk">${p.ticker}</span>`
-      + `<span class="px">$${n(e.precio)}</span>`
-      + `<span class="meta">${meta}</span>${rancio}`
-      + `<button class="lupa" data-tk="${p.ticker}">⤢ ampliar</button></div>`;
-  }
+  /* LA TARJETA SE ARMA UNA VEZ Y DESPUES SOLO SE ACTUALIZAN SUS PARTES.
+     La version anterior reescribia `caja.innerHTML` en cada refresco y despues
+     volvia a meter el nodo del grafico con `replaceWith`. Ese ida y vuelta
+     DESPRENDE el nodo del DOM, el ResizeObserver de la libreria lo mide en 0x0
+     y el chart se encoge a cero — y reengancharlo no lo recupera. El sintoma
+     era que las velas quedaban apretadas contra el borde derecho, y se
+     "arreglaba" al colapsar la barra lateral porque eso disparaba un resize.
 
+     Con el grafico en su propio nodo, que nadie toca, el problema no existe. */
   function pintarPapel(p) {
     const e = p.estado || {};
-    const id = 'g-' + p.ticker;
     let caja = document.getElementById('p-' + p.ticker);
-    /* EL GRAFICO SE DIBUJA SIEMPRE, califique o no.
-       La primera version reemplazaba el cuerpo entero por el motivo del
-       descarte, y como en premarket NINGUN papel califica todavia, la pantalla
-       quedaba en puro texto justo en el rato en que uno quiere mirar el papel.
-       El motivo ahora es una banda arriba del grafico, no en lugar de el. */
-    const descartes = (e.descartes || []).length
-      ? '<div class="descarte">'
-        + e.descartes.map((d) => `<span>✗ ${d}</span>`).join('') + '</div>'
-      : '';
-    const cuerpo = descartes
-      + premarket(p)
-      + (e.tramos && e.tramos.length ? franja(e) : '')
-      + (e.tope ? '<div class="alerta">En el límite diario — no abre más tramos</div>' : '')
-      + `<div class="g" id="${id}"></div>`
-      + tabla(p.trades_estrategia || []);
-
     if (!caja) {
       caja = document.createElement('section');
       caja.id = 'p-' + p.ticker;
+      caja.innerHTML = '<div class="cab-wrap"></div>'
+        + `<div class="g" id="g-${p.ticker}"></div>`
+        + '<div class="tabla-wrap"></div>';
       $('cuerpo').querySelector('.grilla').appendChild(caja);
     }
     caja.className = 'papel' + ((p.trades_estrategia || []).length ? ' opera' : '')
       + ((e.descartes || []).length ? ' fuera' : '');
+    caja.querySelector('.cab-wrap').innerHTML = encabezado(p)
+      + (e.tope ? '<div class="alerta">En el límite diario — no abre más tramos</div>' : '');
 
-    /* El nodo del gráfico se PRESERVA entre refrescos: destruirlo perdería el
-       zoom y el scroll, justo mientras se está mirando para mandar una orden.
-       Lo mismo con <details>, o se cerraría sola cada 20 segundos. */
-    const viejo = document.getElementById(id);
-    const abiertoDet = caja.querySelector('details')?.open;
-    caja.innerHTML = cabecera(p) + cuerpo;
-    if (viejo && charts.has(p.ticker)) {
-      const nuevo = document.getElementById(id);
-      if (nuevo) nuevo.replaceWith(viejo);
-    }
-    const det = caja.querySelector('details');
+    /* La tabla se reescribe, pero conserva si estaba desplegada: si no, se
+       cerraria sola cada 20 segundos mientras uno la mira. */
+    const cont = caja.querySelector('.tabla-wrap');
+    const abiertoDet = cont.querySelector('details')?.open;
+    cont.innerHTML = tabla(p.trades_estrategia || []);
+    const det = cont.querySelector('details');
     if (det && abiertoDet) det.open = true;
 
-    if (!document.getElementById(id)) return;
     let c = charts.get(p.ticker);
-    if (!c) { c = crearChart(document.getElementById(id)); charts.set(p.ticker, c); }
+    if (!c) {
+      c = crearChart(document.getElementById('g-' + p.ticker));
+      charts.set(p.ticker, c);
+    }
     pintarChart(c, p);
   }
 
@@ -437,7 +515,17 @@
 
   document.addEventListener('click', (ev) => {
     const b = ev.target.closest('.lupa');
-    if (b) abrirModal(b.dataset.tk);
+    if (b) { abrirModal(b.dataset.tk); return; }
+    const t = ev.target.closest('.tf');
+    if (t) {
+      TF = Number(t.dataset.tf) || 1;
+      try { localStorage.setItem('visor.vivo.tf', String(TF)); } catch (e) {}
+      /* Reencuadrar todos: en 5m hay una quinta parte de las velas y el rango
+         visible que quedo de 1m mostraria una franja vacia. */
+      charts.forEach((c) => { c.primera = true; });
+      if (modal) modal.primera = true;
+      tick();
+    }
   });
   $('mcerrar').addEventListener('click', cerrarModal);
   document.addEventListener('keydown', (ev) => {
@@ -490,6 +578,8 @@
       msg.className = 'neg';
     }
   }
+
+  try { TF = Number(localStorage.getItem('visor.vivo.tf')) || 1; } catch (e) {}
 
   $('wl-guardar').addEventListener('click', guardarWatchlist);
   cargarWatchlist();

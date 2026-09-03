@@ -68,26 +68,53 @@
          flex-direction:column}
   .papel.opera{border-color:rgba(38,166,154,.45)}
 
-  .cab{display:flex;align-items:baseline;gap:var(--e3);flex-wrap:wrap;
-       padding:var(--e3) var(--e4);border-bottom:1px solid var(--borde)}
-  .cab .tk{font-size:var(--t4);font-weight:600;letter-spacing:.02em}
-  .cab .px{font-family:var(--fuente-num);font-size:var(--t3)}
-  .cab .meta{color:var(--texto-3);font-size:var(--t0);
-             font-family:var(--fuente-num)}
-  .cab .rancio{color:var(--rojo);font-size:var(--t0);font-weight:600}
-  .lupa{margin-left:auto;background:none;border:1px solid var(--borde);
-        color:var(--texto-2);border-radius:var(--radio);cursor:pointer;
-        font-size:var(--t1);padding:2px 9px;line-height:1.5}
-  .lupa:hover{background:var(--fondo-3);color:var(--texto)}
+  /* EL ENCABEZADO, EN DOS FILAS. Antes eran cuatro: identidad, una tira de
+     metadatos con puntos medios, una banda con el motivo, y las cifras con
+     rotulos en versalitas espaciadas. Cuatro filas de chrome antes del
+     grafico, que es lo unico que uno quiere mirar. */
+  .cab{display:flex;align-items:center;gap:10px;
+       padding:11px var(--e4) 0}
+  .cab .tk{font-size:16px;font-weight:600;letter-spacing:-.02em}
+  .cab .px{font-family:var(--fuente-num);font-size:15px;
+           font-variant-numeric:tabular-nums;color:var(--texto)}
+  .cab .chg{font-family:var(--fuente-num);font-size:var(--t2);
+            font-variant-numeric:tabular-nums}
 
-  .franja{display:flex;gap:var(--e4);flex-wrap:wrap;
-          padding:6px var(--e4);background:var(--fondo-3)}
-  .cif{display:flex;flex-direction:column;gap:1px}
-  .cif .n{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
-          font-size:var(--t3);line-height:1.15}
-  .cif .r{color:var(--texto-3);font-size:9px;text-transform:uppercase;
-          letter-spacing:.06em}
-  .pos{color:var(--verde)} .neg{color:var(--rojo)}
+  /* El estado en una palabra. Sin mayusculas ni borde: es un matiz, no una
+     alarma — las alarmas son las otras dos. */
+  .sello{padding:2px 8px;border-radius:99px;background:var(--fondo-3);
+         color:var(--texto-3);font-size:var(--t1);line-height:1.5}
+  .alerta-sello{background:rgba(229,84,79,.16);color:var(--neg)}
+
+  /* Segmentado, como el de iOS: un riel y una pastilla que se mueve. La
+     temporalidad es SOLO VISUAL — la estrategia se mide en velas de 1 minuto
+     pase lo que pase acá. */
+  .tfs{margin-left:auto;display:flex;gap:1px;padding:2px;
+       background:var(--fondo);border-radius:8px}
+  .tf{border:0;cursor:pointer;background:none;color:var(--texto-3);
+      font-family:var(--fuente-num);font-size:var(--t1);
+      padding:3px 9px;border-radius:6px;line-height:1.4;
+      transition:background .14s ease,color .14s ease}
+  .tf:hover{color:var(--texto-2)}
+  .tf.on{background:var(--fondo-4);color:var(--texto)}
+
+  .lupa{background:none;border:0;color:var(--texto-3);cursor:pointer;
+        font-size:14px;padding:2px 4px;line-height:1;border-radius:6px;
+        transition:color .14s ease,background .14s ease}
+  .lupa:hover{color:var(--texto);background:var(--fondo-3)}
+
+  /* El rotulo va DESPUES del numero, en minuscula y apagado: el numero es lo
+     que se lee, el rotulo es lo que se consulta. */
+  .datos{display:flex;align-items:baseline;gap:var(--e4);flex-wrap:wrap;
+         padding:5px var(--e4) 10px;font-size:var(--t1);color:var(--texto-3)}
+  .dato b{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
+          font-size:var(--t3);font-weight:500;color:var(--texto);
+          margin-right:5px}
+  .dato b.pos{color:var(--pos)} .dato b.neg{color:var(--neg)}
+  .motivo{margin-left:auto;color:var(--texto-3);opacity:.85}
+
+  .papel.fuera{opacity:.78}
+  .papel.fuera:hover{opacity:1}
 
   .alerta{padding:5px var(--e4);background:rgba(239,83,80,.12);
           color:var(--rojo);font-size:var(--t0)}
