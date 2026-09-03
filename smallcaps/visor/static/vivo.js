@@ -336,7 +336,12 @@
       ].join('') : [
         cifra('$' + n(nv.prev_close), 'previo'),
         cifra('$' + n(nv.pm_high), 'máx pm'),
-        cifra(e.expansion != null ? n(e.expansion, 0) + '%' : null, 'expansión'),
+        /* Se llamaba "expansión". Es `expansion_pct` de dias.py: "máximo
+           pre-market vs cierre previo" — o sea, cuánto corrió ANTES de abrir.
+           El nombre viejo es el del motor y ahí se queda; el rótulo de la
+           pantalla tiene que decir qué mide. */
+        cifra(e.expansion != null ? signo(e.expansion) + n(e.expansion, 0) + '%' : null,
+              'pre-market'),
         cifra(e.barras, 'barras'),
       ].join(''))
       + ((e.descartes || []).length
@@ -437,7 +442,6 @@
     const conTramos = ps.filter((p) => (p.trades_estrategia || []).length);
     const esperando = ps.filter((p) => !(p.trades_estrategia || []).length
       && !(p.estado?.descartes || []).length);
-    const fuera = ps.filter((p) => (p.estado?.descartes || []).length);
 
     /* El dia simulado: lo cerrado ya es plata, lo abierto todavia se puede dar
        vuelta. Sumarlos en un solo numero esconde justo esa diferencia. */
@@ -525,7 +529,8 @@
          que no es estado — es la regla que rige el día. */
       bloque('sesión · nueva york ' + hhmm(c.ahora), relojSesion(c)
         + `<div class="receta">shorteamos la apertura <b>${c.apertura}</b>`
-        + ` con expansión <b>≥${c.expansion}%</b>, stop <b>${c.stop}%</b> por tramo,`
+        + ` que haya corrido <b>≥${c.expansion}%</b> en pre-market,`
+        + ` stop <b>${c.stop}%</b> por tramo,`
         + ` y sostenemos hasta el cierre. Un ganador típico llega a dar`
         + ` <b>${n(c.mfe50, 1)}%</b> a favor.</div>`),
 
@@ -533,12 +538,6 @@
         ? '<div class="chips">' + esperando.map((p) =>
             `<span class="chip2 espera">${p.ticker}</span>`).join('') + '</div>'
         : '<div class="nada">ninguno califica</div>'),
-
-      bloque(`fuera · ${fuera.length}`, fuera.length
-        ? '<div class="chips">' + fuera.map((p) =>
-            `<span class="chip2" title="${(p.estado.descartes || []).join(' · ')}">`
-            + `${p.ticker}</span>`).join('') + '</div>'
-        : '<div class="nada">ninguno descartado</div>'),
 
       bloque('cinta', eventos.length
         ? '<div class="cinta">' + eventos.map((x) =>
@@ -695,33 +694,114 @@
   });
   /* ------------------------------------------------------------ watchlist */
 
-  /* EL SCANNER. La lista de lo que hay hoy con su precio, su variacion y un
-     punto de estado — verde opera, azul espera, gris fuera. Se clickea para
-     saltar al grafico. Es lo que uno mira de reojo para saber donde parar. */
+  /* LOS ESTADOS DE UN PAPEL EN EL DIA, que son SIETE y no tres. Salen de leer
+     `evaluar()` en puente/vivo.py de arriba a abajo — son las salidas reales de
+     esa función, no una categoría inventada para la pantalla:
+
+       pre-market   antes de las 09:30. Todavía no empezó nada.
+       abriendo     09:30 a 10:00. Abrió, pero la apertura se clasifica a las
+                    10:00 y hasta entonces no se sabe si sirve. NO es
+                    pre-market: el papel ya está operando en el mercado, sólo
+                    que nosotros todavía no.
+       no califica  quedó afuera por el filtro: expansión < 0%, o abrió fade
+                    cuando operamos reclaim. El motivo completo va en el título.
+       espera       CALIFICA y todavía no dio señal. Es el estado más
+                    importante de los siete y el que no estaba: son los que
+                    pueden disparar en cualquier momento.
+       operando     tiene tramos vivos.
+       cerrado      tuvo tramos y ya están todos cerrados (stop, corte o cierre).
+       revisar      no es un estado del mercado sino un problema del DATO, y
+                    por eso es el único en ámbar. Dos causas: el gráfico vino
+                    sin sesión extendida (sin eso no hay expansión y el filtro
+                    no filtra nada), o el precio no se parece al de la
+                    watchlist y puede ser otro instrumento con el mismo
+                    símbolo. Las dos piden ir a tocar algo en la plataforma. */
+  const ESTADOS = {
+    operando:   { nombre: 'operando',
+                  d: '<circle cx="8" cy="8" r="3.4" fill="currentColor" stroke="none"/>'
+                   + '<circle cx="8" cy="8" r="6.2"/>' },
+    cerrado:    { nombre: 'cerrado',
+                  d: '<path d="M3.4 8.4l3.1 3.1 6.1-6.6"/>' },
+    espera:     { nombre: 'espera señal',
+                  d: '<circle cx="8" cy="8" r="4.1"/><path d="M8 .9v2.4M8 12.7v2.4'
+                   + 'M.9 8h2.4M12.7 8h2.4"/>' },
+    abriendo:   { nombre: 'abriendo · clasifica 10:00',
+                  d: '<circle cx="8" cy="8" r="6.2"/><path d="M8 4.4V8l2.5 1.6"/>' },
+    premarket:  { nombre: 'pre-market',
+                  d: '<path d="M13.4 9.6A5.9 5.9 0 0 1 6.1 2.4a5.9 5.9 0 1 0 7.3 7.2z"/>' },
+    nocalifica: { nombre: 'no califica',
+                  d: '<circle cx="8" cy="8" r="6.2"/><path d="M5.2 8h5.6"/>' },
+    /* No hay un octavo icono para "puede ser otro instrumento": para quien
+       mira es el MISMO problema que "falta el pre-market" —el dato no se puede
+       creer y hay que ir a arreglar algo afuera de la app—, y siete formas ya
+       son las que se pueden aprender. Cuál de los dos es, lo dice el título. */
+    revisar:    { nombre: 'revisar el dato',
+                  d: '<path d="M8 2.2 14.6 13.4H1.4z"/><path d="M8 6.6v3M8 11.4v.1"/>' },
+  };
+
+  /* El orden de las preguntas es el orden en que decide el motor. Invertirlo
+     cambia el resultado: un papel con tramos abiertos TAMBIEN puede tener un
+     descarte viejo colgado, y preguntar por el descarte primero lo mostraria
+     como "no califica" mientras está short. */
+  function estadoDe(p) {
+    const e = p.estado || {};
+    const d = e.descartes || [];
+    const tr = p.trades_estrategia || [];
+    if (tr.length) {
+      return tr.some((t) => t.motivo === 'abierta') ? 'operando' : 'cerrado';
+    }
+    /* El orden importa y las coincidencias son EXACTAS a proposito: el texto
+       de "sin premarket: prendé la sesión extendida" contiene la palabra
+       premarket, asi que un `includes('premarket')` suelto lo clasificaria
+       como "todavia no abrio" — el error de configuracion desaparecido
+       adentro de un estado normal, que es la peor forma de perderlo. */
+    if (e.sin_premarket) return 'revisar';
+    if (d.some((x) => x.includes('no se parece'))) return 'revisar';
+    if (d.some((x) => x.includes('todavia en pre-market'))) return 'premarket';
+    if (d.some((x) => x.includes('se clasifica a las 10:00'))) return 'abriendo';
+    if (d.length) return 'nocalifica';
+    return 'espera';
+  }
+
+  const icono = (k) => '<svg class="ico" viewBox="0 0 16 16" fill="none"'
+    + ' stroke="currentColor" stroke-width="1.5" stroke-linecap="round"'
+    + ` stroke-linejoin="round">${ESTADOS[k].d}</svg>`;
+
+  /* EL SCANNER. Cuatro columnas con encabezado, como cualquier terminal: qué
+     es, a cuánto está, cuánto lleva hoy y cuánto corrió en pre-market.
+
+     La columna `pm` es `expansion_pct` de dias.py — "máximo pre-market vs
+     cierre previo". Es la variable del filtro y hasta ahora sólo se veía
+     adentro de la tarjeta rotulada "expansión", que no le decía a nadie que
+     estaba hablando del pre-market. */
   function pintarScanner(d) {
     const ps = d.papeles || [];
     if (!ps.length) {
-      $('wl-lista').innerHTML = '<div class="wl-fila"><span></span>'
-        + '<span class="tk3" style="font-weight:400;color:var(--texto-3)">'
-        + 'sin datos todavía</span><span></span><span></span></div>';
+      $('wl-lista').innerHTML = '<div class="wl-vacio">sin datos todavía</div>';
       return;
     }
-    $('wl-lista').innerHTML = ps.map((p) => {
-      const e = p.estado || {};
-      const nv = p.niveles || {};
-      const opera = (p.trades_estrategia || []).length;
-      const fuera = (e.descartes || []).length;
-      const cls = opera ? 'opera' : (fuera ? '' : 'espera');
-      const v = (e.precio && nv.prev_close)
-        ? 100 * (e.precio - nv.prev_close) / nv.prev_close : null;
-      return `<div class="wl-fila ${cls}" data-tk="${p.ticker}"
-                   title="${fuera ? (e.descartes || []).join(' · ') : (opera ? 'operando' : 'esperando señal')}">`
-        + '<span class="luz"></span>'
-        + `<span class="tk3">${p.ticker}</span>`
-        + `<span class="p">$${n(e.precio)}</span>`
-        + `<span class="v ${v >= 0 ? 'pos' : 'neg'}">${v == null ? '' : signo(v) + n(v, 1) + '%'}</span>`
-        + '</div>';
-    }).join('');
+    $('wl-lista').innerHTML =
+      '<div class="wl-cols"><span></span><span>papel</span>'
+      + '<span>precio</span><span>día</span><span>pm</span></div>'
+      + ps.map((p) => {
+        const e = p.estado || {};
+        const nv = p.niveles || {};
+        const k = estadoDe(p);
+        const st = ESTADOS[k];
+        const v = (e.precio && nv.prev_close)
+          ? 100 * (e.precio - nv.prev_close) / nv.prev_close : null;
+        const motivo = (e.descartes || []).length
+          ? st.nombre + ' — ' + e.descartes.join(' · ') : st.nombre;
+        return `<div class="wl-fila e-${k}" data-tk="${p.ticker}" title="${motivo}">`
+          + icono(k)
+          + `<span class="tk3">${p.ticker}</span>`
+          + `<span class="p">$${n(e.precio)}</span>`
+          + `<span class="v ${v >= 0 ? 'pos' : 'neg'}">`
+          + `${v == null ? '—' : signo(v) + n(v, 1) + '%'}</span>`
+          + `<span class="pm">${e.expansion == null ? '—'
+              : signo(e.expansion) + n(e.expansion, 0) + '%'}</span>`
+          + '</div>';
+      }).join('');
   }
 
   async function cargarWatchlist() {

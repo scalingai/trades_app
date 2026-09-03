@@ -179,19 +179,39 @@
              padding:3px 8px;border-radius:6px}
   #wl-editar:hover{color:var(--texto);background:var(--fondo-3)}
 
-  .wl-fila{display:grid;grid-template-columns:7px 1fr auto auto;
-           align-items:center;gap:10px;padding:6px var(--e4);cursor:pointer;
-           font-size:var(--t2);border-top:1px solid var(--linea)}
+  /* CUATRO COLUMNAS CON ENCABEZADO, como cualquier terminal. La grilla se
+     declara una sola vez y la comparten el encabezado y las filas: así el
+     rótulo cae exactamente sobre su columna sin números mágicos. */
+  .wl-cols,.wl-fila{display:grid;grid-template-columns:15px 1fr auto 52px 46px;
+                    align-items:center;gap:9px;padding:5px var(--e4)}
+  .wl-cols{color:var(--texto-3);font-size:9px;text-transform:uppercase;
+           letter-spacing:.07em;padding-bottom:6px}
+  .wl-cols span:nth-child(n+3){text-align:right}
+  .wl-fila{cursor:pointer;font-size:var(--t2);
+           border-top:1px solid var(--linea)}
   .wl-fila:hover{background:var(--fondo-3)}
-  .wl-fila .luz{width:6px;height:6px;border-radius:50%;background:var(--fondo-4)}
-  .wl-fila.opera .luz{background:var(--pos);
-                      box-shadow:0 0 0 3px rgba(46,168,143,.16)}
-  .wl-fila.espera .luz{background:var(--acento)}
   .wl-fila .tk3{font-weight:600;letter-spacing:-.01em}
-  .wl-fila .p,.wl-fila .v{font-family:var(--fuente-num);
+  .wl-fila .p,.wl-fila .v,.wl-fila .pm{font-family:var(--fuente-num);
                           font-variant-numeric:tabular-nums;text-align:right}
   .wl-fila .p{color:var(--texto-2)}
-  .wl-fila .v{width:56px}
+  /* El pre-market NO se pinta de verde ni de rojo: no es plata, es cuánto
+     corrió antes de abrir. Verde y rojo están reservados para el resultado. */
+  .wl-fila .pm{color:var(--texto-3)}
+  .wl-vacio{padding:var(--e3) var(--e4) var(--e4);color:var(--texto-3);
+            font-size:var(--t2)}
+
+  /* EL ICONO DE ESTADO. Siete estados, siete formas distintas: un color solo
+     no alcanza —el gris de "pre-market" y el de "no califica" serían el mismo—
+     y encima deja afuera a quien no distingue verde de rojo. La forma dice
+     cuál es y el color dice cuánto importa. */
+  .wl-fila .ico{width:13px;height:13px;display:block;color:var(--texto-3)}
+  .e-operando .ico{color:var(--pos)}
+  .e-espera   .ico{color:var(--acento)}
+  .e-revisar  .ico{color:var(--ambar)}
+  .e-cerrado  .ico,.e-abriendo .ico{color:var(--texto-2)}
+  /* Los que hoy no juegan se apagan enteros, y vuelven al pasar el mouse. */
+  .e-nocalifica,.e-premarket{opacity:.55}
+  .wl-fila:hover{opacity:1}
 
   #wl-editor{padding:var(--e3) var(--e4) var(--e4);border-top:1px solid var(--linea)}
   #wl-txt{width:100%;height:130px;resize:vertical;background:var(--fondo);
