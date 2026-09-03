@@ -132,9 +132,12 @@ body{ transition:padding-left .22s cubic-bezier(.4,0,.2,1); }
   font-size:var(--t3); font-weight:600; letter-spacing:-.01em;
   color:var(--texto); white-space:nowrap;
 }
-.nav-punto{
-  width:8px; height:8px; flex:none; border-radius:50%;
-  background:var(--acento); box-shadow:0 0 0 3px rgba(91,141,239,.16);
+.nav-logo{
+  width:22px; height:22px; flex:none; display:block;
+  /* El cuadrado ya trae su propio fondo, asi que el unico redondeo que hace
+     falta es el del recorte — sin esto los bordes del rect se ven duros
+     contra el panel. */
+  border-radius:6px;
 }
 .nav-nombre{ transition:opacity .16s ease; }
 

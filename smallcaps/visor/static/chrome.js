@@ -48,6 +48,24 @@
     { href: '/bitacora', label: 'Bitácora', icono: 'bitacora', alias: ['/bitacora.html'] },
   ];
 
+  /* EL LOGO ES EL MISMO QUE EL DE LA BARRA DE TAREAS, redibujado en SVG.
+     `escritorio/icono.py` genera el .ico con estas mismas proporciones: dos
+     velas verdes y una roja sobre un cuadrado redondeado. Que la marca del
+     escritorio, la de la pestaña y la de la barra sean UNA sola es lo que hace
+     que la app se reconozca de reojo entre veinte ventanas.
+
+     Va en SVG y no como <img src=favicon.ico> porque a 22px un .ico de 16 o 32
+     se ve sucio, y porque asi el fondo del cuadrado toma el color del tema. */
+  const LOGO = '<svg class="nav-logo" viewBox="0 0 24 24" aria-hidden="true">'
+    + '<rect width="24" height="24" rx="5.4" fill="#0d1117"/>'
+    + '<rect x="3.9" y="12.5" width="3.8" height="4.3" rx="1" fill="#26a69a"/>'
+    + '<rect x="5.2" y="11" width="1.2" height="7.2" rx=".6" fill="#26a69a"/>'
+    + '<rect x="9.4" y="8.2" width="3.8" height="5.3" rx="1" fill="#26a69a"/>'
+    + '<rect x="10.7" y="6.2" width="1.2" height="8.7" rx=".6" fill="#26a69a"/>'
+    + '<rect x="14.9" y="7.2" width="3.8" height="10.6" rx="1" fill="#ef5350"/>'
+    + '<rect x="16.2" y="5.3" width="1.2" height="14.4" rx=".6" fill="#ef5350"/>'
+    + '</svg>';
+
   const CLAVE = 'visor.nav.corta';
   const aqui = location.pathname;
   const activa = (p) => p.href === aqui || p.alias.includes(aqui);
@@ -59,7 +77,7 @@
   const html = `
     <nav class="nav" aria-label="Secciones">
       <div class="nav-marca">
-        <span class="nav-punto" aria-hidden="true"></span>
+        ${LOGO}
         <span class="nav-nombre">small caps</span>
       </div>
       <div class="nav-lista">
