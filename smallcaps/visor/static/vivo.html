@@ -43,6 +43,26 @@
   .lateral{display:flex;flex-direction:column;gap:var(--e3);
            position:sticky;top:var(--e4)}
 
+  /* La barra de fecha. Es lo primero de la columna porque contesta la pregunta
+     que precede a todas las demás: qué día estoy mirando. */
+  #fecha-nav{display:flex;align-items:center;gap:4px;
+             background:var(--fondo-2);border-radius:var(--radio-2);
+             box-shadow:var(--sombra);padding:5px 7px}
+  #fecha-nav button{background:none;border:0;cursor:pointer;color:var(--texto-3);
+                    font-family:inherit;font-size:var(--t2);line-height:1;
+                    padding:5px 8px;border-radius:7px}
+  #fecha-nav button:hover:not([disabled]){color:var(--texto);background:var(--fondo-3)}
+  #fecha-nav button[disabled]{opacity:.3;cursor:default}
+  #f-ant,#f-sig{font-size:16px;padding:2px 8px}
+  #f-hoy{flex:1;text-align:center;font-size:var(--t2);color:var(--texto);
+         white-space:nowrap}
+  #f-hoy .ayer{color:var(--ambar)}
+  #f-vivo{font-size:var(--t1)}
+  /* Mirando un día viejo, la pantalla entera se tiñe apenas: no hay forma de
+     confundir una auditoría con la sesión en curso. */
+  body.pasado #mando,body.pasado #wl,body.pasado .papel{
+    box-shadow:var(--sombra),inset 0 0 0 1px rgba(212,161,30,.22)}
+
   /* ====================================================== aviso de feed ==== */
   /* Era un muro rojo a todo el ancho con cuatro renglones de instrucciones. El
      feed cortado NO es plata perdida: es "ojo, lo de abajo está viejo". Eso es
@@ -412,6 +432,16 @@
   <div id="alarma"></div>
   <div class="vista">
     <aside class="lateral">
+      <!-- NAVEGAR A DIAS PASADOS. La misma vista, otra fecha: los datos salen
+           del censo en vez del feed, pero pasan por el MISMO motor y el mismo
+           armador de payload. Si la auditoría tuviera su propio camino de
+           cálculo, el día que revisás no sería el día que operaste. -->
+      <nav id="fecha-nav" aria-label="Día">
+        <button id="f-ant" type="button" aria-label="Día anterior">‹</button>
+        <span id="f-hoy"></span>
+        <button id="f-sig" type="button" aria-label="Día siguiente">›</button>
+        <button id="f-vivo" type="button">hoy</button>
+      </nav>
       <div id="mando" aria-label="Estado de la operativa"></div>
 
       <!-- EL SCANNER. La watchlist estaba arriba, plegada, como un formulario.

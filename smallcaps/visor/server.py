@@ -299,6 +299,48 @@ def payload_dia(ticker: str, d: str) -> dict | None:
     }
 
 
+def _drawdown_dia(papeles_r: list[dict]) -> float:
+    """La peor caida de la CUENTA en el dia, sumando las curvas de cada papel.
+
+    NO es la suma de los maximos de cada papel: dos papeles pueden tocar su
+    piso en minutos distintos y sumar maximos sobreestima. Se suman las curvas
+    minuto a minuto y recien ahi se busca la caida desde el pico.
+
+    Es el numero que decide si la cuenta sobrevive — la plataforma de fondeo
+    mide desde el pico, no desde cero.
+    """
+    por_minuto: dict[float, float] = {}
+    for r in papeles_r:
+        for h, eq in (r.get("curva") or []):
+            por_minuto[h] = por_minuto.get(h, 0.0) + eq
+    if not por_minuto:
+        return 0.0
+    pico = dd = 0.0
+    for h in sorted(por_minuto):
+        eq = por_minuto[h]
+        pico = max(pico, eq)
+        dd = min(dd, eq - pico)
+    return round(dd, 2)
+
+
+def _config_vivo(_vivo, ahora=None) -> dict:
+    """Los parametros de la operativa. Los mismos para hoy y para un dia viejo.
+
+    `ahora` en None significa AHORA de verdad — la hora de Nueva York, no la de
+    la maquina: el reloj de la sesion se mide contra el mercado y la maquina
+    puede estar en cualquier huso, igual que el navegador. Para un dia pasado
+    se pasa la hora del cierre, porque ese dia ya termino.
+    """
+    if ahora is None:
+        t = datetime.now(_vivo.NY)
+        ahora = t.hour + t.minute / 60.0
+    return {"stop": _vivo.STOP_PCT, "desde": _vivo.DESDE,
+            "expansion": _vivo.EXPANSION_MIN, "apertura": _vivo.APERTURA,
+            "mfe50": _vivo.MFE_P50, "mfe75": _vivo.MFE_P75,
+            "corte": _vivo.CORTE_H, "corte_umbral": _vivo.CORTE_UMBRAL,
+            "ahora": ahora, "cierre": CIERRE_RTH, "rancio": _vivo.RANCIO_MIN}
+
+
 def payload_vivo(riesgo: float, piso: float) -> dict:
     """La sesión de HOY, armada desde el feed que escribe la plataforma.
 
@@ -316,24 +358,13 @@ def payload_vivo(riesgo: float, piso: float) -> dict:
 
     salida = {"riesgo": riesgo, "piso": piso, "feed": str(_vivo.FEED),
               "existe": _vivo.FEED.exists(), "papeles": [],
-              "config": {"stop": _vivo.STOP_PCT, "desde": _vivo.DESDE,
-                         "expansion": _vivo.EXPANSION_MIN,
-                         "apertura": _vivo.APERTURA,
-                       "mfe50": _vivo.MFE_P50, "mfe75": _vivo.MFE_P75,
-                       "corte": _vivo.CORTE_H,
-                       "corte_umbral": _vivo.CORTE_UMBRAL,
-                       # La hora de NUEVA YORK, no la de la maquina. El reloj de
-                       # la sesion se mide contra el mercado: la maquina puede
-                       # estar en cualquier huso y el navegador tambien.
-                       "ahora": (lambda t: t.hour + t.minute / 60.0)(
-                           datetime.now(_vivo.NY)),
-                       "cierre": CIERRE_RTH,
-                       "rancio": _vivo.RANCIO_MIN}}
+              "config": _config_vivo(_vivo)}
     if not salida["existe"]:
         return salida
 
     hoy = date.today().isoformat()
     refs = _vivo.referencias()
+    _rs = []
     for (tk, f), datos in sorted(_vivo.leer_feed().items()):
         if f != hoy:
             continue
@@ -357,56 +388,127 @@ def payload_vivo(riesgo: float, piso: float) -> dict:
         else:
             r = _vivo.evaluar(dia, riesgo, piso)
 
-        velas, vol, vwap = [], [], []
-        for i, b in enumerate(dia.bars):
-            if None in (b[1], b[2], b[3], b[4]):
-                continue
-            t = ts(b[0])
-            velas.append({"time": t, "open": b[1], "high": b[2],
-                          "low": b[3], "close": b[4]})
-            vol.append({"time": t, "value": b[5] or 0,
-                        "color": "rgba(38,166,154,.5)" if b[4] >= b[1]
-                        else "rgba(239,83,80,.5)"})
-            vwap.append({"time": t, "value": round(dia.vwap[i], 4)})
+        salida["papeles"].append(_papel_vivo(tk, f, dia, r, _vivo))
+        _rs.append(r)
+    salida["dd_dia"] = _drawdown_dia(_rs)
+    salida["papeles"].sort(key=lambda x: -len(x["trades_estrategia"]))
+    return salida
 
-        b_ap = next((b for b in dia.bars if hora(b) >= APERTURA_RTH), None)
-        b_ci = next((b for b in reversed(dia.bars) if hora(b) <= CIERRE_RTH), None)
 
-        # Los tramos se traducen al vocabulario que ya entiende `grafico.js`.
-        trades = [{"hora_entrada": t["h"], "precio_entrada": t["precio"],
-                   "hora_salida": None if t["viva"] else t["h_sal"],
-                   "precio_salida": None if t["viva"] else t["p_sal"],
-                   "motivo": "abierta" if t["viva"] else t["motivo"],
-                   "pnl": t["pnl"], "acciones": t["acciones"],
-                   "stop_pct": _vivo.STOP_PCT}
-                  for t in (r.get("tramos") or [])]
+def _papel_vivo(tk: str, f: str, dia, r: dict, _vivo) -> dict:
+    """Un papel, del formato del motor al que dibuja el front.
 
-        salida["papeles"].append({
-            "ticker": tk, "d": f, "velas": velas, "volumen": vol, "vwap": vwap,
-            "trades_estrategia": trades,
-            "niveles": {"prev_close": dia.prev_close, "pm_high": dia.pm_high,
-                        "rth_open": dia.rth_open},
-            "sesion": {"apertura": ts(b_ap[0]) if b_ap else None,
-                       "cierre": ts(b_ci[0]) if b_ci else None},
-            "estado": {"hora": r.get("hora"), "precio": r.get("precio"),
-                       "barras": r.get("bars"), "expansion": r.get("expansion"),
-                       "apertura": r.get("apertura"),
-                       "descartes": r.get("descartes") or [],
-                       "pico": r.get("pico"), "vivas": r.get("vivas"),
-                       "equity": r.get("equity"), "comision": r.get("comision"),
-                       "limite": r.get("limite"),
-                       "tope": r.get("cerca_del_limite"),
-                       "atraso": _vivo.atraso_min(r.get("hora")),
-                       "pnl_cerrado": r.get("pnl_cerrado"),
-                       "pnl_abierto": r.get("pnl_abierto"),
-                       "precio_prom": r.get("precio_prom"),
-                       "stop_prom": r.get("stop_prom"),
-                       "proy_50": r.get("proy_50"),
-                       "proy_75": r.get("proy_75"),
-                       "composicion": r.get("composicion") or []},
-        })
-    salida["papeles"].sort(
-        key=lambda x: -len(x["trades_estrategia"]))
+    ES LA MISMA FUNCION PARA HOY Y PARA CUALQUIER DIA PASADO, y eso no es
+    prolijidad: es lo unico que garantiza que el dia que auditas mañana se vea
+    EXACTAMENTE como se veia en vivo. La primera version de `evaluar`
+    reimplementaba la regla de presupuesto del motor y mostraba 14 tramos y
+    -$419 donde el motor daba +$134. Dos caminos que dibujan lo mismo se
+    separan solos; el unico antidoto es que haya un solo camino.
+    """
+    velas, vol, vwap = [], [], []
+    for i, b in enumerate(dia.bars):
+        if None in (b[1], b[2], b[3], b[4]):
+            continue
+        t = ts(b[0])
+        velas.append({"time": t, "open": b[1], "high": b[2],
+                      "low": b[3], "close": b[4]})
+        vol.append({"time": t, "value": b[5] or 0,
+                    "color": "rgba(38,166,154,.5)" if b[4] >= b[1]
+                    else "rgba(239,83,80,.5)"})
+        vwap.append({"time": t, "value": round(dia.vwap[i], 4)})
+
+    b_ap = next((b for b in dia.bars if hora(b) >= APERTURA_RTH), None)
+    b_ci = next((b for b in reversed(dia.bars) if hora(b) <= CIERRE_RTH), None)
+
+    # Los tramos se traducen al vocabulario que ya entiende `grafico.js`.
+    trades = [{"hora_entrada": t["h"], "precio_entrada": t["precio"],
+               "hora_salida": None if t["viva"] else t["h_sal"],
+               "precio_salida": None if t["viva"] else t["p_sal"],
+               "motivo": "abierta" if t["viva"] else t["motivo"],
+               "pnl": t["pnl"], "acciones": t["acciones"],
+               "stop_pct": _vivo.STOP_PCT}
+              for t in (r.get("tramos") or [])]
+
+    return {
+        "ticker": tk, "d": f, "velas": velas, "volumen": vol, "vwap": vwap,
+        "trades_estrategia": trades,
+        "niveles": {"prev_close": dia.prev_close, "pm_high": dia.pm_high,
+                    "rth_open": dia.rth_open},
+        "sesion": {"apertura": ts(b_ap[0]) if b_ap else None,
+                   "cierre": ts(b_ci[0]) if b_ci else None},
+        "estado": {"hora": r.get("hora"), "precio": r.get("precio"),
+                   "barras": r.get("bars"), "expansion": r.get("expansion"),
+                   "apertura": r.get("apertura"),
+                   "descartes": r.get("descartes") or [],
+                   "pico": r.get("pico"), "vivas": r.get("vivas"),
+                   "equity": r.get("equity"), "comision": r.get("comision"),
+                   "limite": r.get("limite"),
+                   "tope": r.get("cerca_del_limite"),
+                   "atraso": _vivo.atraso_min(r.get("hora")),
+                   "pnl_cerrado": r.get("pnl_cerrado"),
+                   "pnl_abierto": r.get("pnl_abierto"),
+                   "precio_prom": r.get("precio_prom"),
+                   "stop_prom": r.get("stop_prom"),
+                   "proy_50": r.get("proy_50"),
+                   "proy_75": r.get("proy_75"),
+                   "composicion": r.get("composicion") or []},
+    }
+
+
+
+def fechas_disponibles() -> list[str]:
+    """Las fechas del censo que se pueden mirar, de la mas nueva a la mas vieja."""
+    if not _indice_listo.is_set() or not _indice:
+        return []
+    return sorted({r["d"] for r in _indice if r.get("ok_censo")}, reverse=True)
+
+
+def payload_fecha(fecha: str, riesgo: float, piso: float) -> dict:
+    """LA MISMA VISTA, PARA UN DIA QUE YA PASO.
+
+    Cambia UNA sola cosa respecto de `payload_vivo`: de donde salen las barras.
+    Hoy salen del feed que escribe la plataforma; un dia viejo sale del censo
+    en `bars.sqlite`. De ahi para adelante es el mismo `evaluar` —o sea el
+    mismo `motor.jornada`— y el mismo `_papel_vivo`.
+
+    Eso importa mas de lo que parece: si la bitacora tuviera su propio camino
+    de calculo, el dia que audites no seria el dia que operaste. Ya paso una
+    vez en este proyecto, con `evaluar` reimplementando la regla de
+    presupuesto: 14 tramos y -$419 en pantalla donde el motor daba +$134.
+
+    QUE PAPELES ENTRAN. Los del censo observable de ese dia —gap >=25%,
+    liquidez previa >=$150k, precio $0.20-$20—, que es exactamente lo que hoy
+    arma `escaner.py` para la watchlist. Asi lo que ves en un dia de hace ocho
+    meses es lo que el sistema habria mirado ese dia, y no una seleccion hecha
+    sabiendo como termino.
+    """
+    sys.path.insert(0, str(AQUI.parent / "puente"))
+    import vivo as _vivo
+
+    salida = {"riesgo": riesgo, "piso": piso, "fecha": fecha, "pasado": True,
+              "existe": True, "papeles": [],
+              "config": _config_vivo(_vivo, ahora=CIERRE_RTH)}
+    if not _indice_listo.is_set():
+        salida["cargando"] = True
+        return salida
+
+    tickers = sorted({r["ticker"] for r in _indice
+                      if r["d"] == fecha and r.get("ok_censo")
+                      and _RE_TICKER.match(r["ticker"])})
+    if not tickers:
+        return salida
+    _rs = []
+    for dia in cargar(solo={(t, fecha) for t in tickers}):
+        try:
+            r = _vivo.evaluar(dia, riesgo, piso)
+        except Exception:
+            continue
+        if not r:
+            continue
+        salida["papeles"].append(_papel_vivo(dia.ticker, fecha, dia, r, _vivo))
+        _rs.append(r)
+    salida["dd_dia"] = _drawdown_dia(_rs)
+    salida["papeles"].sort(key=lambda x: -len(x["trades_estrategia"]))
     return salida
 
 
@@ -669,13 +771,23 @@ class Handler(BaseHTTPRequestHandler):
         if ruta == "/vivo" or ruta == "/vivo.html":
             return self._archivo(ESTATICOS / "vivo.html")
 
+        if ruta == "/api/vivo/fechas":
+            return self._json({"fechas": fechas_disponibles()})
+
         if ruta == "/api/vivo":
             try:
                 riesgo = float((q.get("riesgo") or ["400"])[0])
                 piso = float((q.get("piso") or ["2"])[0])
             except ValueError:
                 return self._json({"error": "riesgo/piso inválidos"}, 400)
+            # `d` vacio o el dia de hoy = la sesion en vivo. Cualquier otra
+            # fecha se arma del censo, con el mismo motor y la misma vista.
+            d = (q.get("d") or [""])[0]
+            if d and not _RE_FECHA.match(d):
+                return self._json({"error": "fecha inválida"}, 400)
             try:
+                if d and d != date.today().isoformat():
+                    return self._json(payload_fecha(d, riesgo, piso))
                 return self._json(payload_vivo(riesgo, piso))
             except Exception as e:
                 return self._json({"error": str(e)}, 500)

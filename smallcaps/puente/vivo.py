@@ -410,7 +410,39 @@ def evaluar(dia, riesgo, piso):
         nom_ac += t["precio"] * t["acciones"]
         comp.append({"h": t["h"], "prom": nom_ac / acc_ac, "acciones": acc_ac})
 
-    out.update({"tramos": tramos, "pico": pico, "vivas": vivas,
+    # LA CURVA DE EQUITY DEL DIA, minuto a minuto y marcada a mercado.
+    #
+    # POR QUE HACE FALTA. El panel mostraba "riesgo del dia: $47 de $400", y ese
+    # $47 era la perdida ACTUAL — cuanto vas abajo en este momento. Pero la
+    # cuenta de fondeo no te mide por donde estas: te mide por la caida desde el
+    # PICO. Si a las 11 ibas -$380 y recuperaste a -$50, el cartel decia $50 y
+    # tu cuenta sintio $380. Con un tope de $1.000, esa diferencia es la cuenta.
+    #
+    # Se manda la curva y no solo el maximo porque el maximo de la CUENTA no es
+    # la suma de los maximos de cada papel: dos papeles pueden tocar su piso en
+    # minutos distintos. Sumar maximos sobreestima; hay que sumar las curvas y
+    # recien despues buscar el piso. Eso lo hace el servidor, que tiene todos
+    # los papeles; aca sale la curva de este.
+    curva = []
+    if tramos:
+        i0 = min(dia.idx_en(t["h"]) or 0 for t in tramos)
+        for k in range(i0, len(dia.bars)):
+            pk = dia.bars[k][4]
+            if not pk:
+                continue
+            hk = hora(dia.bars[k])
+            eq = 0.0
+            for t in j["detalle"]:
+                if t["h_ent"] > hk:
+                    continue
+                if t["h_sal"] is not None and t["h_sal"] <= hk:
+                    eq += t["pnl"]
+                else:
+                    eq += t["acciones"] * (t["p_ent"] - pk)
+            curva.append((round(hk, 4), round(eq, 2)))
+
+    out.update({"curva": curva,
+                "tramos": tramos, "pico": pico, "vivas": vivas,
                 "nominal": pico * px, "equity": equity, "comision": com,
                 "pnl_cerrado": pnl_cerrado, "pnl_abierto": pnl_abierto,
                 "precio_prom": prom,

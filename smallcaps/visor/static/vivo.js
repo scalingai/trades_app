@@ -50,6 +50,10 @@
      que no avisa. */
   let TF = 1;
   let RIESGO = 400, PISO = 2;
+  /* NULL = hoy, la sesion en vivo. Cualquier otra cosa es una fecha del censo:
+     misma vista, mismo motor, otras barras. */
+  let FECHA = null;
+  let FECHAS = [];
 
   function agregar(velas, m) {
     if (m <= 1 || !velas || !velas.length) return velas || [];
@@ -497,10 +501,20 @@
     const tramos = conTramos.reduce((a, p) => a + p.trades_estrategia.length, 0);
     const neto = cerrado + abierto - com;
 
-    /* Riesgo consumido: cuanto de la caja del dia esta comprometido. Es lo que
-       dice si entra otro tramo, y hasta ahora no estaba en ningun lado. */
+    /* EL DRAWDOWN MAXIMO DEL DIA, no la perdida actual.
+       
+       Esto decia "riesgo del dia" y mostraba `-(cerrado + abierto)`: cuanto
+       vas abajo AHORA. Agus lo marco y tenia razon por una razon mas fuerte
+       que el nombre — la cuenta de fondeo no te mide por donde estas, te mide
+       por la caida desde el PICO. Si a las 11 ibas -$380 y recuperaste a -$50,
+       el cartel decia $50 y tu cuenta ya habia sentido $380. Con un tope de
+       $1.000, esa diferencia es la cuenta.
+       
+       Sale del servidor porque el maximo de la CUENTA no es la suma de los
+       maximos de cada papel: dos papeles pueden tocar su piso en minutos
+       distintos. Hay que sumar las curvas y recien despues buscar el piso. */
     const riesgo = RIESGO;
-    const usado = Math.max(0, -Math.min(0, cerrado + abierto));
+    const usado = Math.abs(d.dd_dia || 0);
     const pct = Math.min(100, 100 * usado / riesgo);
 
     const bloque = (titulo, cuerpo) =>
@@ -564,7 +578,7 @@
       + '<div class="jefe-cab">'
       + `<span class="gran ${neto > 0 ? 'pos' : neto < 0 ? 'neg' : 'cero'}">`
       + `${signo(neto)}$${n(Math.abs(neto))}</span>`
-      + '<span class="que">operado hoy</span></div>'
+      + `<span class="que">operado ${FECHA ? comoFecha(FECHA) : 'hoy'}</span></div>`
 
       /* Cerrado y abierto, cada uno con su rotulo abajo y su columna. La
          diferencia entre los dos es la unica que importa a media rueda. */
@@ -577,7 +591,8 @@
       /* El riesgo, como medidor y no como renglon: el rotulo y el numero
          arriba, la barra abajo. Asi en cero se lee "no gastaste nada" en vez
          de parecer un separador. */
-      + '<div class="riesgo"><div class="riesgo-cab"><span>riesgo del día</span>'
+      + '<div class="riesgo"><div class="riesgo-cab">'
+      + '<span>drawdown máximo del día</span>'
       + `<b>$${n(usado, 0)} <i>de $${n(riesgo, 0)}</i></b></div>`
       + `<div class="barra"><i class="${pct > 85 ? 'lleno' : ''}"`
       + ` style="width:${Math.max(pct, pct > 0 ? 2 : 0)}%"></i></div></div></div>`,
@@ -615,7 +630,8 @@
          suma fija: Argentina no cambia la hora y Nueva York sí, así que la
          diferencia es +1 en verano boreal y +2 en invierno. */
       bloque('sesión · nueva york ' + hhmm(c.ahora)
-        + `<span class="aca">acá ${relojLocal()}</span>`, pendientes(ps, c)),
+        + (FECHA ? '' : `<span class="aca">acá ${relojLocal()}</span>`),
+        pendientes(ps, c)),
 
       bloque('cinta', eventos.length
         ? '<div class="cinta">' + eventos.map((x) =>
@@ -662,7 +678,8 @@
   async function tick() {
     let d;
     try {
-      const r = await fetch(`/api/vivo?riesgo=${RIESGO}&piso=${PISO}`);
+      const r = await fetch(`/api/vivo?riesgo=${RIESGO}&piso=${PISO}`
+        + (FECHA ? `&d=${FECHA}` : ''));
       d = await r.json();
     } catch (err) {
       /* Sin barra donde avisar, la falta de conexion se dice donde se mira:
@@ -743,7 +760,52 @@
      querer es una trampa. */
   function reprogramar() {
     if (timer) clearInterval(timer);
-    timer = setInterval(tick, 20000);
+    /* Un dia que ya termino no cambia. Refrescarlo cada veinte segundos seria
+       tirar el trabajo del servidor a la basura —arma el dia desde el censo,
+       que cuesta— para redibujar exactamente lo mismo. */
+    if (!FECHA) timer = setInterval(tick, 20000);
+  }
+
+  /* --------------------------------------------------------- navegar dias */
+
+  const DIAS_SEM = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun',
+                 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+  /* La fecha se parte a mano en vez de `new Date('2026-02-25')`, que la lee
+     como UTC y en Argentina la muestra un dia antes. Es el mismo bug de huso
+     que ya nos mordio en el feed. */
+  function comoFecha(iso) {
+    const [a, m, d] = iso.split('-').map(Number);
+    const dt = new Date(a, m - 1, d);
+    return `${DIAS_SEM[dt.getDay()]} ${d} ${MESES[m - 1]} ${String(a).slice(2)}`;
+  }
+
+  function pintarFecha() {
+    const i = FECHA ? FECHAS.indexOf(FECHA) : -1;
+    $('f-hoy').innerHTML = FECHA
+      ? `<span class="ayer">${comoFecha(FECHA)}</span>`
+      : 'hoy · en vivo';
+    document.body.classList.toggle('pasado', !!FECHA);
+    /* FECHAS viene de la mas nueva a la mas vieja: "anterior" avanza el
+       indice. Si estas en hoy, el anterior es la primera de la lista. */
+    $('f-ant').disabled = FECHAS.length === 0
+      || (i >= 0 && i >= FECHAS.length - 1);
+    $('f-sig').disabled = !FECHA;
+    $('f-vivo').disabled = !FECHA;
+    /* El escaner escribe la watchlist de HOY: no tiene sentido en una
+       auditoria de hace ocho meses. */
+    const b = $('wl-buscar');
+    if (b) b.disabled = !!FECHA;
+  }
+
+  function irA(fecha) {
+    FECHA = fecha;
+    charts.clear();
+    $('cuerpo').innerHTML = '<div class="vacio">cargando…</div>';
+    pintarFecha();
+    reprogramar();
+    tick();
   }
 
   document.addEventListener('click', (ev) => {
@@ -927,6 +989,23 @@
      El control de calidad no se fue, cambio de lugar: si Yahoo devuelve
      cualquier cosa se ve en el numero —el censo dice 4,3 papeles por dia, y
      40 o 0 saltan solos— y el archivo sigue en disco para editar a mano. */
+  $('f-ant').addEventListener('click', () => {
+    const i = FECHA ? FECHAS.indexOf(FECHA) : -1;
+    if (i + 1 < FECHAS.length) irA(FECHAS[i + 1]);
+  });
+  $('f-sig').addEventListener('click', () => {
+    const i = FECHAS.indexOf(FECHA);
+    if (i > 0) irA(FECHAS[i - 1]);
+    else if (i === 0) irA(null);        // de la mas nueva se sale a hoy
+  });
+  $('f-vivo').addEventListener('click', () => irA(null));
+
+  fetch('/api/vivo/fechas').then((r) => r.json()).then((d) => {
+    FECHAS = d.fechas || [];
+    pintarFecha();
+  }).catch(() => {});
+  pintarFecha();
+
   $('wl-buscar').addEventListener('click', async () => {
     const b = $('wl-buscar');
     b.disabled = true;
