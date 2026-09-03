@@ -411,6 +411,51 @@
       catch (e) {}
     }
   });
+  /* ------------------------------------------------------------ watchlist */
+
+  async function cargarWatchlist() {
+    try {
+      const d = await (await fetch('/api/watchlist')).json();
+      $('wl-txt').value = d.texto || '';
+      const n = (d.texto || '').split(/\r?\n/).filter((x) => x.trim()).length;
+      $('wl-n').textContent = n ? `${n} papeles` : 'vacía';
+    } catch (e) {
+      $('wl-n').textContent = 'no se pudo leer';
+    }
+  }
+
+  async function guardarWatchlist() {
+    const msg = $('wl-msg');
+    msg.textContent = 'guardando…';
+    msg.className = '';
+    try {
+      const r = await fetch('/api/watchlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ texto: $('wl-txt').value }),
+      });
+      const d = await r.json();
+      if (d.error) {
+        msg.textContent = d.error;
+        msg.className = 'neg';
+        return;
+      }
+      msg.textContent = `guardada · ${d.papeles} papeles`
+        + (d.sin_precio ? ` · ${d.sin_precio} SIN PRECIO` : '');
+      msg.className = d.sin_precio ? 'neg' : 'pos';
+      $('wl-n').textContent = `${d.papeles} papeles`;
+      /* Refrescar enseguida: el indicador relee el archivo en su proximo ciclo,
+         asi que la pantalla se pone al dia sola en menos de un minuto. */
+      tick();
+    } catch (e) {
+      msg.textContent = 'no se pudo guardar';
+      msg.className = 'neg';
+    }
+  }
+
+  $('wl-guardar').addEventListener('click', guardarWatchlist);
+  cargarWatchlist();
+
   ['riesgo', 'piso'].forEach((k) => $(k).addEventListener('change', tick));
   $('auto').addEventListener('change', reprogramar);
   tick();

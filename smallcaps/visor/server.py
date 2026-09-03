@@ -579,6 +579,67 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(cuerpo)
 
+    def do_POST(self):
+        """Lo unico que se escribe desde la app: la watchlist del dia.
+
+        POR QUE EXISTE. La watchlist se editaba a mano en un archivo, o peor,
+        clickeando menus en la plataforma. Cada mañana. Que la unica pantalla
+        con la que se opera no pueda cambiar lo que mira es un agujero de
+        diseño, no una comodidad que falta.
+
+        El servidor escucha solo en 127.0.0.1 y esto escribe UN archivo de
+        texto en el directorio de datos. Aun asi se valida el formato: un
+        ticker mal escrito no falla ruidosamente, deja un papel afuera en
+        silencio — que es la peor clase de error para una pantalla de operar.
+        """
+        u = urlparse(self.path)
+        if u.path != "/api/watchlist":
+            return self._json({"error": "no existe"}, 404)
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            datos = json.loads(self.rfile.read(n) or b"{}")
+        except Exception as e:
+            return self._json({"error": f"cuerpo invalido: {e}"}, 400)
+
+        lineas, malas = [], []
+        for cruda in (datos.get("texto") or "").splitlines():
+            cruda = cruda.strip()
+            if not cruda or cruda.startswith("#"):
+                continue
+            partes = cruda.replace(",", " ").replace(";", " ").split()
+            tk = partes[0].upper()
+            if not _RE_TICKER.match(tk):
+                malas.append(cruda)
+                continue
+            # El precio NO es opcional en la practica: sin el, un simbolo que
+            # existe en varios mercados se resuelve al que venga primero. Se
+            # acepta sin precio pero se avisa.
+            px = None
+            if len(partes) > 1:
+                try:
+                    px = float(partes[1])
+                except ValueError:
+                    malas.append(cruda)
+                    continue
+            lineas.append(f"{tk} {px:g}" if px else tk)
+
+        if malas:
+            return self._json({"error": "lineas invalidas: " + "; ".join(malas)}, 400)
+
+        ruta = Path(config.data_dir()) / "watchlist.txt"
+        cab = chr(10).join([
+            f"# Watchlist escrita desde el visor · {date.today().isoformat()}",
+            "# TICKER precio_de_referencia",
+            "#",
+            "# El precio distingue papeles con el mismo simbolo en distintos",
+            "# mercados. SSM resolvia a uno de $59 cuando el nuestro estaba",
+            "# a $3,85.",
+            "",
+        ])
+        ruta.write_text(cab + chr(10).join(lineas) + chr(10), encoding="utf-8")
+        return self._json({"ok": True, "papeles": len(lineas),
+                           "sin_precio": sum(1 for x in lineas if " " not in x)})
+
     def do_GET(self):
         u = urlparse(self.path)
         q = parse_qs(u.query)
@@ -603,6 +664,15 @@ class Handler(BaseHTTPRequestHandler):
 
         if ruta == "/vivo" or ruta == "/vivo.html":
             return self._archivo(ESTATICOS / "vivo.html")
+
+        if ruta == "/api/watchlist":
+            f = Path(config.data_dir()) / "watchlist.txt"
+            txt = f.read_text(encoding="utf-8", errors="replace") if f.exists() else ""
+            # Se devuelven solo las lineas utiles: los comentarios los reescribe
+            # el POST, y mostrarlos invita a editarlos.
+            utiles = [x.strip() for x in txt.splitlines()
+                      if x.strip() and not x.strip().startswith("#")]
+            return self._json({"texto": chr(10).join(utiles), "ruta": str(f)})
 
         if ruta == "/api/vivo":
             try:

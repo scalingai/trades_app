@@ -26,6 +26,31 @@
   .receta{color:var(--texto-3);font-size:var(--t1);
           font-family:var(--fuente-num)}
 
+  /* La watchlist se edita ACA. Antes vivía en un archivo de texto que había
+     que abrir a mano, o peor, se armaba clickeando menús en la plataforma. Que
+     la única pantalla con la que se opera no pueda cambiar lo que mira es un
+     agujero de diseño. */
+  #wl{margin-top:var(--e3);border:1px solid var(--borde);
+      border-radius:var(--radio);background:var(--fondo-2)}
+  #wl summary{padding:6px var(--e4);cursor:pointer;color:var(--texto-2);
+              font-size:var(--t1);user-select:none}
+  #wl summary:hover{color:var(--texto)}
+  #wl-n{color:var(--texto-3);font-family:var(--fuente-num)}
+  .wl-caja{display:grid;grid-template-columns:260px 1fr;gap:var(--e4);
+           padding:0 var(--e4) var(--e4)}
+  @media (max-width:900px){.wl-caja{grid-template-columns:1fr}}
+  #wl-txt{width:100%;height:160px;resize:vertical;
+          font-family:var(--fuente-num);font-size:var(--t2);line-height:1.6;
+          background:var(--fondo);color:var(--texto);
+          border:1px solid var(--borde);border-radius:var(--radio);
+          padding:var(--e3)}
+  .wl-lado p{color:var(--texto-3);font-size:var(--t0);margin:var(--e3) 0 0}
+  #wl-guardar{background:var(--fondo-3);color:var(--texto);cursor:pointer;
+              border:1px solid var(--borde);border-radius:var(--radio);
+              padding:5px 16px;font-size:var(--t1)}
+  #wl-guardar:hover{background:var(--borde)}
+  #wl-msg{margin-left:var(--e3);font-size:var(--t0)}
+
   .alarma{margin-top:var(--e3);padding:var(--e3) var(--e4);border-radius:var(--radio);
           background:rgba(239,83,80,.14);color:var(--rojo);font-size:var(--t2);
           border:1px solid rgba(239,83,80,.35)}
@@ -121,6 +146,22 @@
     <span class="receta" id="receta"></span>
     <span class="receta" id="reloj" style="margin-left:auto"></span>
   </div>
+  <details id="wl">
+    <summary>watchlist — <span id="wl-n">…</span></summary>
+    <div class="wl-caja">
+      <textarea id="wl-txt" spellcheck="false" placeholder="FLYE 2.07&#10;BIAF 6.45"></textarea>
+      <div class="wl-lado">
+        <button id="wl-guardar">guardar</button>
+        <span id="wl-msg"></span>
+        <p>Un papel por línea, con su <b>precio de referencia</b> al lado. El
+        precio no es decoración: distingue papeles que comparten símbolo en
+        distintos mercados — SSM resolvía a uno de $59 cuando el nuestro estaba
+        a $3,85.</p>
+        <p>El indicador relee el archivo solo. Agregar un ticker a mitad de
+        rueda lo mete sin tocar la plataforma.</p>
+      </div>
+    </div>
+  </details>
   <div id="alarma"></div>
   <div id="cuerpo"></div>
   <div class="aviso">
