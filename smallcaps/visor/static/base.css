@@ -63,7 +63,8 @@
   /* ---- espaciado: multiplos de 4, sin excepciones ----------------------- */
   --e1:4px; --e2:8px; --e3:12px; --e4:16px; --e5:24px; --e6:32px;
 
-  --nav:154px;            /* ancho de la barra lateral */
+  --nav:192px;            /* ancho de la barra lateral, expandida */
+  --nav-corta:56px;       /* colapsada: solo iconos */
   --radio:5px;            /* unico radio del sistema: controles y badges */
 
   /* ---- alias heredados --------------------------------------------------
@@ -101,34 +102,105 @@ a:hover{text-decoration:underline}
    markup distinto en cada pagina — y en /historial directamente no habia nav,
    solo un "volver al visor", asi que desde ahi no se llegaba a /cartera. */
 
+/* La barra lateral es CHROME, no contenido. Su trabajo es decir donde estas y
+   sacarte de ahi en un click, ocupando lo menos posible mientras tanto. En
+   /vivo el cuerpo es una grilla de graficos a dos columnas y cada pixel de la
+   barra es ancho de vela que se pierde: por eso colapsa.
+
+   El ancho vive en `--nav` y el `body` lo descuenta con `padding-left`, asi que
+   redefinir la variable mueve barra y contenido a la vez. Nada de JavaScript
+   de layout. */
+
+html.nav-corta{ --nav:var(--nav-corta); }
+
 .nav{
   position:fixed; left:0; top:0; bottom:0; width:var(--nav); z-index:20;
   background:var(--fondo-2); border-right:1px solid var(--linea-2);
-  display:flex; flex-direction:column; padding:var(--e4) 0;
+  display:flex; flex-direction:column; padding:var(--e4) 8px var(--e3);
+  overflow:visible;
+  transition:width .22s cubic-bezier(.4,0,.2,1);
 }
+body{ transition:padding-left .22s cubic-bezier(.4,0,.2,1); }
+
+/* La marca: un punto y el nombre. El punto queda como ancla cuando la barra se
+   angosta — sin el, el encabezado desaparece y la barra arranca en el vacio.
+   Se fue el subtitulo "VISOR" en versalitas espaciadas: era un rotulo que
+   ocupaba una linea para no decir nada. */
 .nav-marca{
-  padding:0 var(--e4) var(--e5);
-  font-size:var(--t3); font-weight:600; letter-spacing:.01em; line-height:1.3;
+  display:flex; align-items:center; gap:10px;
+  height:26px; padding:0 11px; margin-bottom:var(--e4);
+  font-size:var(--t3); font-weight:600; letter-spacing:-.01em;
+  color:var(--texto); white-space:nowrap;
 }
-.nav-marca span{
-  display:block; color:var(--texto-3); font-weight:400; font-size:var(--t0);
-  text-transform:uppercase; letter-spacing:.1em; margin-top:3px;
+.nav-punto{
+  width:8px; height:8px; flex:none; border-radius:50%;
+  background:var(--acento); box-shadow:0 0 0 3px rgba(91,141,239,.16);
 }
+.nav-nombre{ transition:opacity .16s ease; }
+
+.nav-lista{ display:flex; flex-direction:column; gap:1px; }
+
+/* Grilla de dos columnas con la del icono FIJA: colapsar cambia el ancho de la
+   etiqueta, no la posicion del icono. Asi la animacion se lee como la barra
+   angostandose y no como el contenido reacomodandose. */
 .nav a{
-  display:block; padding:6px var(--e3); margin:0 var(--e2) 1px;
-  color:var(--texto-2); font-size:var(--t3); border-radius:var(--radio);
-  text-decoration:none; transition:background .12s ease,color .12s ease;
+  position:relative; display:grid; grid-template-columns:18px 1fr;
+  align-items:center; gap:11px;
+  height:32px; padding:0 11px; border-radius:7px;
+  color:var(--texto-2); font-size:var(--t3); text-decoration:none;
+  white-space:nowrap;
+  transition:background .14s ease,color .14s ease;
 }
-.nav a:hover{background:var(--fondo-3);color:var(--texto);text-decoration:none}
-/* El activo se marca con peso y con la barrita de acento. Sin caja completa:
-   la caja competia con el contenido de la pagina. */
+.nav a svg{ width:18px; height:18px; flex:none; color:var(--texto-3);
+            transition:color .14s ease; }
+.nav a > span{ overflow:hidden; transition:opacity .16s ease; }
+.nav a:hover{ background:var(--fondo-3); color:var(--texto); text-decoration:none; }
+.nav a:hover svg{ color:var(--texto-2); }
+
+/* EL UNICO LUGAR CON COLOR de toda la barra. Una pildora tenue con el icono
+   teñido — la seleccion de un sidebar de macOS. Reemplaza la barrita de acento
+   pegada al borde izquierdo, que era el recurso de siempre y competia con el
+   borde de la barra. */
 .nav a.sel{
-  color:var(--texto); font-weight:600; background:var(--fondo-3);
-  box-shadow:inset 2px 0 0 var(--acento);
+  background:rgba(91,141,239,.14); color:var(--texto); font-weight:590;
 }
-.nav-pie{
-  margin-top:auto; padding:var(--e3) var(--e4) 0;
-  color:var(--texto-3); font-size:var(--t0); line-height:1.6;
+.nav a.sel svg{ color:var(--acento); }
+
+.nav-toggle{
+  margin-top:auto; display:grid; grid-template-columns:18px 1fr;
+  align-items:center; gap:11px;
+  height:32px; padding:0 11px; border-radius:7px;
+  background:none; border:0; cursor:pointer;
+  color:var(--texto-3); font-size:var(--t3); font-family:inherit;
+  text-align:left; white-space:nowrap;
+  transition:background .14s ease,color .14s ease;
+}
+.nav-toggle svg{ width:18px; height:18px; transition:transform .22s cubic-bezier(.4,0,.2,1); }
+.nav-toggle:hover{ background:var(--fondo-3); color:var(--texto-2); }
+.nav-toggle span{ overflow:hidden; transition:opacity .16s ease; }
+.nav :focus-visible{ outline:2px solid var(--acento); outline-offset:2px; }
+
+/* ---- colapsada -------------------------------------------------------- */
+
+html.nav-corta .nav-nombre,
+html.nav-corta .nav-toggle span{ opacity:0; }
+html.nav-corta .nav-toggle svg{ transform:rotate(180deg); }
+
+/* La etiqueta no se borra: sale del panel y vuelve como globo al pasar el
+   mouse. Un icono sin nombre se aprende, pero mientras se aprende hay que
+   poder preguntar. */
+html.nav-corta .nav a > span{
+  position:absolute; left:calc(100% + 12px); top:50%; translate:0 -50%;
+  padding:5px 9px; border-radius:6px;
+  background:var(--fondo-4); color:var(--texto); font-size:var(--t2);
+  box-shadow:0 4px 14px rgba(0,0,0,.45);
+  opacity:0; pointer-events:none; transition:opacity .12s ease;
+}
+html.nav-corta .nav a:hover > span,
+html.nav-corta .nav a:focus-visible > span{ opacity:1; }
+
+@media (prefers-reduced-motion:reduce){
+  .nav,body,.nav *{ transition:none !important; }
 }
 
 /* ================================================================= cabecera */
@@ -267,6 +339,10 @@ th.orden{color:var(--acento)}
     align-items:center; padding:0 var(--e3); gap:var(--e1);
     border-right:none; border-bottom:1px solid var(--linea-2);
   }
-  .nav-marca,.nav-pie{display:none}
-  .nav a.sel{box-shadow:inset 0 -2px 0 var(--acento)}
+  .nav-marca,.nav-toggle{display:none}
+  .nav-lista{flex-direction:row;gap:var(--e1)}
+  /* En horizontal la etiqueta no entra siete veces: quedan los iconos, que es
+     exactamente el estado colapsado. */
+  .nav a{grid-template-columns:18px;height:32px;padding:0 9px}
+  .nav a > span{display:none}
 }
