@@ -134,10 +134,25 @@
   .ev .q{color:var(--texto-2)}
   .ev .m{font-family:var(--fuente-num);font-variant-numeric:tabular-nums}
 
-  /* LOS AJUSTES VAN AL PIE. Son ajustes, no estado: se tocan una vez por día y
-     después se miran cero veces. Estaban arriba de todo, empujando el número
-     del día a la mitad de la columna. */
-  .bloque.ajustes{background:var(--fondo)}
+  /* LOS AJUSTES SON UNA RUEDITA. Se tocan una vez por día y después se miran
+     cero veces: no se ganan un renglón permanente en la única columna que se
+     mira operando. Van en la esquina del bloque del día, que es lo que
+     gobiernan. */
+  .rueda{margin-left:auto;background:none;border:0;cursor:pointer;padding:3px;
+         color:var(--texto-3);border-radius:7px;line-height:0;
+         transition:color .14s ease,background .14s ease,transform .3s ease}
+  .rueda svg{width:15px;height:15px;display:block}
+  .rueda:hover{color:var(--texto);background:var(--fondo-3);transform:rotate(45deg)}
+
+  #aj-fondo{position:fixed;inset:0;z-index:60}
+  #ajustes{position:fixed;z-index:61;width:266px;
+           background:var(--fondo-3);border:1px solid var(--linea-2);
+           border-radius:var(--radio-2);padding:var(--e3) var(--e4) var(--e4);
+           box-shadow:0 12px 40px -8px rgba(0,0,0,.7)}
+  #ajustes p{margin:11px 0 0;color:var(--texto-3);font-size:var(--t0);
+             line-height:1.65}
+  #ajustes p b{color:var(--texto-2);font-weight:500}
+  #ajustes .ctrl input{background:var(--fondo)}
   .ctrl{display:flex;align-items:center;gap:8px;padding:4px 0;
         font-size:var(--t2);color:var(--texto-2)}
   .ctrl .u{color:var(--texto-3);font-family:var(--fuente-num)}
@@ -352,6 +367,21 @@
     objetivo de salida: el sistema sostiene al cierre.
   </div>
 </main>
+
+<!-- LOS AJUSTES VIVEN ACA, FUERA DE #mando, Y NO ES UN DETALLE DE ESTILO.
+     `pintarMando` reescribe su innerHTML entero cada 20 segundos. Un input
+     adentro de eso se DESTRUYE en pleno refresco: si estabas tipeando 350, a
+     los veinte segundos el campo se rehace desde el estado del modulo y te
+     come lo que ibas escribiendo. Acá afuera nadie los toca. -->
+<div id="aj-fondo" hidden></div>
+<div id="ajustes" hidden role="dialog" aria-label="Ajustes de la operativa">
+  <div class="ctrl">riesgo por papel<span class="u">$</span>
+    <input id="riesgo" type="number" step="50" min="50"></div>
+  <div class="ctrl">precio mínimo<span class="u">$</span>
+    <input id="piso" type="number" step="0.5" min="0"></div>
+  <p>Cuánta plata estás dispuesto a perder en <b>un papel</b> en el día — de ahí
+  sale el tamaño de cada tramo — y el precio por debajo del cual no se opera.</p>
+</div>
 
 <div id="modal">
   <div class="barra">

@@ -472,30 +472,33 @@
     });
     eventos.sort((a, b) => b.h - a.h);
 
-    /* LOS CONTROLES, ARRIBA DE TODO Y CON NOMBRE. Se llamaban "riesgo" y
-       "piso" en una barra suelta y no decian nada: uno es cuanta plata estas
-       dispuesto a perder en un papel en un dia —de ahi sale el tamaño de cada
-       tramo— y el otro el precio minimo para operarlo. Puestos junto a lo que
-       gobiernan, el nombre alcanza. */
-    const controles =
-      '<div class="ctrl">riesgo por papel<span class="u">$</span>'
-      + `<input id="riesgo" type="number" value="${RIESGO}" step="50" min="50"></div>`
-      + '<div class="ctrl">precio mínimo<span class="u">$</span>'
-      + `<input id="piso" type="number" value="${PISO}" step="0.5" min="0"></div>`;
-
     /* EL ORDEN DE LA COLUMNA ES EL ORDEN EN QUE SE MIRA, y hasta ahora no lo
        era: arriba de todo estaban los AJUSTES —que se tocan una vez por día— y
        el número del día quedaba tercero, a media columna de scroll. Con ocho
        bloques del mismo gris y rótulos de 10px, nada saltaba.
 
        Ahora baja por urgencia: cuánto voy hoy, qué tengo abierto, qué falta
-       para el próximo hito, qué espera, qué pasó. Los ajustes al pie. */
+       para el próximo hito, qué espera, qué pasó. Los ajustes se fueron a una
+       ruedita en la esquina del primer bloque: se tocan una vez por día y
+       después se miran cero veces — no se ganan un renglón permanente. */
     $('mando').innerHTML = [
       /* 1. EL NUMERO DEL DIA. Uno por pantalla, y es este. */
       `<div class="bloque jefe"><div class="jefe-cab">`
       + `<span class="gran ${neto > 0 ? 'pos' : neto < 0 ? 'neg' : 'cero'}">`
       + `${signo(neto)}$${n(Math.abs(neto))}</span>`
-      + `<span class="que">simulado hoy</span></div>`
+      + '<span class="que">operado hoy</span>'
+      + '<button class="rueda" id="aj-abrir" type="button" aria-label="Ajustes">'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+      + ' stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
+      + '<circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8'
+      + 'l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5'
+      + 'v.2a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1'
+      + 'a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H2.2'
+      + 'a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1'
+      + 'a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V2.2'
+      + 'a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1'
+      + 'a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1h.2'
+      + 'a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg></button></div>'
       + `<div class="sub">${tramos} tramo${tramos === 1 ? '' : 's'}`
       + ` · cerrado ${signo(cerrado)}$${n(Math.abs(cerrado))}`
       + ` · abierto ${signo(abierto)}$${n(Math.abs(abierto))}</div>`
@@ -544,9 +547,6 @@
             + `<span class="m ${x.cls || ''}">${x.m}</span></div>`).join('')
           + '</div>'
         : '<div class="nada">sin movimientos</div>'),
-
-      /* 4. LOS AJUSTES, AL PIE. */
-      `<div class="bloque ajustes"><h2>ajustes</h2>${controles}</div>`,
     ].join('');
   }
 
@@ -780,11 +780,41 @@
     document.getElementById('p-' + f.dataset.tk)
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
-  /* Los controles se repintan con el mando, asi que el listener va en el
-     documento y no en el nodo — que a los 20 segundos ya no es el mismo. */
+  /* Los inputs viven en markup fijo, pero la RUEDITA se repinta con el mando
+     cada 20 segundos: por eso el listener va en el documento y no en el boton,
+     que a los veinte segundos ya no es el mismo nodo. */
+  $('riesgo').value = RIESGO;
+  $('piso').value = PISO;
   document.addEventListener('change', (ev) => {
     if (ev.target.id === 'riesgo') { RIESGO = Number(ev.target.value) || 400; tick(); }
     if (ev.target.id === 'piso') { PISO = Number(ev.target.value) || 2; tick(); }
+  });
+
+  /* El popover se ancla a la ruedita en vez de centrarse: nace de donde lo
+     abriste, que es como se sabe de que es. Se posiciona al abrir y no en CSS
+     porque el boton se mueve con la columna. */
+  function ajustes(abrir) {
+    const caja = $('ajustes');
+    if (abrir) {
+      const r = $('aj-abrir').getBoundingClientRect();
+      caja.hidden = false;
+      $('aj-fondo').hidden = false;
+      /* Si no entra abajo, se acuesta contra el borde: nunca fuera de pantalla. */
+      const alto = caja.offsetHeight;
+      caja.style.top = Math.min(r.bottom + 8, window.innerHeight - alto - 12) + 'px';
+      caja.style.left = Math.max(12, r.right - caja.offsetWidth) + 'px';
+      $('riesgo').focus();
+    } else {
+      caja.hidden = true;
+      $('aj-fondo').hidden = true;
+    }
+  }
+  document.addEventListener('click', (ev) => {
+    if (ev.target.closest('#aj-abrir')) { ajustes($('ajustes').hidden); return; }
+    if (ev.target.id === 'aj-fondo') ajustes(false);
+  });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && !$('ajustes').hidden) ajustes(false);
   });
   cargarWatchlist();
 
