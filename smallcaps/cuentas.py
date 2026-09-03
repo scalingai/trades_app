@@ -51,12 +51,19 @@ MIN_ORDEN, POR_ACCION = 0.75, 0.005
 # tradethepool.com/the-program. Lo que sigue SIN confirmar es qué poder de
 # compra compra la evaluación de US$97 — de ahí sale todo lo demás.
 #
-# HABIA UN ERROR ACA, y no era chico: `TOPE_DD` decía $1.000 sobre una cuenta
-# de $20.000, o sea el 5%. No es el 4% de FLEX ni el 3% de MAX: no es ningún
-# plan. El objetivo ($1.200 = 6%) y el límite diario ($400 = 2%) sí cerraban
-# con FLEX, así que el drawdown correcto es $800 y estuvimos midiendo con un
-# 25% de margen de más. Ahora se DERIVA, para que no pueda volver a divergir.
-PODER = 20_000.0        # poder de compra. SIN CONFIRMAR.
+# EL PODER DE COMPRA ES $25.000, verificado contra la tabla de precios: los
+# US$97 son la cuenta Advanced de $25.000 —objetivo $1.500, drawdown $1.000,
+# pérdida diaria $500—. No los $20.000 que asumíamos.
+#
+# Eso deja dos correcciones encadenadas, y la segunda es mía de hoy. `TOPE_DD`
+# decía $1.000, que era CORRECTO, y yo lo "arreglé" a $800 razonando sobre una
+# cuenta de $20.000 que no es la nuestra. Los que estaban mal eran el objetivo
+# ($1.200 en vez de $1.500) y el límite diario ($400 en vez de $500).
+#
+# Moraleja del episodio: derivar de una base equivocada da tres números
+# equivocados en vez de uno. Ahora la base está verificada y todo cuelga de
+# ella, así que un solo dato la corrige entera.
+PODER = 25_000.0        # cuenta Advanced de US$97. Verificado.
 PLAN = "flex"           # flex | max
 
 _PLANES = {
@@ -342,7 +349,10 @@ class Cuenta:
         self.balance = 0.0
         self.pico = 0.0
         self.ultimo_retiro_f = fecha
-        self.buenos = []
+        # NO se reinician los dias buenos. El plan dice "3 separate trading
+        # days within ANY 14-day period": es una condicion sobre la historia de
+        # la cuenta, no un contador que arranca de cero con cada cobro.
+        # Reiniciarlo era una lectura mia, mas estricta que la regla.
         return sacar
 
 
@@ -510,8 +520,8 @@ def main(argv=None) -> int:
         "TOTAL", f"{fond} fond.", bal, ret, sum(c.pasadas for c in cuentas),
         sum(c.quemadas for c in cuentas), peor))
     print()
-    print(f"  Poder de compra gestionado: ${fond * 20000:,.0f} "
-          f"({fond} cuentas fondeadas × $20.000)")
+    print(f"  Poder de compra gestionado: ${fond * PODER:,.0f} "
+          f"({fond} cuentas fondeadas × ${PODER:,.0f})")
     print(f"  En el bolsillo: ${ret:,.0f} retirado − ${gas:,.0f} de "
           f"evaluaciones = ${ret - gas:+,.0f}")
     print()
