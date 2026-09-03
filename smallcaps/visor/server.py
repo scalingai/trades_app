@@ -776,7 +776,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if ruta == "/api/vivo":
             try:
-                riesgo = float((q.get("riesgo") or ["400"])[0])
+                riesgo = float((q.get("riesgo") or ["250"])[0])
                 piso = float((q.get("piso") or ["2"])[0])
             except ValueError:
                 return self._json({"error": "riesgo/piso inválidos"}, 400)

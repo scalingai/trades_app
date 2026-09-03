@@ -23,7 +23,7 @@ diferencia entre una estrategia y una estrategia operable.
 
 Los $36.495 son plata que no se puede cobrar porque la cuenta se liquida antes.
 
-Todo con **$400 de riesgo por papel**, simulado por día de cuenta —con todos los
+Todo con **$250 de riesgo por papel**, simulado por día de cuenta —con todos los
 papeles del día compartiendo la misma cuenta— y con el arnés verificado contra
 el motor a 0,0% de diferencia. Ver §7 para el detalle y para un número que este
 documento daba mal.

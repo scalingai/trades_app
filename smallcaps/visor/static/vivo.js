@@ -49,7 +49,22 @@
      que el timeframe se filtre al motor — y ese es exactamente el tipo de error
      que no avisa. */
   let TF = 1;
-  let RIESGO = 400, PISO = 2;
+  /* $250 Y NO $400, y el cambio es de TAMAÑO, no de estrategia: `riesgo` solo
+     entra en `acciones = riesgo / (precio * stop%)`. Verificado — a $400 y a
+     $250 el motor abre los MISMOS 1.044 tramos, en los mismos minutos, con los
+     mismos stops. Lo unico distinto es cuantas acciones lleva cada uno.
+
+     POR QUE SE BAJO. A $400 el drawdown medido sobre el censo es -$1.283
+     contra un tope de cuenta de $1.000: la cuenta se quema. A $250 es -$802,
+     con 20% de margen. El -$856 que figuraba como "entra" era de otra
+     poblacion (expansion >=100%, 48 sesiones); la que corre en vivo usa
+     EXPANSION_MIN = 0 y opera 172.
+
+     LO QUE CUESTA, dicho completo: el neto baja de $20.228 a $12.055 en la
+     muestra. No es proporcional del todo porque la comision minima de $0.75
+     por orden NO escala — son los mismos $1.566 sobre una ganancia menor, o
+     sea del 7,2% al 11,5%. */
+  let RIESGO = 250, PISO = 2;
   /* NULL = hoy, la sesion en vivo. Cualquier otra cosa es una fecha del censo:
      misma vista, mismo motor, otras barras. */
   let FECHA = null;
@@ -1045,7 +1060,7 @@
   $('riesgo').value = RIESGO;
   $('piso').value = PISO;
   document.addEventListener('change', (ev) => {
-    if (ev.target.id === 'riesgo') { RIESGO = Number(ev.target.value) || 400; tick(); }
+    if (ev.target.id === 'riesgo') { RIESGO = Number(ev.target.value) || 250; tick(); }
     if (ev.target.id === 'piso') { PISO = Number(ev.target.value) || 2; tick(); }
   });
 
