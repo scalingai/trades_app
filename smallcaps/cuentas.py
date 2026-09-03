@@ -89,6 +89,17 @@ DIA_BUENO = 0.005 * PODER       # el 0,5% del poder de compra
 BUENOS_PEDIDOS = _buenos        # cuántos hacen falta (FLEX 3, MAX 0)
 VENTANA_BUENOS = 14             # días calendario en los que tienen que caer
 
+# ¿EL PISO TREPA CON EL PICO, O ES FIJO HASTA EL LOCK? Los términos dicen las
+# dos cosas según cómo se lean. El texto habla de un drawdown que sigue a la
+# cuenta; el EJEMPLO que dan es de piso fijo: "$100.000 inicial, $4.000 de max
+# drawdown (equity mínima $96.000); una vez que la equity llega a $106.000 la
+# equity mínima pasa a $100.000". Si trepara con el pico, a $106.000 el piso
+# sería $102.000, no $96.000.
+#
+# No se puede resolver leyendo. Se deja el interruptor y se miden las dos: la
+# diferencia entre ambas ES la pregunta para soporte.
+DD_TRAILING = True
+
 
 def comision(acc):
     return 2 * max(MIN_ORDEN, acc * POR_ACCION)
@@ -117,12 +128,26 @@ def pnl_de(dia):
         # de Trade The Pool, que son dos órdenes con su mínimo de $0,75.
         b += t["acciones"] * COSTO_ACCION - comision(t["acciones"])
 
-    # LA CURVA INTRADIA, marcada a mercado barra a barra. Es la unica forma de
-    # saber cuanto del tope se gasto: el PnL de cierre esconde el pozo.
-    # Se mide SIN comisiones —son un offset chico y constante— y con la misma
-    # cuenta que usa `puente/vivo.py`, para que la pagina y el vivo coincidan.
+    # LA CURVA INTRADIA, marcada a mercado barra a barra.
+    #
+    # NO ES UN ADORNO NI UN MAXIMO: es la serie completa, y hace falta entera
+    # porque las dos reglas duras del plan se miden ASI, verificado en
+    # tradethepool.com/program-terms:
+    #
+    #   "The account Daily Loss is the current equity (projected balance) at
+    #    each moment minus the balance (realized) at the start of the day"
+    #   "once the account has reached 3 x DLs in equity (i.e. 'projected
+    #    balance' including unrealized profits) the max drawdown will move to
+    #    the initial balance"
+    #
+    # O sea: equity PROYECTADA, con las posiciones abiertas adentro, en cada
+    # momento. Un maximo por dia no alcanza — hace falta saber en que ORDEN
+    # paso, porque el pico que sube el piso puede ser antes o despues del pozo.
+    #
+    # Se mide SIN comisiones: son un offset chico y constante, y meterlas
+    # barra a barra fingiria una precision que no tenemos.
     i0 = min((dia.idx_en(t["h_ent"]) or 0) for t in j["detalle"])
-    pico = dd = 0.0
+    curva = []
     for k in range(i0, len(dia.bars)):
         pk = dia.bars[k][4]
         if not pk:
@@ -136,9 +161,13 @@ def pnl_de(dia):
                 eq += t["pnl"]
             else:
                 eq += t["acciones"] * (t["p_ent"] - pk)
+        curva.append(round(eq, 2))
+    pico = 0.0
+    dd = 0.0
+    for eq in curva:
         pico = max(pico, eq)
         dd = min(dd, eq - pico)
-    return {"pnl": b, "dd": dd, "tramos": len(j["detalle"])}
+    return {"pnl": b, "dd": dd, "tramos": len(j["detalle"]), "curva": curva}
 
 
 class Cuenta:
@@ -175,32 +204,69 @@ class Cuenta:
 
     TOPEAR_DIA = False
 
-    def dia(self, fecha, pnl, ticker=None, dd_dia=0.0, tramos=0):
+    def dia(self, fecha, pnl, ticker=None, dd_dia=0.0, tramos=0, curva=None):
+        """Un día, minuto a minuto y con las reglas duras del plan aplicadas.
+
+        ESTO SE MEDIA AL CIERRE Y ESTABA MAL. `tradethepool.com/program-terms`
+        es explícito: la pérdida diaria es "the current equity (projected
+        balance) AT EACH MOMENT minus the balance at the start of the day", y
+        el drawdown se aplica "instantly based on intraday projected balance".
+        Las dos con las posiciones ABIERTAS adentro.
+
+        La diferencia no es teórica. El 2026-07-21 VIVK cerró en +$2.882 —el
+        mejor día de la muestra— después de haber ido -$1.048 contra un tope de
+        $800. Medido al cierre ese día es una fiesta; medido como lo mide el
+        plan, las tres cuentas estaban liquidadas.
+
+        DOS REGLAS, y hacen cosas distintas:
+
+          · DAILY PAUSE. Si la equity del día toca -`LIM_DIA`, "all open
+            positions and orders are closed and the account is prevented from
+            opening trades until the opening of the next trading day". No es un
+            stop que te deja clavado en -$400: te cierran a mercado en ESE
+            minuto, que es el peor del día por definición.
+
+          · DRAWDOWN. El piso trepa con el pico y, una vez que la equity toca
+            3×DL, "the max drawdown will move to the initial balance". Ahí deja
+            de trepar y queda clavado en breakeven.
+        """
         if self.estado == "quemada":
             return
-        # TOPEAR LA PERDIDA DIARIA ES OPTIMISTA, y por eso viene apagado.
-        #
-        # El limite diario del plan no es un stop que te deja en $-400 clavado:
-        # es un BLOQUEO. Cuando lo tocas te liquidan las posiciones a mercado, y
-        # entre que se cruza el umbral y se ejecuta la salida se pierde mas. Y
-        # `test_caja_diaria.py` midio que forzar ese cierre EMPEORA el drawdown
-        # (de $-3.684 a $-3.788), porque cierra en el peor momento del dia.
-        #
-        # Toparlo aca daria un informe mas lindo y menos cierto.
-        if Cuenta.TOPEAR_DIA:
-            pnl = max(pnl, -LIM_DIA)
-        self.balance += pnl
+        base = self.balance          # balance realizado al abrir el día
+        muerto = pausado = False
+        real = pnl                   # lo que termina contando para el balance
+
+        if curva:
+            for eq in curva:
+                equity = base + eq
+                self.pico = max(self.pico, equity)
+                # El piso: trepa con el pico hasta que la cuenta llega a 3×DL,
+                # y ahí se clava en el balance inicial.
+                if self.pico >= 3 * LIM_DIA:
+                    piso = 0.0
+                elif DD_TRAILING:
+                    piso = self.pico - TOPE_DD
+                else:
+                    piso = -TOPE_DD
+                if equity <= piso:
+                    muerto = True
+                    real = eq
+                    break
+                if eq <= -LIM_DIA:
+                    # Daily Pause: se cierra TODO a mercado en este minuto.
+                    pausado = True
+                    real = eq
+                    break
+        self.balance = base + real
         self.pico = max(self.pico, self.balance)
         self.peor_dd = min(self.peor_dd, self.balance - self.pico)
-        self.peor_dia = min(self.peor_dia, pnl)
+        self.peor_dia = min(self.peor_dia, real)
         if self.estado == "fondeada":
             self.dias_fondeada += 1
-            if pnl >= DIA_BUENO:
+            if real >= DIA_BUENO:
                 self.buenos.append(fecha)
 
-        if self.balance - self.pico <= -TOPE_DD:
-            # Drawdown perforado: la cuenta muere. Se compra otra y se arranca
-            # de cero — incluido el objetivo, aunque estuviera por pasarla.
+        if muerto:
             self.quemadas += 1
             self.estado = "evaluacion"
             self.balance = self.pico = 0.0
@@ -218,10 +284,11 @@ class Cuenta:
         # ticker la pagina no puede bajar de la cuenta al papel, que es
         # justamente lo que hay que poder auditar.
         self.historia.append({
-            "f": fecha, "tk": ticker, "pnl": round(pnl, 2),
+            "f": fecha, "tk": ticker, "pnl": round(real, 2),
             "dd": round(dd_dia, 2), "tramos": tramos,
             "estado": self.estado, "balance": round(self.balance, 2),
-            "retirado": round(self.retirado, 2)})
+            "retirado": round(self.retirado, 2),
+            "pausado": pausado, "muerto": muerto})
 
     def puede_retirar(self, fecha):
         """Las tres condiciones del plan, verificadas en tradethepool.com.
@@ -344,7 +411,8 @@ def simular(*, n_cuentas=3, desde="2026-01-01", riesgo=None,
         # se superponen — es lo que pasa de verdad los dias de un solo gapper.
         for i, c in enumerate(cuentas):
             tk, r = pnls[i % len(pnls)]
-            c.dia(f, r["pnl"], ticker=tk, dd_dia=r["dd"], tramos=r["tramos"])
+            c.dia(f, r["pnl"], ticker=tk, dd_dia=r["dd"],
+                  tramos=r["tramos"], curva=r.get("curva"))
             c.retirar(f)
 
     return {
@@ -415,7 +483,8 @@ def main(argv=None) -> int:
     print("  " + "-" * 50)
     for etq, desde_f in (("hoy", hoy), ("esta semana", semana), ("este mes", mes),
                          ("desde enero", args.desde)):
-        dd = sorted({fe for c in cuentas for fe, _, _ in c.historia if fe >= desde_f})
+        dd = sorted({h["f"] for c in cuentas for h in c.historia
+                     if h["f"] >= desde_f})
         print("  {:<10} ${:>11,.0f} {:>12} {:>12}".format(
             etq, suma(desde_f), len(dd), args.cuentas))
 
@@ -446,11 +515,16 @@ def main(argv=None) -> int:
     print(f"  En el bolsillo: ${ret:,.0f} retirado − ${gas:,.0f} de "
           f"evaluaciones = ${ret - gas:+,.0f}")
     print()
-    dias_pasados = sum(1 for c in cuentas for _, p, _ in c.historia
-                       if p < -LIM_DIA)
+    # AHORA LA PAUSA DIARIA ESTA SIMULADA, no contada despues. `dia()` cierra
+    # todo en el minuto en que la equity toca el limite, asi que estos son los
+    # dias que el plan efectivamente corto.
+    pausados = sum(1 for c in cuentas for h in c.historia if h.get("pausado"))
+    muertos = sum(1 for c in cuentas for h in c.historia if h.get("muerto"))
+    if pausados or muertos:
+        print(f"  {pausados} día(s)-cuenta cortados por la pausa diaria de "
+              f"${LIM_DIA:.0f} · {muertos} liquidación(es) por drawdown.")
+    dias_pasados = 0
     if dias_pasados:
-        print(f"  ⚠️ {dias_pasados} día(s)-cuenta perdieron más que el límite "
-              f"diario de ${LIM_DIA:.0f}.")
         print("  Cada uno bloquea la operativa de ese día. No liquidan la")
         print("  cuenta —eso lo hace el drawdown— pero el plan los mira.")
         print()
