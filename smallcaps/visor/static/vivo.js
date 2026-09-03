@@ -32,7 +32,7 @@
       + String(Math.round((h % 1) * 60)).padStart(2, '0'));
   const signo = (v) => (v >= 0 ? '+' : '');
 
-  const charts = new Map();     // ticker -> {chart, series..., primera}
+  const charts = new Map();     // ticker -> {chart, series..., datos, tocado}
   let modal = null;             // el chart grande, uno solo y reusado
   let ultimo = null;            // último payload, para repintar el popup
   let abierto = null;           // ticker que está en el popup
@@ -221,15 +221,47 @@
       priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
     });
     c.pos = [];
-    c.primera = true;
     c.lineas = [];
+    c.datos = [];
+    c.tocado = false;
+
+    /* EL ANCHO NO ESTA LISTO CUANDO SE PINTA, Y ESE ERA TODO EL PROBLEMA.
+       La tarjeta se acaba de crear, el navegador todavia no resolvio la grilla
+       de dos columnas, y el chart se mide a 192px. Con ese ancho la libreria
+       RECORTA EN SILENCIO el rango que se le pide: se pedia 09:00-11:55 y
+       quedaba 11:01-11:55 — menos de una hora de las cinco que hay. Eso es lo
+       que se veia "sumeado", y por que aparecia y desaparecia segun cuando
+       llegaba el refresco.
+
+       El parche anterior era un `requestAnimationFrame` extra, que acierta o
+       no segun cuando el navegador termine el layout. Un ResizeObserver no
+       adivina: reencuadra cuando el ancho de verdad aparece, y de paso cubre
+       colapsar la barra lateral y agrandar la ventana. */
+    if (window.ResizeObserver) {
+      c.ro = new ResizeObserver(() => {
+        if (c.ultimo && !c.tocado) {
+          try { encuadrar(c, c.ultimo.p, c.ultimo.off); } catch (e) {}
+        }
+      });
+      c.ro.observe(el);
+    }
+
+    /* Si movés el gráfico a mano, deja de reencuadrarse solo. No hay nada más
+       molesto que una pantalla que cada veinte segundos te devuelve de donde
+       estabas mirando. Vuelve a acomodarse al cambiar de temporalidad. */
+    ['wheel', 'mousedown', 'touchstart'].forEach((ev) =>
+      el.addEventListener(ev, () => { c.tocado = true; }, { passive: true }));
     return c;
   }
 
   function pintarChart(c, p) {
     const off = VisorGrafico.desfase(p);
     const map = (a) => (a || []).map((v) => Object.assign({}, v, { time: v.time + off }));
-    c.velas.setData(agregar(map(p.velas), TF));
+    /* Los datos ya agrupados se guardan: el encuadre razona en INDICES de vela
+       y tiene que contar exactamente las que estan en la serie, no las que
+       vinieron del server (en 5m son la quinta parte). */
+    c.datos = agregar(map(p.velas), TF);
+    c.velas.setData(c.datos);
     c.vol.setData(agregarVol(map(p.volumen), TF));
     c.vwap.setData(agregarLinea(map(p.vwap), TF));
     c.velas.setMarkers(marcas(p, off));
@@ -241,37 +273,43 @@
         price: p.niveles.pm_high, color: '#5b8def', lineWidth: 1,
         lineStyle: 3, axisLabelVisible: true, title: 'máx pm' });
     }
-    if (c.primera) {
-      encuadrar(c, p, off);
-      /* Y otra vez en el cuadro siguiente. El chart mide su contenedor al
-         crearse, y en ese momento la tarjeta todavia no termino de asentarse:
-         el encabezado y la tabla cambian la altura, y el ancho de la grilla se
-         resuelve despues. Sin este segundo pase las velas quedan apretadas
-         contra el borde derecho — se veia, y se arreglaba sola recien al
-         colapsar la barra lateral, que disparaba un resize. */
-      requestAnimationFrame(() => { try { encuadrar(c, p, off); } catch (e) {} });
-      // Mientras no haya abierto la rueda el encuadre se rehace en cada
-      // refresco: en premarket entran velas nuevas todo el tiempo.
-      c.primera = !(p.sesion && p.sesion.apertura);
-    }
+    c.ultimo = { p: p, off: off };
+    if (!c.tocado) encuadrar(c, p, off);
   }
 
+  /* DESDE LA PRIMERA VELA, y en indices de vela y no en horas.
+     `setVisibleRange` trabaja con tiempos y la libreria lo recorta contra el
+     espaciado de barra que tenga en ese momento — por eso fallaba sin avisar.
+     `setVisibleLogicalRange` trabaja con indices: es la misma cuenta que usa
+     `fitContent` por dentro y no depende del ancho que el chart crea tener. */
   function encuadrar(c, p, off) {
+    const total = (c.datos || []).length;
+    if (!total) return;
     const ap = p.sesion && p.sesion.apertura;
-    const velas = p.velas || [];
-    c.chart.timeScale().applyOptions({ rightOffset: 4 });
-    if (!ap || !velas.length) {
-      // EN PREMARKET TODAVIA NO HAY APERTURA RTH, y el encuadre se calcula
-      // desde ella. Sin esta rama el rango pedido no tiene sentido y la
-      // libreria lo rechaza.
-      c.chart.timeScale().fitContent();
-      return;
+
+    let desde = 0;
+    if (ap) {
+      /* Cuantas velas quedan ANTES de la apertura. Todas tienen volumen —lo
+         verifique contra el feed— asi que no hay tramo vacio que saltear: el
+         pre-market son velas de verdad, chiquitas. */
+      const i = c.datos.findIndex((v) => v.time >= ap + off);
+      const pre = i < 0 ? total : i;
+      const rth = total - pre;
+      /* LA UNICA EXCEPCION AL "desde la primera vela". Hay papeles que operan
+         mas en pre-market que en la sesion —hoy RDAC tiene 94 velas de 123
+         antes de las 09:30, tres cuartas partes del grafico— y ahi la sesion,
+         que es donde se opera, queda apretada contra el borde derecho.
+         Cuando el pre-market pesa mas que la sesion, se arranca mas tarde;
+         nunca mostrando menos de hora y media. */
+      if (pre > rth) desde = Math.min(pre - rth, Math.max(0, total - 90));
     }
-    const base = ap + off;
-    const fin = alBucket(velas[velas.length - 1].time + off);
+    /* Media vela de aire a la izquierda y tres a la derecha, para que la ultima
+       no quede pegada al eje de precios. */
     try {
-      c.chart.timeScale().setVisibleRange({ from: base - 1800, to: fin });
-    } catch (err) { c.chart.timeScale().fitContent(); }
+      c.chart.timeScale().setVisibleLogicalRange({ from: desde - 0.5, to: total + 2.5 });
+    } catch (err) {
+      try { c.chart.timeScale().fitContent(); } catch (e2) {}
+    }
   }
 
   /* ---------------------------------------------------------------- tarjeta */
@@ -557,7 +595,7 @@
     abierto = tk;
     $('modal').classList.add('abierto');
     if (!modal) modal = crearChart($('gmodal'));
-    else modal.primera = true;          // reencuadrar al abrir otro papel
+    else modal.tocado = false;          // reencuadrar al abrir otro papel
     pintarModal(p);
   }
 
@@ -676,9 +714,11 @@
       TF = Number(t.dataset.tf) || 1;
       try { localStorage.setItem('visor.vivo.tf', String(TF)); } catch (e) {}
       /* Reencuadrar todos: en 5m hay una quinta parte de las velas y el rango
-         visible que quedo de 1m mostraria una franja vacia. */
-      charts.forEach((c) => { c.primera = true; });
-      if (modal) modal.primera = true;
+         que quedo de 1m mostraria una franja vacia. Cambiar de temporalidad
+         tambien perdona el "lo movi a mano": es un gesto de volver a mirar el
+         conjunto, no de conservar el zoom que tenias. */
+      charts.forEach((c) => { c.tocado = false; });
+      if (modal) modal.tocado = false;
       tick();
     }
   });
