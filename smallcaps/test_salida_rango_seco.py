@@ -290,33 +290,37 @@ def bloque(dias, rango_de, umbrales, titulo):
               f"dd ${pl_dd:,.0f}")
 
 
-dias = universo()
-pob = [d for d in poblacion(dias, min_ratio_vol=0.0, min_expansion=0.0,
-                            min_dolar=0.0, max_float=47e6)
-       if _cl(d, hasta=10.0) == "reclaim"]
-pob.sort(key=lambda d: d.d)
-rango_de = {d.d + d.ticker: rangos(d) for d in pob}
+# El analisis corre SOLO como script. Sin esto, `from test_salida_rango_seco
+# import rangos` en otro test dispara las 300 simulaciones de aca de
+# nuevo — que es lo que paso, y por eso el test siguiente tardo el doble.
+if __name__ == "__main__":
+    dias = universo()
+    pob = [d for d in poblacion(dias, min_ratio_vol=0.0, min_expansion=0.0,
+                                min_dolar=0.0, max_float=47e6)
+           if _cl(d, hasta=10.0) == "reclaim"]
+    pob.sort(key=lambda d: d.d)
+    rango_de = {d.d + d.ticker: rangos(d) for d in pob}
 
-# La grilla sale de la DISTRIBUCION del rasgo, no de probar numeros lindos.
-todos = [v for rg in rango_de.values() for v in rg if v is not None]
-todos.sort()
-qs = [0.15, 0.25, 0.35, 0.50]
-umbrales = [round(todos[int(q * len(todos))], 2) for q in qs]
+    # La grilla sale de la DISTRIBUCION del rasgo, no de probar numeros lindos.
+    todos = [v for rg in rango_de.values() for v in rg if v is not None]
+    todos.sort()
+    qs = [0.15, 0.25, 0.35, 0.50]
+    umbrales = [round(todos[int(q * len(todos))], 2) for q in qs]
 
-print(f"\n  SALIR CUANDO EL MOVIMIENTO SE MUERE")
-print(f"  {len(pob)} días reclaim · rango_15_pct medido en "
-      f"{len(todos):,} minutos con posición")
-print(f"  umbrales = percentiles {[int(q * 100) for q in qs]} del rasgo: "
-      f"{umbrales}")
+    print(f"\n  SALIR CUANDO EL MOVIMIENTO SE MUERE")
+    print(f"  {len(pob)} días reclaim · rango_15_pct medido en "
+          f"{len(todos):,} minutos con posición")
+    print(f"  umbrales = percentiles {[int(q * 100) for q in qs]} del rasgo: "
+          f"{umbrales}")
 
-bloque(pob, rango_de, umbrales, "TODA LA MUESTRA")
-mitad = len(pob) // 2
-bloque(pob[:mitad], rango_de, umbrales,
-       f"PRIMERA MITAD ({pob[0].d} a {pob[mitad - 1].d})")
-bloque(pob[mitad:], rango_de, umbrales,
-       f"SEGUNDA MITAD ({pob[mitad].d} a {pob[-1].d})")
+    bloque(pob, rango_de, umbrales, "TODA LA MUESTRA")
+    mitad = len(pob) // 2
+    bloque(pob[:mitad], rango_de, umbrales,
+           f"PRIMERA MITAD ({pob[0].d} a {pob[mitad - 1].d})")
+    bloque(pob[mitad:], rango_de, umbrales,
+           f"SEGUNDA MITAD ({pob[mitad].d} a {pob[-1].d})")
 
-print("\n  COMO SE LEE")
-print("  Para que esto sirva tiene que pasar TRES cosas a la vez: ganarle al")
-print("  corte de las 11:00, ganarle al placebo de la misma frecuencia, y")
-print("  hacerlo en las DOS mitades. Con dos de tres, no alcanza.")
+    print("\n  COMO SE LEE")
+    print("  Para que esto sirva tiene que pasar TRES cosas a la vez: ganarle al")
+    print("  corte de las 11:00, ganarle al placebo de la misma frecuencia, y")
+    print("  hacerlo en las DOS mitades. Con dos de tres, no alcanza.")
