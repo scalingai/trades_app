@@ -91,8 +91,12 @@
 
   .alerta{padding:5px var(--e4);background:rgba(239,83,80,.12);
           color:var(--rojo);font-size:var(--t0)}
-  .descarte{padding:var(--e4);color:var(--texto-3);font-size:var(--t1)}
-  .descarte li{margin:2px 0;list-style:none}
+  /* El motivo del descarte es una BANDA, no un reemplazo del grafico: el
+     papel se sigue viendo aunque hoy no se opere. */
+  .descarte{padding:5px var(--e4);color:var(--texto-3);font-size:var(--t0);
+            background:var(--fondo-3);display:flex;gap:var(--e4);flex-wrap:wrap}
+  .papel.fuera{opacity:.72}
+  .papel.fuera:hover{opacity:1}
 
   .g{height:270px}
   .papel details{border-top:1px solid var(--borde)}

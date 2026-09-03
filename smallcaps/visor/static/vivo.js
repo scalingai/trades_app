@@ -188,18 +188,48 @@
          y el premarket de un gapper es tan alto que aplasta toda la rueda
          contra el piso del gráfico. En vivo el día todavía no terminó, así que
          el borde derecho es el último minuto que llegó. */
-      const base = ((p.sesion && p.sesion.apertura) || 0) + off;
+      const ap = p.sesion && p.sesion.apertura;
       const velas = p.velas || [];
-      const fin = velas.length ? velas[velas.length - 1].time + off : base;
-      try {
-        c.chart.timeScale().applyOptions({ rightOffset: 6 });
-        c.chart.timeScale().setVisibleRange({ from: base - 1800, to: fin });
-      } catch (err) { c.chart.timeScale().fitContent(); }
-      c.primera = false;
+      c.chart.timeScale().applyOptions({ rightOffset: 6 });
+      if (!ap || !velas.length) {
+        // EN PREMARKET TODAVIA NO HAY APERTURA RTH, y el encuadre se calcula
+        // desde ella. Sin esta rama el rango pedido no tiene sentido, la
+        // libreria lo rechaza y el grafico queda como salga.
+        c.chart.timeScale().fitContent();
+      } else {
+        const base = ap + off;
+        const fin = velas[velas.length - 1].time + off;
+        try {
+          c.chart.timeScale().setVisibleRange({ from: base - 1800, to: fin });
+        } catch (err) { c.chart.timeScale().fitContent(); }
+      }
+      // Mientras no haya abierto la rueda el encuadre se rehace en cada
+      // refresco: en premarket entran velas nuevas todo el tiempo y un
+      // encuadre fijo dejaria las ultimas afuera.
+      c.primera = !(p.sesion && p.sesion.apertura);
     }
   }
 
   /* ---------------------------------------------------------------- tarjeta */
+
+  /* Lo que importa ANTES de la apertura: contra que se mide la expansion y
+     cuanto lleva. Sin esto el premarket es un grafico sin contexto. */
+  function premarket(p) {
+    const e = p.estado || {};
+    const nv = p.niveles || {};
+    if (e.tramos && e.tramos.length) return '';
+    const cif = (v, r) =>
+      `<div class="cif"><div class="n">${v}</div><div class="r">${r}</div></div>`;
+    const gap = (nv.rth_open && nv.prev_close)
+      ? 100 * (nv.rth_open - nv.prev_close) / nv.prev_close : null;
+    return '<div class="franja">'
+      + cif('$' + n(nv.prev_close), 'cierre previo')
+      + cif('$' + n(nv.pm_high), 'máx premarket')
+      + cif(e.expansion != null ? n(e.expansion, 0) + '%' : '—', 'expansión')
+      + (nv.rth_open ? cif('$' + n(nv.rth_open), 'abrió') : '')
+      + (gap != null ? cif(n(gap, 0) + '%', 'gap') : '')
+      + '</div>';
+  }
 
   function franja(e) {
     const cer = e.pnl_cerrado ?? 0, ab = e.pnl_abierto ?? 0;
@@ -254,21 +284,29 @@
     const e = p.estado || {};
     const id = 'g-' + p.ticker;
     let caja = document.getElementById('p-' + p.ticker);
-    const descartado = e.descartes && e.descartes.length;
-    const cuerpo = descartado
-      ? '<div class="descarte"><ul>'
-        + e.descartes.map((d) => `<li>✗ ${d}</li>`).join('') + '</ul></div>'
-      : franja(e)
-        + (e.tope ? '<div class="alerta">En el límite diario — no abre más tramos</div>' : '')
-        + `<div class="g" id="${id}"></div>`
-        + tabla(p.trades_estrategia || []);
+    /* EL GRAFICO SE DIBUJA SIEMPRE, califique o no.
+       La primera version reemplazaba el cuerpo entero por el motivo del
+       descarte, y como en premarket NINGUN papel califica todavia, la pantalla
+       quedaba en puro texto justo en el rato en que uno quiere mirar el papel.
+       El motivo ahora es una banda arriba del grafico, no en lugar de el. */
+    const descartes = (e.descartes || []).length
+      ? '<div class="descarte">'
+        + e.descartes.map((d) => `<span>✗ ${d}</span>`).join('') + '</div>'
+      : '';
+    const cuerpo = descartes
+      + premarket(p)
+      + (e.tramos && e.tramos.length ? franja(e) : '')
+      + (e.tope ? '<div class="alerta">En el límite diario — no abre más tramos</div>' : '')
+      + `<div class="g" id="${id}"></div>`
+      + tabla(p.trades_estrategia || []);
 
     if (!caja) {
       caja = document.createElement('section');
       caja.id = 'p-' + p.ticker;
       $('cuerpo').querySelector('.grilla').appendChild(caja);
     }
-    caja.className = 'papel' + ((p.trades_estrategia || []).length ? ' opera' : '');
+    caja.className = 'papel' + ((p.trades_estrategia || []).length ? ' opera' : '')
+      + ((e.descartes || []).length ? ' fuera' : '');
 
     /* El nodo del gráfico se PRESERVA entre refrescos: destruirlo perdería el
        zoom y el scroll, justo mientras se está mirando para mandar una orden.
