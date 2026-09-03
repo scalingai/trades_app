@@ -217,6 +217,20 @@
              line-height:1.65}
   #ajustes p b{color:var(--texto-2);font-weight:500}
   #ajustes .ctrl input{background:var(--fondo)}
+  /* El segmentado del modo: mismo riel que el de temporalidad. */
+  .seg{margin-left:auto;display:flex;gap:2px;padding:2px;background:var(--fondo);
+       border-radius:8px}
+  .seg label{position:relative;cursor:pointer}
+  .seg input{position:absolute;opacity:0;pointer-events:none}
+  .seg span{display:block;padding:3px 10px;border-radius:6px;font-size:var(--t1);
+            color:var(--texto-3);line-height:1.4;
+            transition:background .14s ease,color .14s ease}
+  .seg label:hover span{color:var(--texto-2)}
+  .seg input:checked + span{background:var(--fondo-4);color:var(--texto)}
+  /* La linea del modo en el bloque de sesion: es regla, no estado. */
+  .bloque .receta{margin-top:10px;padding-top:10px;border-top:1px solid var(--linea);
+                  color:var(--texto-3);font-size:var(--t1);line-height:1.75}
+  .bloque .receta b{color:var(--texto-2);font-weight:500}
   .ctrl{display:flex;align-items:center;gap:8px;padding:4px 0;
         font-size:var(--t2);color:var(--texto-2)}
   .ctrl .u{color:var(--texto-3);font-family:var(--fuente-num)}
@@ -485,8 +499,20 @@
     <input id="riesgo" type="number" step="50" min="50"></div>
   <div class="ctrl">precio mínimo<span class="u">$</span>
     <input id="piso" type="number" step="0.5" min="0"></div>
+  <!-- EL MODO. Evaluacion y fondeada tienen reglas distintas del programa y
+       por eso configuraciones distintas del sistema: en evaluacion hay tope
+       por simbolo (la consistencia) y se operan todos los papeles; en
+       fondeada no hay tope y se opera un papel por dia. Las dos sin el corte
+       de las 11. Ver MODOS en puente/vivo.py. -->
+  <div class="ctrl">modo
+    <span class="seg" role="radiogroup" aria-label="Modo de la cuenta">
+      <label><input type="radio" name="modo" value="evaluacion"><span>evaluación</span></label>
+      <label><input type="radio" name="modo" value="fondeada"><span>fondeada</span></label>
+    </span></div>
   <p>Cuánta plata estás dispuesto a perder en <b>un papel</b> en el día — de ahí
-  sale el tamaño de cada tramo — y el precio por debajo del cual no se opera.</p>
+  sale el tamaño de cada tramo — y el precio por debajo del cual no se opera.
+  El <b>modo</b> sigue la fase de la cuenta: en evaluación se cierra cada símbolo
+  al tocar el tope de consistencia; fondeada no tiene tope.</p>
 </div>
 
 <div id="modal">

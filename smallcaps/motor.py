@@ -250,7 +250,8 @@ def _trade(dia, i, *, lado, stop_pct, riesgo, objetivo_pct=None, salida_h=None,
 def jornada(dia, señal, *, lado, stop_pct, riesgo, max_trades=10,
             objetivo_pct=None, salida_h=None, trail_ancho=None,
             trail_devuelve=None, trail_arma=0.0,
-            corte_h=None, corte_umbral=5.0, corte_reentra=False):
+            corte_h=None, corte_umbral=5.0, corte_reentra=False,
+            tope_usd=None):
     """Una sesión: varios trades hasta agotar el presupuesto de riesgo.
 
     **La regla de presupuesto miraba el futuro, y era el error más caro de los
@@ -373,6 +374,57 @@ def jornada(dia, señal, *, lado, stop_pct, riesgo, max_trades=10,
         # menos. Esa es la diferencia entre reentrar y empezar el dia de nuevo.
         if not cortado or corte_reentra:
             abrir([i for i in idx if hora(dia.bars[i]) >= corte_h])
+
+    # EL TOPE POR SIMBOLO — la regla de consistencia de la evaluacion.
+    #
+    # Trade The Pool exige que la mejor POSICION —el total en un simbolo, con
+    # los tramos sumados, y lo dicen explicito: "whether through a single
+    # oversized order or multiple smaller orders"— no ponga mas del 50% del
+    # objetivo de la evaluacion. Nuestra estrategia vive de la cola derecha y
+    # el mejor papel-dia ronda el 115% del objetivo, asi que sin esto la
+    # evaluacion no se pasa limpia casi nunca (19-37% medido).
+    #
+    # La unica forma de cumplir es CERRAR el simbolo cuando su ganancia del dia
+    # toca el tope, y no volver a entrar. Cuesta la cola derecha — pero en
+    # evaluacion la cola no sirve, porque rompe la regla. Medido en
+    # `evaluacion.py` con arranques rodantes: con tope al 70% del limite, todos
+    # los papeles y sin corte, $150-200 por papel pasa limpio en ~100 dias
+    # esperados. Solo aplica en modo evaluacion; fondeada no tiene consistencia.
+    #
+    # Se mide sobre la equity a mercado del papel —cerrados a valor final,
+    # vivos contra el close de la barra—, igual que el presupuesto y el
+    # drawdown. Va DESPUES del corte a proposito: si el tope llega antes de las
+    # 11, el dia termina ahi y lo que el corte hubiera hecho no existe.
+    if tope_usd is not None and detalle:
+        signo = -1.0 if lado == "short" else 1.0
+        i0 = min((dia.idx_en(t["h_ent"]) or 0) for t in detalle)
+        for k in range(i0, len(dia.bars)):
+            b = dia.bars[k]
+            h = hora(b)
+            if h > CIERRE_RTH:
+                break
+            px = b[4]
+            if not px:
+                continue
+            eq = 0.0
+            for t in detalle:
+                if t["h_ent"] > h:
+                    continue
+                if t["h_sal"] is not None and t["h_sal"] <= h:
+                    eq += signo * t["acciones"] * (t["p_sal"] - t["p_ent"])
+                else:
+                    eq += signo * t["acciones"] * (px - t["p_ent"])
+            if eq >= tope_usd:
+                for t in detalle:
+                    if t["h_ent"] <= h and (t["h_sal"] is None or t["h_sal"] > h):
+                        t["h_sal"], t["p_sal"], t["motivo"] = h, px, "tope"
+                        t["pnl"] = (signo * t["acciones"] * (px - t["p_ent"])
+                                    - t["acciones"] * COSTO_ACCION)
+                # Los tramos que entraban despues no existen: el dia se cerro.
+                detalle = [t for t in detalle if t["h_ent"] <= h]
+                n = len(detalle)
+                pnl = sum(t["pnl"] for t in detalle)
+                break
 
     if not n:
         return None

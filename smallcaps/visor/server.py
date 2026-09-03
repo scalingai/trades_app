@@ -338,7 +338,7 @@ def _portafolio(n: int, desde: str, riesgo: float) -> dict:
     return cuentas.simular(n_cuentas=n, desde=desde, riesgo=riesgo)
 
 
-def _config_vivo(_vivo, ahora=None) -> dict:
+def _config_vivo(_vivo, ahora=None, modo=None) -> dict:
     """Los parametros de la operativa. Los mismos para hoy y para un dia viejo.
 
     `ahora` en None significa AHORA de verdad — la hora de Nueva York, no la de
@@ -349,14 +349,21 @@ def _config_vivo(_vivo, ahora=None) -> dict:
     if ahora is None:
         t = datetime.now(_vivo.NY)
         ahora = t.hour + t.minute / 60.0
+    modo = modo or _vivo.MODO_DEFECTO
+    m = _vivo.MODOS[modo]
     return {"stop": _vivo.STOP_PCT, "desde": _vivo.DESDE,
             "expansion": _vivo.EXPANSION_MIN, "apertura": _vivo.APERTURA,
             "mfe50": _vivo.MFE_P50, "mfe75": _vivo.MFE_P75,
-            "corte": _vivo.CORTE_H, "corte_umbral": _vivo.CORTE_UMBRAL,
+            # Lo que depende del MODO: el corte y el tope por simbolo. La
+            # pantalla los lee de aca para dibujar los hitos y la linea del
+            # tope, asi que no puede haber una segunda copia en el front.
+            "modo": modo, "corte": m["corte_h"], "corte_umbral": _vivo.CORTE_UMBRAL,
+            "tope": m["tope_usd"], "papeles": m["papeles"],
+            "riesgo_modo": m["riesgo"],
             "ahora": ahora, "cierre": CIERRE_RTH, "rancio": _vivo.RANCIO_MIN}
 
 
-def payload_vivo(riesgo: float, piso: float) -> dict:
+def payload_vivo(riesgo: float, piso: float, modo: str | None = None) -> dict:
     """La sesión de HOY, armada desde el feed que escribe la plataforma.
 
     Devuelve por papel exactamente la misma forma que `payload_dia` —velas,
@@ -373,7 +380,7 @@ def payload_vivo(riesgo: float, piso: float) -> dict:
 
     salida = {"riesgo": riesgo, "piso": piso, "feed": str(_vivo.FEED),
               "existe": _vivo.FEED.exists(), "papeles": [],
-              "config": _config_vivo(_vivo)}
+              "config": _config_vivo(_vivo, modo=modo)}
     if not salida["existe"]:
         return salida
 
@@ -401,7 +408,7 @@ def payload_vivo(riesgo: float, piso: float) -> dict:
                  "expansion": None, "apertura": None, "descartes": [malo],
                  "tramos": []}
         else:
-            r = _vivo.evaluar(dia, riesgo, piso)
+            r = _vivo.evaluar(dia, riesgo, piso, modo)
 
         salida["papeles"].append(_papel_vivo(tk, f, dia, r, _vivo))
         _rs.append(r)
@@ -478,7 +485,8 @@ def fechas_disponibles() -> list[str]:
     return sorted({r["d"] for r in _indice if r.get("ok_censo")}, reverse=True)
 
 
-def payload_fecha(fecha: str, riesgo: float, piso: float) -> dict:
+def payload_fecha(fecha: str, riesgo: float, piso: float,
+                  modo: str | None = None) -> dict:
     """LA MISMA VISTA, PARA UN DIA QUE YA PASO.
 
     Cambia UNA sola cosa respecto de `payload_vivo`: de donde salen las barras.
@@ -502,7 +510,7 @@ def payload_fecha(fecha: str, riesgo: float, piso: float) -> dict:
 
     salida = {"riesgo": riesgo, "piso": piso, "fecha": fecha, "pasado": True,
               "existe": True, "papeles": [],
-              "config": _config_vivo(_vivo, ahora=CIERRE_RTH)}
+              "config": _config_vivo(_vivo, ahora=CIERRE_RTH, modo=modo)}
     if not _indice_listo.is_set():
         salida["cargando"] = True
         return salida
@@ -515,7 +523,7 @@ def payload_fecha(fecha: str, riesgo: float, piso: float) -> dict:
     _rs = []
     for dia in cargar(solo={(t, fecha) for t in tickers}):
         try:
-            r = _vivo.evaluar(dia, riesgo, piso)
+            r = _vivo.evaluar(dia, riesgo, piso, modo)
         except Exception:
             continue
         if not r:
@@ -817,10 +825,18 @@ class Handler(BaseHTTPRequestHandler):
             d = (q.get("d") or [""])[0]
             if d and not _RE_FECHA.match(d):
                 return self._json({"error": "fecha inválida"}, 400)
+            # El modo viene del cliente y se valida contra la lista del motor:
+            # un modo inventado no puede caer en silencio al default.
+            modo = (q.get("modo") or [""])[0]
+            sys.path.insert(0, str(AQUI.parent / "puente"))
+            import vivo as _vv
+            if modo and modo not in _vv.MODOS:
+                return self._json({"error": "modo inválido"}, 400)
+            modo = modo or _vv.MODO_DEFECTO
             try:
                 if d and d != date.today().isoformat():
-                    return self._json(payload_fecha(d, riesgo, piso))
-                return self._json(payload_vivo(riesgo, piso))
+                    return self._json(payload_fecha(d, riesgo, piso, modo))
+                return self._json(payload_vivo(riesgo, piso, modo))
             except Exception as e:
                 return self._json({"error": str(e)}, 500)
 

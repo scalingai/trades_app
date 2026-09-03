@@ -64,7 +64,13 @@
      muestra. No es proporcional del todo porque la comision minima de $0.75
      por orden NO escala — son los mismos $1.566 sobre una ganancia menor, o
      sea del 7,2% al 11,5%. */
-  let RIESGO = 250, PISO = 2;
+  let RIESGO = 150, PISO = 2;
+  /* EL MODO: evaluacion o fondeada. Las dos fases tienen reglas distintas y
+     por eso configuraciones distintas (ver MODOS en puente/vivo.py). Se manda
+     al servidor en cada pedido y se recuerda: cambiar de fase es una decision
+     que se toma una vez cuando se pasa la evaluacion, no cada mañana. */
+  let MODO = 'evaluacion';
+  try { MODO = localStorage.getItem('visor.vivo.modo') || MODO; } catch (e) {}
   /* NULL = hoy, la sesion en vivo. Cualquier otra cosa es una fecha del censo:
      misma vista, mismo motor, otras barras. */
   let FECHA = null;
@@ -135,6 +141,10 @@
     poner(e.stop_prom, '#ef5350', `stop $${n(e.stop_prom)}`, 2);
     poner(e.proy_50, '#26a69a', `p50 $${n(e.proy_50)}`, 2);
     poner(e.proy_75, '#1c6f68', `p75 $${n(e.proy_75)}`, 3);
+    /* El tope de la evaluacion: hasta donde tiene que caer para que la ganancia
+       del dia toque el limite de consistencia. Ambar porque es una regla del
+       programa, no del mercado. Solo existe en modo evaluacion con posicion. */
+    poner(e.tope_precio, '#d4a11e', `tope $${n(e.tope_precio)}`, 2);
   }
 
   /* La composición: el promedio de entrada minuto a minuto, en escalones.
@@ -466,6 +476,19 @@
   /* LO QUE FALTA DEL DIA: las dos cosas que el sistema HACE solo. A las 11
      corta lo que no está ganando, a las 16 cierra todo. La palabra "pasó" no
      decía nada — ahora hay un tilde y, donde tiene sentido, cuántos cortó. */
+  /* QUE MODO ESTA PUESTO Y QUE IMPLICA, en una linea. Es la regla del dia que
+     el operador tiene que ejecutar a mano —en evaluacion, cerrar cada simbolo
+     al tocar el tope— asi que va donde se mira, no escondida en el popover. */
+  function modoLinea(c) {
+    if (c.modo === 'evaluacion') {
+      return '<div class="receta">modo <b>evaluación</b> · cerrá cada símbolo al'
+        + ` llegar a <b>$${n(c.tope, 0)}</b> de ganancia en el día`
+        + ' · sin corte de las 11 · todos los papeles</div>';
+    }
+    return '<div class="receta">modo <b>fondeada</b> · un papel por día'
+      + ' · sin corte · sostiene al cierre</div>';
+  }
+
   function pendientes(ps, c) {
     if (c.ahora == null) return '';
     const cortados = ps.reduce((a, p) => a + (p.trades_estrategia || [])
@@ -474,7 +497,7 @@
       [c.corte, `corta lo que no gane ${c.corte_umbral}%`,
        cortados ? `${cortados} cortado${cortados === 1 ? '' : 's'}` : 'ninguno'],
       [c.cierre, 'cierra todo', null],
-    ];
+    ].filter(([h]) => h != null);   // en evaluacion no hay corte: no hay fila
     return hitos.map(([h, que, hecho]) => {
       const falta = (h - c.ahora) * 60;
       const paso = falta < 0;
@@ -646,7 +669,7 @@
          diferencia es +1 en verano boreal y +2 en invierno. */
       bloque('sesión · nueva york ' + hhmm(c.ahora)
         + (FECHA ? '' : `<span class="aca">acá ${relojLocal()}</span>`),
-        pendientes(ps, c)),
+        pendientes(ps, c) + modoLinea(c)),
 
       bloque('cinta', eventos.length
         ? '<div class="cinta">' + eventos.map((x) =>
@@ -693,7 +716,7 @@
   async function tick() {
     let d;
     try {
-      const r = await fetch(`/api/vivo?riesgo=${RIESGO}&piso=${PISO}`
+      const r = await fetch(`/api/vivo?riesgo=${RIESGO}&piso=${PISO}&modo=${MODO}`
         + (FECHA ? `&d=${FECHA}` : ''));
       d = await r.json();
     } catch (err) {
@@ -1059,9 +1082,17 @@
      que a los veinte segundos ya no es el mismo nodo. */
   $('riesgo').value = RIESGO;
   $('piso').value = PISO;
+  document.querySelectorAll('input[name=modo]').forEach((r) => {
+    r.checked = r.value === MODO;
+  });
   document.addEventListener('change', (ev) => {
-    if (ev.target.id === 'riesgo') { RIESGO = Number(ev.target.value) || 250; tick(); }
+    if (ev.target.id === 'riesgo') { RIESGO = Number(ev.target.value) || 150; tick(); }
     if (ev.target.id === 'piso') { PISO = Number(ev.target.value) || 2; tick(); }
+    if (ev.target.name === 'modo' && ev.target.checked) {
+      MODO = ev.target.value;
+      try { localStorage.setItem('visor.vivo.modo', MODO); } catch (e) {}
+      tick();
+    }
   });
 
   /* El popover se ancla a la ruedita en vez de centrarse: nace de donde lo

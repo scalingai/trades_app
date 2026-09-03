@@ -74,6 +74,44 @@ CORTE_H = 11.0
 CORTE_UMBRAL = 5.0
 MIN_ORDEN, POR_ACCION = 0.75, 0.005   # comision real de Trade The Pool
 
+# LOS DOS MODOS. La evaluacion y la cuenta fondeada tienen reglas DISTINTAS, asi
+# que la configuracion optima de cada fase es distinta. Medido con arranques
+# rodantes sobre el censo (`evaluacion.py`, `fondeada.py`), cuenta FLEX de
+# $25.000, drawdown intradia que trepa con el pico:
+#
+#   EVALUACION. La regla que ata es la CONSISTENCIA: la mejor posicion —el
+#   total en un simbolo, tramos sumados— no puede poner mas del 50% del
+#   objetivo de $1.500. La unica forma de cumplirla es un TOPE por simbolo:
+#   cerrar el papel cuando su ganancia del dia toca el limite y no volver a
+#   entrar. Con el tope al 70% del limite ($525), todos los papeles del dia y
+#   SIN el corte de las 11:00, $150 por papel pasa limpio el 82% de las veces
+#   en ~108 dias esperados, por 1,2 evaluaciones. Con corte tarda el doble.
+#
+#   FONDEADA. No hay consistencia, pero para RETIRAR hacen falta 3 dias con
+#   $125 de ganancia en 14 dias corridos. Con el corte puesto eso no pasa
+#   nunca (cobra el 6% de las cuentas en 180 dias, mediana $0): el corte cierra
+#   a las 11 posiciones que al cierre habrian sido dias de $125. Sin corte, a
+#   $150 y UN papel por dia, cobra el 69% con 10% de quemas.
+#
+# LO QUE ESTO DA VUELTA. Durante meses el corte fue "lo unico que hace la
+# estrategia operable". Eso se midio con $400 de riesgo contra un drawdown de
+# CIERRE. Dimensionado para el drawdown intradia real, el corte cuesta mas de
+# lo que protege en las dos fases. El mecanismo era correcto para el tamaño
+# equivocado. `evaluar(..., modo=None)` conserva el camino viejo con corte para
+# que `identidad.py` y `cuentas.py` sigan midiendo lo que median.
+PODER = 25_000.0
+OBJETIVO = 0.06 * PODER          # $1.500
+CONSISTENCIA = 0.50              # FLEX, solo en evaluacion
+TOPE_FRAC = 0.70                 # aire contra el limite: al 95% se pasaba
+MODOS = {
+    "evaluacion": {"corte_h": None,
+                   "tope_usd": round(TOPE_FRAC * CONSISTENCIA * OBJETIVO, 2),
+                   "riesgo": 150.0, "papeles": "todos"},
+    "fondeada":   {"corte_h": None, "tope_usd": None,
+                   "riesgo": 150.0, "papeles": 1},
+}
+MODO_DEFECTO = "evaluacion"
+
 # HASTA DONDE LLEGAN A FAVOR, MEDIDO — no es un objetivo de salida.
 #
 # El sistema NO tiene take profit: se midio once veces que asegurar empeora, y
@@ -274,7 +312,7 @@ def papel_sospechoso(dia, ref):
             f"— puede ser OTRO instrumento con el mismo simbolo")
 
 
-def evaluar(dia, riesgo, piso):
+def evaluar(dia, riesgo, piso, modo=None):
     """Qué haría el sistema con este papel, ahora. Sin lógica propia.
 
     **Llama a `motor.jornada`, no reimplementa nada.** La primera versión de
@@ -332,9 +370,12 @@ def evaluar(dia, riesgo, piso):
 
     señal = lambda d: [i for i in señales_swing(d, desde=DESDE)
                        if (d.bars[i][4] or 0) >= piso]
+    # `modo=None` es el camino viejo —corte de las 11, sin tope— y existe para
+    # que identidad.py y cuentas.py sigan comparando contra lo que se midio.
+    m = MODOS[modo] if modo else {"corte_h": CORTE_H, "tope_usd": None}
     j = jornada(dia, señal, lado="short", stop_pct=STOP_PCT, riesgo=riesgo,
-                max_trades=MAX_TRAMOS, corte_h=CORTE_H,
-                corte_umbral=CORTE_UMBRAL)
+                max_trades=MAX_TRAMOS, corte_h=m["corte_h"],
+                corte_umbral=CORTE_UMBRAL, tope_usd=m["tope_usd"])
     if not j:
         out["tramos"] = []
         return out
@@ -441,7 +482,19 @@ def evaluar(dia, riesgo, piso):
                     eq += t["acciones"] * (t["p_ent"] - pk)
             curva.append((round(hk, 4), round(eq, 2)))
 
+    # EL PRECIO DEL TOPE: hasta donde tiene que caer el papel para que la
+    # ganancia del dia toque el limite. Es lo que el operador necesita para
+    # ejecutarlo a mano — "cerra todo cuando llegue a $X" — y por eso se
+    # dibuja como linea en el grafico. Cuenta lo ya realizado hoy: si se
+    # cobraron $100 en un tramo cerrado, faltan $425 y no $525.
+    tope_precio = None
+    if m.get("tope_usd") and vivas and prom:
+        falta = m["tope_usd"] - max(0.0, pnl_cerrado)
+        tope_precio = prom - falta / vivas
+
     out.update({"curva": curva,
+                "modo": modo, "tope_usd": m.get("tope_usd"),
+                "tope_precio": tope_precio,
                 "tramos": tramos, "pico": pico, "vivas": vivas,
                 "nominal": pico * px, "equity": equity, "comision": com,
                 "pnl_cerrado": pnl_cerrado, "pnl_abierto": pnl_abierto,

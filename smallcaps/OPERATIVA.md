@@ -23,12 +23,47 @@ diferencia entre una estrategia y una estrategia operable.
 
 Los $36.495 son plata que no se puede cobrar porque la cuenta se liquida antes.
 
-Todo con **$250 de riesgo por papel**, simulado por día de cuenta —con todos los
+Todo con **$150 de riesgo por papel**, simulado por día de cuenta —con todos los
 papeles del día compartiendo la misma cuenta— y con el arnés verificado contra
 el motor a 0,0% de diferencia. Ver §7 para el detalle y para un número que este
 documento daba mal.
 
 ---
+
+## 0. El modo: evaluación o fondeada
+
+La evaluación y la cuenta fondeada de Trade The Pool tienen **reglas distintas**,
+así que el sistema tiene **dos configuraciones** y se elige una en la ruedita de
+ajustes de `/vivo`. Medido con arranques rodantes sobre el censo (`evaluacion.py`,
+`fondeada.py`), cuenta FLEX de $25.000, drawdown intradía que trepa con el pico.
+
+| | evaluación | fondeada |
+|---|---|---|
+| lo que ata | **consistencia**: la mejor posición ≤ 50% del objetivo ($1.500) | **retiro**: 3 días con ≥$125 en 14 días corridos |
+| tope por símbolo | **$525**: cerrar el papel al tocarlo, no volver a entrar | no hay |
+| papeles por día | **todos** los del scanner | **uno** |
+| corte de las 11:00 | no | no |
+| riesgo por papel | $150 | $150 |
+| resultado medido | pasa limpia el 82% en ~108 días esperados, 1,2 evaluaciones | cobra el 69% de las cuentas en 180 días, 10% se quema |
+
+**El corte de las 11:00 ya no se usa en ninguna fase.** Fue "lo único que hacía
+la estrategia operable", medido con $400 de riesgo contra un drawdown de cierre.
+Dimensionado para el drawdown real —intradía, trepando— a $150, el corte cuesta
+más de lo que protege: duplica el tiempo de evaluación y, fondeado, impide
+cobrar (cierra a las 11 posiciones que al cierre habrían sido días de $125). El
+mecanismo era correcto para el tamaño equivocado.
+
+**Cómo se ejecuta el tope a mano.** El gráfico dibuja una línea ámbar
+`tope $X`: es el precio al que la ganancia del día en ese símbolo toca $525,
+contando lo ya cerrado. Al llegar, se cierra todo el símbolo y no se vuelve a
+entrar en él ese día.
+
+**Cuenta MAX, descartada.** No tiene la regla de los 3 días, pero da 60 días
+para pasar y esta estrategia opera 2–7 veces por mes: el 60–100% de los
+arranques vence sin llegar.
+
+**Supuesto abierto (pregunta 5 para soporte):** qué pasa con el piso del drawdown
+después de un retiro. Acá se asume que se vuelve a medir desde el nuevo balance.
 
 ## 1. Antes de la apertura — la watchlist
 
