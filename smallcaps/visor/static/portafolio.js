@@ -55,8 +55,15 @@
     return [
       ['equity hoy', `$${n(c.equity)}`, '', `de $${n(c.deposito)} depositados`],
       ['resultado neto', plata(c.neto), clase(c.neto), `${plata(c.anual)} al año`],
-      ['bruto', plata(c.bruto), clase(c.bruto), 'la estrategia sola'],
-      ['costos', costo(costos), '', `${Math.round(100 * costos / Math.max(1, Math.abs(c.bruto)))}% del bruto`],
+      /* POR DIA OPERADO, los dos: es lo que explica por que la cuenta chica
+         sangra y la grande no. El costo por dia es FIJO —$0,49 por orden y
+         100 acciones de locate no achican con el riesgo— y el bruto por dia
+         escala con el riesgo. Cuando el segundo no cubre al primero, la
+         cuenta baja aunque la estrategia gane. */
+      ['bruto', plata(c.bruto), clase(c.bruto),
+        `${plata(c.bruto / Math.max(1, c.dias), 1)} por día operado`],
+      ['costos', costo(costos), '',
+        `${costo(costos / Math.max(1, c.dias), 1)} por día operado · ${Math.round(100 * costos / Math.max(1, Math.abs(c.bruto)))}% del bruto`],
       ['comisiones', costo(c.comision), '', 'mínimo $0,49 por orden'],
       ['locates', costo(c.locates), '',
         c.locates_reales
