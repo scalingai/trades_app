@@ -350,17 +350,21 @@ def _locates() -> dict:
 
 # ------------------------------------------------------------- portafolio
 
-@lru_cache(maxsize=8)
-def _portafolio(n: int, desde: str, riesgo: float) -> dict:
-    """El ciclo de vida de las cuentas, cacheado por parametros.
+@lru_cache(maxsize=16)
+def _portafolio(deposito: float, desde: str, riesgo: float, locate: float,
+                plataforma: float, parar_en: float, _locates_ts: float) -> dict:
+    """La cuenta propia, cacheada por parametros.
 
     Cachea porque `simular` levanta el universo entero del censo y corre el
     motor dia por dia: son decenas de segundos. Los parametros son la clave,
     asi que cambiar el riesgo o la fecha vuelve a calcular y repetir la misma
-    consulta no.
+    consulta no. `_locates_ts` es la fecha de modificacion de `locates.jsonl`:
+    anotar un locate en /vivo tiene que invalidar la proyeccion, porque es
+    justamente el dato que la proyeccion esta esperando.
     """
-    import cuentas
-    return cuentas.simular(n_cuentas=n, desde=desde, riesgo=riesgo)
+    import propia
+    return propia.simular(deposito=deposito, desde=desde, riesgo=riesgo,
+                          locate=locate, plataforma=plataforma, parar_en=parar_en)
 
 
 def _config_vivo(_vivo, ahora=None, modo=None) -> dict:
@@ -854,15 +858,20 @@ class Handler(BaseHTTPRequestHandler):
 
         if ruta == "/api/portafolio":
             try:
-                n = max(1, min(10, int((q.get("cuentas") or ["3"])[0])))
-                riesgo = float((q.get("riesgo") or ["250"])[0])
+                deposito = max(1.0, float((q.get("deposito") or ["500"])[0]))
+                riesgo = max(1.0, float((q.get("riesgo") or ["20"])[0]))
+                locate = max(0.0, float((q.get("locate") or ["0.05"])[0]))
+                plataforma = max(0.0, float((q.get("plataforma") or ["0"])[0]))
+                parar_en = min(0.99, max(0.0, float((q.get("parar") or ["0.5"])[0])))
             except ValueError:
                 return self._json({"error": "parámetros inválidos"}, 400)
             desde = (q.get("desde") or ["2026-01-01"])[0]
             if not _RE_FECHA.match(desde):
                 return self._json({"error": "fecha inválida"}, 400)
+            ts = LOCATES.stat().st_mtime if LOCATES.exists() else 0.0
             try:
-                return self._json(_portafolio(n, desde, riesgo))
+                return self._json(_portafolio(deposito, desde, riesgo, locate,
+                                              plataforma, parar_en, ts))
             except Exception as e:
                 return self._json({"error": f"{type(e).__name__}: {e}"}, 500)
 

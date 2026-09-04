@@ -116,6 +116,60 @@ def sig(d):
     return [i for i in señales_swing(d, desde=DESDE) if (d.bars[i][4] or 0) >= PISO]
 
 
+def curva_intradia(dia, detalle):
+    """La equity del papel barra a barra, desde la primera entrada: (hora, $).
+
+    NO ES UN ADORNO NI UN MAXIMO: es la serie completa, y hace falta entera
+    porque las reglas duras —las de una prop y el poder de compra de una
+    cuenta propia— se miden ASI, verificado en tradethepool.com/program-terms:
+
+      "The account Daily Loss is the current equity (projected balance) at
+       each moment minus the balance (realized) at the start of the day"
+      "once the account has reached 3 x DLs in equity (i.e. 'projected
+       balance' including unrealized profits) the max drawdown will move to
+       the initial balance"
+
+    O sea: equity PROYECTADA, con las posiciones abiertas adentro, en cada
+    momento. Un maximo por dia no alcanza — hace falta saber en que ORDEN
+    paso, porque el pico que sube el piso puede ser antes o despues del pozo.
+
+    Se mide SIN comisiones: son un offset chico y constante, y meterlas
+    barra a barra fingiria una precision que no tenemos.
+
+    Devuelve pares (hora, equity) y no solo la equity para que varias curvas
+    del mismo dia se puedan sumar minuto a minuto: dos papeles pueden tocar su
+    piso en minutos distintos y sumar maximos sobreestima.
+    """
+    if not detalle:
+        return []
+    i0 = min((dia.idx_en(t["h_ent"]) or 0) for t in detalle)
+    curva = []
+    for k in range(i0, len(dia.bars)):
+        pk = dia.bars[k][4]
+        if not pk:
+            continue
+        hk = hora(dia.bars[k])
+        eq = 0.0
+        for t in detalle:
+            if t["h_ent"] > hk:
+                continue
+            if t["h_sal"] is not None and t["h_sal"] <= hk:
+                eq += t["pnl"]
+            else:
+                eq += t["acciones"] * (t["p_ent"] - pk)
+        curva.append((hk, round(eq, 2)))
+    return curva
+
+
+def drawdown(curva):
+    """La peor caida desde el pico de una serie de equity que arranca en 0."""
+    pico = dd = 0.0
+    for eq in curva:
+        pico = max(pico, eq)
+        dd = min(dd, eq - pico)
+    return dd
+
+
 def pnl_de(dia):
     """Lo que dejó ese papel ese día, con el detalle que la página necesita.
 
@@ -135,45 +189,12 @@ def pnl_de(dia):
         # de Trade The Pool, que son dos órdenes con su mínimo de $0,75.
         b += t["acciones"] * COSTO_ACCION - comision(t["acciones"])
 
-    # LA CURVA INTRADIA, marcada a mercado barra a barra.
-    #
-    # NO ES UN ADORNO NI UN MAXIMO: es la serie completa, y hace falta entera
-    # porque las dos reglas duras del plan se miden ASI, verificado en
-    # tradethepool.com/program-terms:
-    #
-    #   "The account Daily Loss is the current equity (projected balance) at
-    #    each moment minus the balance (realized) at the start of the day"
-    #   "once the account has reached 3 x DLs in equity (i.e. 'projected
-    #    balance' including unrealized profits) the max drawdown will move to
-    #    the initial balance"
-    #
-    # O sea: equity PROYECTADA, con las posiciones abiertas adentro, en cada
-    # momento. Un maximo por dia no alcanza — hace falta saber en que ORDEN
-    # paso, porque el pico que sube el piso puede ser antes o despues del pozo.
-    #
-    # Se mide SIN comisiones: son un offset chico y constante, y meterlas
-    # barra a barra fingiria una precision que no tenemos.
-    i0 = min((dia.idx_en(t["h_ent"]) or 0) for t in j["detalle"])
-    curva = []
-    for k in range(i0, len(dia.bars)):
-        pk = dia.bars[k][4]
-        if not pk:
-            continue
-        hk = hora(dia.bars[k])
-        eq = 0.0
-        for t in j["detalle"]:
-            if t["h_ent"] > hk:
-                continue
-            if t["h_sal"] is not None and t["h_sal"] <= hk:
-                eq += t["pnl"]
-            else:
-                eq += t["acciones"] * (t["p_ent"] - pk)
-        curva.append(round(eq, 2))
-    pico = 0.0
-    dd = 0.0
-    for eq in curva:
-        pico = max(pico, eq)
-        dd = min(dd, eq - pico)
+    # La curva intradia y su drawdown salen de `curva_intradia`, que es la
+    # misma funcion que usa la cuenta propia (`propia.py`). Un solo recorrido
+    # de las barras para las dos cuentas: si difieren, difieren a proposito.
+    pares = curva_intradia(dia, j["detalle"])
+    curva = [eq for _, eq in pares]
+    dd = drawdown(curva)
     return {"pnl": b, "dd": dd, "tramos": len(j["detalle"]), "curva": curva}
 
 

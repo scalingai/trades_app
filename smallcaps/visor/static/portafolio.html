@@ -7,16 +7,16 @@
 <link rel="icon" href="/static/favicon.ico">
 <link rel="stylesheet" href="/static/base.css">
 <style>
-  /* EL PORTAFOLIO: el ciclo de vida de cada cuenta de fondeo, hasta el papel.
+  /* EL PORTAFOLIO: la cuenta propia en TradeZero, hasta el papel.
 
      POR QUE ANIDADO Y NO UNA TABLA PLANA. Una tabla de mil filas de trades no
-     contesta la pregunta que uno tiene, que es "¿esta cuenta va bien?". La
-     jerarquía es la de la plata: la CUENTA es la unidad que se quema o cobra,
-     el DIA es la unidad contra la que mide el límite diario, y el PAPEL es lo
-     único que uno opera. Cada nivel muestra su profit y su drawdown, porque el
-     plan mide desde el pico y el resultado final esconde el pozo.
+     contesta la pregunta que uno tiene, que es "¿la cuenta va bien?". La
+     jerarquía es la de la plata: la CUENTA es lo que se para o crece, el DIA
+     es lo que se mira a las 16:00, y el PAPEL es lo único que uno opera. Cada
+     nivel muestra su resultado, sus COSTOS y su drawdown, porque en small caps
+     el costo es lo que decide y el resultado final esconde el pozo.
 
-     Los números salen de `cuentas.simular()`, la MISMA función que imprime el
+     Los números salen de `propia.simular()`, la MISMA función que imprime el
      informe de terminal. No hay un segundo cálculo. */
 
   body{height:auto;min-height:100%}
@@ -25,22 +25,45 @@
   h1{margin:0 0 3px;font-size:var(--t4);font-weight:600;letter-spacing:-.01em}
   .sub{color:var(--texto-3);font-size:var(--t2);margin:0 0 var(--e4)}
 
-  /* Los controles: cuántas cuentas, desde cuándo, con cuánto riesgo. Son los
-     tres parámetros de los que depende TODO lo de abajo. */
-  .mandos{display:flex;flex-wrap:wrap;align-items:center;gap:var(--e4);
+  /* Los mandos: con cuánto, cuánto por papel, desde cuándo, y los dos costos
+     que no están medidos —el locate y la plataforma—. Son los parámetros de
+     los que depende TODO lo de abajo. */
+  .mandos{display:flex;flex-wrap:wrap;align-items:center;gap:var(--e3) var(--e4);
           background:var(--fondo-2);border-radius:var(--radio-2);
-          box-shadow:var(--sombra);padding:11px var(--e4);margin-bottom:var(--e4)}
+          box-shadow:var(--sombra);padding:11px var(--e4);margin-bottom:var(--e3)}
   .mandos label{display:flex;align-items:center;gap:7px;color:var(--texto-2);
-                font-size:var(--t2)}
-  .mandos input{width:92px;background:var(--fondo);border:1px solid var(--linea-2);
+                font-size:var(--t2);white-space:nowrap}
+  .mandos input{width:82px;background:var(--fondo);border:1px solid var(--linea-2);
                 border-radius:7px;color:var(--texto);padding:4px 9px;
                 font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
                 font-size:var(--t3);text-align:right}
+  .mandos input[type=date]{width:136px;text-align:left}
   .mandos input:focus{outline:none;border-color:var(--acento)}
+  .mandos .u{color:var(--texto-3);font-size:var(--t1)}
   #cargando{margin-left:auto;color:var(--texto-3);font-size:var(--t1)}
 
-  /* EL RESUMEN. Una sola línea con lo que decide todo: qué hay en el bolsillo. */
-  .caja{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  /* Los dos escenarios que importan, siempre a la vista: $500 con $20 y
+     $2.000 con $75. La diferencia entre los dos ES la razón de "con $500 se
+     mide, no se opera". Se clickean para cargar ese escenario. */
+  .escenarios{display:grid;grid-template-columns:1fr 1fr;gap:var(--e3);
+              margin-bottom:var(--e4)}
+  .esc{background:var(--fondo-2);border-radius:var(--radio-2);box-shadow:var(--sombra);
+       padding:12px var(--e4);cursor:pointer;display:grid;
+       grid-template-columns:auto 1fr auto auto;align-items:center;gap:var(--e3);
+       border:1px solid transparent}
+  .esc:hover{background:var(--fondo-3)}
+  .esc.activo{border-color:var(--acento)}
+  .esc .t{font-weight:600;font-size:var(--t3);letter-spacing:-.01em}
+  .esc .t small{display:block;color:var(--texto-3);font-weight:400;font-size:var(--t1);
+                margin-top:2px}
+  .esc .m{text-align:right}
+  .esc .m b{display:block;font:500 var(--t4)/1.1 var(--fuente-num);
+            font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .esc .m span{display:block;color:var(--texto-3);font-size:9px;margin-top:3px;
+               text-transform:uppercase;letter-spacing:.06em}
+
+  /* EL RESUMEN. Lo que hay hoy y de dónde salió: bruto menos cada costo. */
+  .caja{display:grid;grid-template-columns:repeat(auto-fit,minmax(128px,1fr));
         background:var(--linea);border-radius:var(--radio-2);gap:1px;
         box-shadow:var(--sombra);overflow:hidden;margin-bottom:var(--e4)}
   .caja > div{background:var(--fondo-2);padding:13px var(--e4) 14px}
@@ -48,95 +71,133 @@
           font-variant-numeric:tabular-nums}
   .caja span{display:block;color:var(--texto-3);font-size:9px;margin-top:5px;
              text-transform:uppercase;letter-spacing:.07em}
+  .caja small{display:block;color:var(--texto-3);font-size:var(--t1);margin-top:3px;
+              text-transform:none;letter-spacing:0}
 
-  /* UNA TARJETA POR CUENTA. Se despliega a los días, y cada día a su papel. */
+  /* LA CURVA DE LA CUENTA. Equity barra a barra, no un punto por día: los
+     pozos intradía son lo que decide si se aguanta la posición, y un cierre
+     por día los esconde. Verde arriba del depósito, rojo abajo: rojo es plata
+     perdida, nada más. */
+  .curva{background:var(--fondo-2);border-radius:var(--radio-2);box-shadow:var(--sombra);
+         margin-bottom:var(--e3);overflow:hidden}
+  .curva .cab-c{display:flex;flex-wrap:wrap;align-items:baseline;gap:var(--e2) var(--e3);
+                padding:11px var(--e4) 4px}
+  .curva .cab-c b{font-weight:650;font-size:var(--t3);letter-spacing:-.01em}
+  .curva .cab-c span{color:var(--texto-3);font-size:var(--t1)}
+  .curva .cab-c .ref{margin-left:auto;display:flex;gap:var(--e3)}
+  .curva .cab-c .ref i{display:inline-block;width:14px;height:0;border-top:1px dashed;
+                        vertical-align:middle;margin-right:5px}
+  #curva{height:250px}
+
+  /* LA CUENTA. Una tarjeta, siempre desplegada: es la única. */
   .cuenta{background:var(--fondo-2);border-radius:var(--radio-2);
           box-shadow:var(--sombra);margin-bottom:var(--e3);overflow:hidden}
-  .cuenta.quemada{box-shadow:var(--sombra),inset 0 0 0 1px rgba(229,84,79,.35)}
-  .cab{display:grid;grid-template-columns:76px 1fr repeat(4,minmax(74px,auto));
-       align-items:center;gap:var(--e3);padding:12px var(--e4);cursor:pointer;
-       user-select:none}
-  .cab:hover{background:var(--fondo-3)}
+  .cuenta.parada{box-shadow:var(--sombra),inset 0 0 0 1px rgba(229,84,79,.35)}
+  .cab{display:grid;grid-template-columns:auto 1fr repeat(4,minmax(78px,auto));
+       align-items:center;gap:var(--e3);padding:12px var(--e4)}
   .cab .id{font-weight:650;font-size:var(--t3);letter-spacing:-.01em}
   .cab .estado{padding:2px 9px;border-radius:99px;font-size:var(--t1);
                background:var(--fondo-3);color:var(--texto-2);justify-self:start}
-  .cab .estado.fondeada{background:rgba(46,168,143,.16);color:var(--pos)}
-  .cab .estado.evaluacion{background:rgba(91,141,239,.14);color:var(--acento)}
+  .cab .estado.operando{background:rgba(46,168,143,.16);color:var(--pos)}
+  .cab .estado.parada{background:rgba(229,84,79,.12);color:var(--neg)}
   .cab .m{text-align:right}
   .cab .m b{display:block;font:500 var(--t3)/1.2 var(--fuente-num);
             font-variant-numeric:tabular-nums}
   .cab .m span{display:block;color:var(--texto-3);font-size:9px;margin-top:2px;
                text-transform:uppercase;letter-spacing:.06em}
 
-  /* La barra de margen contra el tope de drawdown. Es el numero que decide si
-     la cuenta sigue viva, asi que se dibuja y no solo se escribe. */
+  /* La barra de colchón hasta el stop-out. Es el número que decide si la
+     cuenta sigue operando, así que se dibuja y no sólo se escribe. */
   .margen{grid-column:1/-1;height:3px;border-radius:2px;background:var(--fondo-4);
           overflow:hidden;margin-top:2px}
   .margen i{display:block;height:100%;background:var(--pos)}
   .margen i.apretado{background:var(--ambar)}
   .margen i.perforado{background:var(--neg)}
 
+  .aviso{grid-column:1/-1;margin-top:9px;padding:7px 10px;border-radius:8px;
+         background:var(--ambar-fondo);border:1px solid var(--ambar-borde);
+         color:var(--texto-2);font-size:var(--t1);line-height:1.6}
+  .aviso b{color:var(--ambar)}
+
+  /* LOS DIAS. Cada uno se despliega a sus papeles. */
+  .cols,.dia,.papel{display:grid;gap:var(--e3);align-items:baseline;
+                    padding:6px var(--e4);font-size:var(--t2)}
+  .cols,.dia{grid-template-columns:82px 1fr repeat(5,minmax(76px,auto))}
+  .cols{padding:7px var(--e4) 6px;color:var(--texto-3);font-size:9px;
+        text-transform:uppercase;letter-spacing:.07em;
+        border-top:1px solid var(--linea);background:var(--fondo)}
+  .cols span:nth-child(n+3){text-align:right}
   .dias{border-top:1px solid var(--linea)}
-  .dia{display:grid;grid-template-columns:88px 62px 1fr repeat(3,minmax(78px,auto));
-       align-items:baseline;gap:var(--e3);padding:6px var(--e4);
-       font-size:var(--t2);border-top:1px solid var(--linea)}
+  .dia{border-top:1px solid var(--linea);cursor:pointer;user-select:none}
   .dia:first-child{border-top:0}
   .dia:hover{background:var(--fondo-3)}
   .dia .f{font-family:var(--fuente-num);color:var(--texto-3);font-size:var(--t1)}
-  .dia .tk{font-weight:600;letter-spacing:-.01em}
-  .dia .n{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;
-          text-align:right}
-  .dia .tenue{color:var(--texto-3)}
-  /* El día en que la cuenta cambió de vida se marca: es el evento, no el PnL. */
-  .dia.hito{background:rgba(91,141,239,.07)}
-  .dia .hito-txt{color:var(--acento);font-size:var(--t1)}
-  .dia.quema{background:rgba(229,84,79,.08)}
-  /* El día que habría reventado la cuenta y no figura como quemada. */
-  .dia.revienta{background:var(--ambar-fondo)}
-  .dia .dd-mal{color:var(--ambar);font-weight:500}
-  .aviso-dd{grid-column:1/-1;margin-top:9px;padding:7px 10px;
-            border-radius:8px;background:var(--ambar-fondo);
-            border:1px solid var(--ambar-borde);color:var(--texto-2);
-            font-size:var(--t1);line-height:1.6}
-  .aviso-dd b{color:var(--ambar)}
-  .dia.quema .hito-txt{color:var(--neg)}
+  .dia .tks{font-weight:600;letter-spacing:-.01em;overflow:hidden;
+            text-overflow:ellipsis;white-space:nowrap}
+  .dia .tks i{font-style:normal;font-weight:400;color:var(--texto-3);
+              font-size:var(--t1);margin-left:6px}
+  .n{font-family:var(--fuente-num);font-variant-numeric:tabular-nums;text-align:right}
+  .tenue{color:var(--texto-3)}
+  /* El día en que el poder de compra no alcanzó, y el día en que se paró. */
+  .dia.recortado{background:var(--ambar-fondo)}
+  .dia.parada{background:rgba(229,84,79,.08)}
+  .dia.abierto{background:var(--fondo-3)}
 
-  .cols{display:grid;grid-template-columns:88px 62px 1fr repeat(3,minmax(78px,auto));
-        gap:var(--e3);padding:7px var(--e4) 6px;color:var(--texto-3);
-        font-size:9px;text-transform:uppercase;letter-spacing:.07em;
-        border-top:1px solid var(--linea);background:var(--fondo)}
-  .cols span:nth-child(n+4){text-align:right}
-
-  /* Por qué no se pudo retirar. Es lo que la proyección escondía. */
-  .trabas{padding:11px var(--e4) 13px;border-top:1px solid var(--linea);
-          background:var(--fondo);color:var(--texto-3);font-size:var(--t1);
-          line-height:1.7}
-  .trabas b{color:var(--texto-2);font-family:var(--fuente-num);font-weight:500}
+  /* LOS PAPELES de un día. Bruto, cada costo, neto, drawdown, tramos. */
+  .papeles{background:var(--fondo);border-top:1px solid var(--linea);
+           padding:4px 0 6px}
+  .papel{grid-template-columns:82px 1fr repeat(6,minmax(76px,auto));
+         padding:4px var(--e4);font-size:var(--t1)}
+  .papel .tk{font-weight:600;font-size:var(--t2);letter-spacing:-.01em;
+             padding-left:var(--e3)}
+  .papel .tk small{font-weight:400;color:var(--texto-3);margin-left:6px}
+  .papel .loc{color:var(--texto-3)}
+  .papel .loc.real{color:var(--texto-2)}
+  .papel .loc.caro{color:var(--ambar)}
+  .papeles .cols{background:transparent;border-top:0;padding-top:3px;
+                 grid-template-columns:82px 1fr repeat(6,minmax(76px,auto))}
+  .papeles .cols span:nth-child(n+3){text-align:right}
 
   .plan{color:var(--texto-3);font-size:var(--t1);line-height:1.75;
         background:var(--fondo-2);border-radius:var(--radio-2);
         padding:var(--e3) var(--e4);margin-top:var(--e4);max-width:96ch}
   .plan b{color:var(--texto-2);font-weight:500}
   .vacio{padding:var(--e6);text-align:center;color:var(--texto-3)}
+  @media (max-width:820px){
+    .escenarios{grid-template-columns:1fr}
+    .cols,.dia{grid-template-columns:72px 1fr repeat(3,minmax(64px,auto))}
+    .cols span:nth-child(n+6),.dia span:nth-child(n+6){display:none}
+  }
 </style>
 </head>
 <body>
 <main>
   <h1>Portafolio</h1>
-  <p class="sub" id="titulo">cuentas de fondeo, día por día y papel por papel</p>
+  <p class="sub" id="titulo">cuenta propia en TradeZero, día por día y papel por papel</p>
 
   <div class="mandos">
-    <label>cuentas <input id="m-cuentas" type="number" min="1" max="10" step="1"></label>
+    <label>depósito $<input id="m-deposito" type="number" min="1" step="100"></label>
+    <label>riesgo por papel $<input id="m-riesgo" type="number" min="1" step="5"></label>
     <label>desde <input id="m-desde" type="date"></label>
-    <label>riesgo por papel <input id="m-riesgo" type="number" min="50" step="50"></label>
+    <label>locate supuesto $<input id="m-locate" type="number" min="0" step="0.01"><span class="u">/acción</span></label>
+    <label>plataforma $<input id="m-plataforma" type="number" min="0" step="1"><span class="u">/mes</span></label>
+    <label>parar si queda menos del <input id="m-parar" type="number" min="0" max="99" step="5"><span class="u">% del depósito</span></label>
     <span id="cargando"></span>
   </div>
 
+  <div class="escenarios" id="escenarios"></div>
   <div class="caja" id="caja"></div>
-  <div id="lista"><div class="vacio">cargando…</div></div>
+  <section class="curva">
+    <div class="cab-c"><b>Equity de la cuenta</b><span>barra a barra, con las posiciones abiertas adentro</span>
+      <span class="ref"><span><i style="border-color:var(--texto-3)"></i>depósito</span>
+      <span><i style="border-color:var(--neg)"></i>stop-out</span></span></div>
+    <div id="curva"></div>
+  </section>
+  <div id="lista"><div class="vacio">calculando…</div></div>
   <div class="plan" id="plan"></div>
 </main>
 
+<script src="/static/lightweight-charts.js"></script>
 <script src="/static/portafolio.js"></script>
 <script src="/static/chrome.js"></script>
 </body>

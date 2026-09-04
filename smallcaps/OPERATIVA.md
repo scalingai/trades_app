@@ -6,7 +6,22 @@
 >
 > **Nunca se operó en vivo.** Todo lo de abajo son mediciones sobre el censo.
 
-## Lo que cambió hoy, y por qué importa más que todo lo anterior
+## Estado al 2026-09-04
+
+- Se opera con **cuenta propia en TradeZero**, no con fondeo (§0).
+- **El corte de las 11:00 ya no se usa** en ninguna fase (§0b y §4): medido con
+  el drawdown real —intradía, trepando— a $150 de riesgo, cuesta más de lo que
+  protege.
+- **Con $500 se mide, no se opera.** El portafolio (`/portafolio`, `propia.py`)
+  proyecta la cuenta propia día por día con los costos reales del broker (§7).
+- El número que falta es **el locate** de nuestros papeles el día que gapean. Se
+  anota en `/vivo`, columna `loc`, y el portafolio lo toma de ahí.
+
+Lo que sigue es la historia de cómo se llegó, en el orden en que pasó. Las
+secciones marcadas *histórico* describen una fase anterior y se dejan porque
+las mediciones siguen valiendo; la conclusión operativa es la de §0.
+
+## Lo que cambió el 2026-09-01, y por qué importó (histórico)
 
 Veníamos optimizando **plata neta** y **retorno sobre el nominal**. Ninguna de
 las dos dice si la cuenta llega viva a fin de mes, y resulta que la
@@ -25,8 +40,12 @@ Los $36.495 son plata que no se puede cobrar porque la cuenta se liquida antes.
 
 Todo con **$150 de riesgo por papel**, simulado por día de cuenta —con todos los
 papeles del día compartiendo la misma cuenta— y con el arnés verificado contra
-el motor a 0,0% de diferencia. Ver §7 para el detalle y para un número que este
-documento daba mal.
+el motor a 0,0% de diferencia.
+
+> **Por qué esto quedó viejo.** Se midió con drawdown de CIERRE y $400 de riesgo.
+> Con el drawdown como lo mide una cuenta de verdad —intradía, desde el pico— y
+> con el riesgo dimensionado para eso ($150 o menos), el corte deja de proteger:
+> duplica el tiempo de evaluación y, fondeado, impide cobrar. Ver §0b.
 
 ---
 
@@ -181,13 +200,18 @@ esa hora, y usarla antes fue uno de los look-ahead más caros del proyecto
 10% y el p90 es 38%. El stop está más allá del percentil 90 de lo que estos
 papeles se mueven en contra.
 
-## 4. A las 11:00 — el corte (esto es lo nuevo)
+## 4. A las 11:00 — el corte (histórico: ya no se usa)
 
-> **Si la posición no está al menos 5% a favor, se cierra todo y ese papel no
-> se opera más en el día.**
+> **Hoy no hay corte.** Se sostiene al cierre. Lo de abajo es cómo se midió y
+> por qué se adoptó; §0b dice por qué se sacó: dimensionado para el drawdown
+> real —intradía, trepando— a $150 de riesgo, cuesta más de lo que protege. Se
+> probaron además las 11:05, 11:10 y 11:15 (`test_corte_minuto.py`), la salida
+> por rango seco (`test_salida_rango_seco.py`) y el corte condicionado a que el
+> movimiento siga vivo (`test_corte_condicionado.py`): ninguna mejora el
+> drawdown en las dos mitades del tiempo.
 
-Es la regla que hace la diferencia entre sobrevivir y no. Tres cosas que hay que
-saber de ella:
+La regla era: *si la posición no está al menos 5% a favor, se cierra todo y ese
+papel no se opera más en el día.* Tres cosas que se sabían de ella:
 
 **No gana más plata.** Sostener al cierre deja $175 por sesión y esto $110. Lo
 que compra es que el peor día pase de $-1.618 a $-505.
@@ -238,36 +262,66 @@ las 11:00 puesto el desastre ya no llega.
 
 El control diario real es el riesgo por activo bien dimensionado más el corte.
 
+**Sin el corte la conclusión se sostiene** (`test_tope_intradia.py`, 2026-09-03):
+un tope duro de pérdida diaria empeora el drawdown en todos los umbrales
+probados, por el mismo mecanismo. El control es el tamaño, no un techo.
+
 ## 7. Cuánta plata
 
-Simulado por DIA DE CUENTA —todos los papeles juntos, no cada uno por su lado—
-con el arnés verificado contra el motor a 0,0% de diferencia:
+**Cuenta propia en TradeZero, proyectada desde el 2 de enero de 2026** con la
+estrategia en modo propia (todos los papeles, sin corte, sin tope) y los costos
+del broker: comisión con mínimo $0,49 por orden, locate por papel-día sobre 100
+acciones como mínimo, sin plataforma (TZ1 web). Es lo que muestra `/portafolio`
+y calcula `propia.py`; los dos leen la misma función.
+
+| depósito | riesgo/papel | bruto | comisiones | locates* | neto | al año | peor drawdown |
+|---|---|---|---|---|---|---|---|
+| **$500** | $20 | +$839 | −$283 | −$396 | **+$160** | +$243 | −$316 (**−63%** del depósito) |
+| **$2.000** | $75 | +$3.147 | −$276 | −$471 | **+$2.400** | +$3.638 | −$449 (−22%) |
+
+\* Locates a **$0,05 por acción supuestos** en los 79 papeles-día: no hay
+ninguno anotado todavía. Es el costo que decide y es el que se está midiendo.
+
+Tres cosas que la tabla dice:
+
+- **Los costos se comen el 81% del bruto a $500.** La comisión es casi la misma
+  en las dos cuentas —$0,49 por orden no escala— y el locate tampoco, porque el
+  mínimo de 100 acciones es más de lo que la cuenta chica necesita. A $2.000 los
+  mismos costos son el 24%.
+- **Con $500, el drawdown es del 63% del depósito.** No es que el broker no
+  deje —el poder de compra alcanza—: es que a mitad de año la cuenta habría
+  estado en $316. Con $2.000 y $75 el mismo camino es −22%.
+- **Por eso $500 mide y $2.000 opera.** El drawdown intradía se mide sumando las
+  curvas de todos los papeles minuto a minuto, contra el pico histórico.
+
+La cuenta se para por una regla **nuestra**: equity por debajo del 50% del
+depósito. El broker no liquida por perder plata propia; uno se queda sin poder
+de compra y sigue. La regla está a la vista en la página como parámetro.
+
+**Histórico — lo que decía este documento para Trade The Pool**, medido con
+drawdown de cierre y corte de las 11:00:
 
 | config | al año | drawdown | ¿entra en $1.000? |
 |---|---|---|---|
-| sin corte (lo que había) | $18.963 | $-3.684 | **NO** |
-| **$400/papel + corte 11:00** | **$10.803** | **$-856** | **sí** |
-| $300/papel + corte | $7.908 | $-654 | sí |
+| sin corte | $18.963 | $-3.684 | NO |
+| $400/papel + corte 11:00 | $10.803 | $-856 | sí |
 | $200/papel + corte | $5.013 | $-487 | sí |
 
-**Va $400 por papel.** Una versión anterior de este documento decía $200 y
-$5.983 al año: salía de una simulación que agregaba el PnL por fecha pero no
-modelaba el día de cuenta. Con el modelo correcto el drawdown a $400 es $-856 y
-entra con margen.
-
-Queda un día del censo que perfora el límite diario por $34. Eso bloquea la
-operativa ese día, no liquida la cuenta — el que liquida es el drawdown.
-
-⚠️ **Los límites del plan nunca se confirmaron con soporte.** El tope de $1.000
-de drawdown y los $400 de pérdida diaria salen de leer la web, no de una
-respuesta. Está en `MAIL-SOPORTE.md` y sigue sin mandarse. Si el drawdown real
-fuera más chico, todo esto se redimensiona.
+Los $18.963 anuales del "sin corte" son a $400 de riesgo con la comisión de
+Trade The Pool y sin locate; a $75 y con los costos de TradeZero son los $3.638
+de arriba. El mecanismo es el mismo, el tamaño y los costos no.
 
 ## 8. Lo que falta y se sabe que falta
 
-**El locate sigue sin confirmarse.** Tres fuentes independientes dicen que Trade
-The Pool no cobra, ninguna es la empresa.
+**El locate de TradeZero no está medido.** Es la fase actual (§0): dos o tres
+semanas anotando el precio de cada papel del scanner sin aceptar. Hasta que la
+mayoría de los papeles-día del portafolio sean anotados y no supuestos, el neto
+que muestra es una hipótesis con forma de número.
+
+**El pedido mínimo de 100 acciones por locate es un supuesto** de la industria,
+no confirmado con TradeZero. Si cobran sobre las acciones reales, el punto de
+muerte es más holgado ($0,22–0,28 en vez de $0,11–0,19 por acción).
 
 **Nada de esto se operó en vivo.** Son 209 sesiones de censo con ~450
-estrategias probadas encima. El corte de las 11:00 aguantó las dos mitades del
-tiempo, que es el mínimo, no una garantía.
+estrategias probadas encima. Sostener al cierre sin corte aguantó las dos
+mitades del tiempo, que es el mínimo, no una garantía.
