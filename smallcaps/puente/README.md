@@ -13,11 +13,39 @@ propósito: la operativa es semiautomática.
                                                     └──────────────┘
 ```
 
+## Desde el 2026-09-04: las barras salen de Yahoo, no de la plataforma
+
+Ya no se opera en Trade The Pool (`OPERATIVA.md` §0) y la plataforma de
+TradeZero no tiene scripting, así que el indicador `TTPFeedMulti` quedó sin
+dónde correr. `yahoo_feed.py` escribe **el mismo archivo, con el mismo
+formato**: barras de 1 minuto con sesión extendida, al minuto, de los papeles
+de la watchlist. Nada de lo que lee el archivo cambió.
+
+La rutina de la mañana, en dos terminales:
+
+```bash
+python smallcaps/visor/server.py            # el visor → http://127.0.0.1:8765/vivo
+python smallcaps/puente/yahoo_feed.py       # el feed, hasta las 20:00 NY o Ctrl+C
+```
+
+La watchlist la arma el botón **buscar** de `/vivo` (o `python smallcaps/escaner.py`)
+**con el mercado abierto**: en pre-market Yahoo no tiene el gap de los papeles
+que todavía no operaron y la lista sale vacía. El feed relee la watchlist en
+cada ciclo, así que se puede armar después de arrancarlo.
+
+**Lo que no escribe:** la barra en curso. `leer_feed` se queda con la primera
+línea de cada minuto, y una barra escrita a medias quedaría congelada. La
+pantalla va un minuto atrás del mercado, a propósito.
+
+Los días que el censo no tiene y el feed sí —ayer, por ejemplo— se navegan en
+`/vivo` con las flechas igual que los del censo.
+
 ## Los archivos
 
 | archivo | qué hace |
 |---|---|
-| `TTPFeedMulti.cs` | **El que se usa.** Un solo indicador, en un solo gráfico, saca las barras de toda la watchlist. |
+| `yahoo_feed.py` | **El que se usa.** Las barras de 1 minuto de la watchlist desde Yahoo, al mismo archivo. |
+| `TTPFeedMulti.cs` | El indicador de la plataforma de Trade The Pool. Escribía lo mismo; queda por si se vuelve. |
 | `TTPFeed.cs` | La primera versión: un gráfico por papel. Queda como respaldo. |
 | `vivo.py` | La pantalla. Lee el archivo, arma un `Dia` y llama al motor. |
 | `identidad.py` | Verifica que el camino vivo dé **exactamente** lo mismo que el backtest. |

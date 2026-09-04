@@ -86,6 +86,10 @@ PRECIO_MAX = 20.0
 # Filtro extra de OPERATIVA.md §1, que NO está en el censo. Se aplica aparte y
 # se reporta aparte, para que se vea cuántos papeles cuesta.
 PISO_OPERATIVO = 2.0
+# OTC no entra: no se puede shortear en TradeZero y Yahoo no tiene barras de 1
+# minuto para armar el feed (SIVEF, 2026-09-04: en la watchlist y sin una sola
+# barra). Son los codigos de mercado de Yahoo para Pink, OTCQB y OTCQX.
+OTC = {"PNK", "OQB", "OQX", "OEM", "OBB", "OTC"}
 
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
       " (KHTML, like Gecko) Chrome/125.0 Safari/537.36")
@@ -305,6 +309,8 @@ def escanear(y: Yahoo, *, gap: float, verboso: bool = False) -> list[dict]:
         def fuera(por):
             descartes[por] = descartes.get(por, 0) + 1
 
+        if (q.get("exchange") or "").upper() in OTC:
+            fuera("OTC"); continue
         if g is None:
             fuera("sin gap medible"); continue
         if g < gap:

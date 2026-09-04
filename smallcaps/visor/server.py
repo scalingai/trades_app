@@ -508,11 +508,25 @@ def _papel_vivo(tk: str, f: str, dia, r: dict, _vivo) -> dict:
 
 
 
+def _fechas_feed() -> set[str]:
+    """Los dias que tiene el feed en vivo, menos hoy (hoy es /vivo a secas).
+
+    El censo termina donde termino la ultima descarga; los dias de ahi en
+    adelante existen solo en el feed. Sin esto, ayer no se podia mirar."""
+    try:
+        sys.path.insert(0, str(AQUI.parent / "puente"))
+        import vivo as _vivo
+        return {f for (_tk, f) in _vivo.leer_feed()} - {date.today().isoformat()}
+    except Exception:
+        return set()
+
+
 def fechas_disponibles() -> list[str]:
-    """Las fechas del censo que se pueden mirar, de la mas nueva a la mas vieja."""
+    """Las fechas que se pueden mirar —censo y feed—, de la mas nueva a la mas vieja."""
     if not _indice_listo.is_set() or not _indice:
         return []
-    return sorted({r["d"] for r in _indice if r.get("ok_censo")}, reverse=True)
+    censo = {r["d"] for r in _indice if r.get("ok_censo")}
+    return sorted(censo | _fechas_feed(), reverse=True)
 
 
 def payload_fecha(fecha: str, riesgo: float, piso: float,
@@ -548,10 +562,18 @@ def payload_fecha(fecha: str, riesgo: float, piso: float,
     tickers = sorted({r["ticker"] for r in _indice
                       if r["d"] == fecha and r.get("ok_censo")
                       and _RE_TICKER.match(r["ticker"])})
-    if not tickers:
-        return salida
     _rs = []
-    for dia in cargar(solo={(t, fecha) for t in tickers}):
+    if tickers:
+        dias = list(cargar(solo={(t, fecha) for t in tickers}))
+    else:
+        # UN DIA QUE EL CENSO NO TIENE, PERO EL FEED SI: ayer, o cualquier dia
+        # posterior a la ultima descarga. Las barras salen del mismo archivo que
+        # alimenta /vivo, y de ahi en adelante es el mismo camino.
+        salida["fuente"] = "feed"
+        dias = [d for (tk, f), datos in sorted(_vivo.leer_feed().items())
+                if f == fecha and _RE_TICKER.match(tk)
+                for d in [_vivo.armar_dia(tk, f, datos)] if d]
+    for dia in dias:
         try:
             r = _vivo.evaluar(dia, riesgo, piso, modo)
         except Exception:
