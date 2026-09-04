@@ -323,6 +323,14 @@ que muestra es una hipótesis con forma de número.
 no confirmado con TradeZero. Si cobran sobre las acciones reales, el punto de
 muerte es más holgado ($0,22–0,28 en vez de $0,11–0,19 por acción).
 
+**El long de pre-market no se puede medir con el censo** (`test_premarket_long.py`,
+2026-09-04). El censo elige por gap ≥ 25% a la apertura, así que los papeles que
+se derrumban antes de las 09:30 no están: cualquier long medido ahí es un techo.
+Con ese sesgo a favor, las rupturas del máximo de pre-market son peores que
+entrar al azar, y lo único positivo —comprar la primera barra con gap y aguantar
+sin stop— saca el 99% de su resultado del 5% de los trades. No se implementa.
+Medirlo de verdad exige una población elegida a las 07:00, prospectiva.
+
 **Nada de esto se operó en vivo.** Son 209 sesiones de censo con ~450
 estrategias probadas encima. Sostener al cierre sin corte aguantó las dos
 mitades del tiempo, que es el mínimo, no una garantía.
