@@ -306,7 +306,7 @@
   $('m-desde').value = '2026-01-01';
   $('m-locate').value = 0.05;
   $('m-plataforma').value = 0;
-  $('m-parar').value = 50;
+  $('m-parar').value = 20;
   ['m-deposito', 'm-riesgo', 'm-desde', 'm-locate', 'm-plataforma', 'm-parar']
     .forEach((id) => $(id).addEventListener('change', cargar));
 

@@ -74,7 +74,9 @@ APALANCAMIENTO = ((2_500.0, 6.0), (0.0, 4.0))   # desde $2.500 6:1, si no 4:1
 LOCATE_MIN_ACC = 100.0          # SUPUESTO: pedido mínimo de la industria
 LOCATE_SUPUESTO = 0.05          # $/acción cuando no hay anotación en /vivo
 PLATAFORMA_MES = 0.0            # TZ1 web. ZeroPro: 59
-PARAR_EN = 0.5                  # stop-out personal: fracción del depósito
+PARAR_EN = 0.2                  # stop-out personal: fracción del depósito. Era 0,5;
+                                # Agus lo bajó el 2026-09-04: la sangría de costos de la
+                                # cuenta chica no es motivo para cerrar la operativa.
 
 # Los dos escenarios que se comparan siempre, medidos en `test_bono_2000.py`:
 # $20 es lo que aguanta una cuenta de $500 (drawdown ~40% del depósito) y

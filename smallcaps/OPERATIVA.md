@@ -294,8 +294,9 @@ Tres cosas que la tabla dice:
 - **Por eso $500 mide y $2.000 opera.** El drawdown intradía se mide sumando las
   curvas de todos los papeles minuto a minuto, contra el pico histórico.
 
-La cuenta se para por una regla **nuestra**: equity por debajo del 50% del
-depósito. El broker no liquida por perder plata propia; uno se queda sin poder
+La cuenta se para por una regla **nuestra**: equity por debajo del 20% del
+depósito (era 50%; Agus lo bajó el 2026-09-04: la sangría de costos de la
+cuenta chica no es motivo para cerrar la operativa). El broker no liquida por perder plata propia; uno se queda sin poder
 de compra y sigue. La regla está a la vista en la página como parámetro.
 
 **Histórico — lo que decía este documento para Trade The Pool**, medido con
