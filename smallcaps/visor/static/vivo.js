@@ -140,7 +140,7 @@
       }));
     };
     poner(e.precio_prom, '#e8eaed', `prom $${n(e.precio_prom)}`, 0);
-    poner(e.stop_prom, '#ef5350', `stop $${n(e.stop_prom)}`, 2);
+    poner(e.stop_prom, '#ef5350', `${rotStop(e)} $${n(e.stop_prom)}`, 2);
     poner(e.proy_50, '#26a69a', `p50 $${n(e.proy_50)}`, 2);
     poner(e.proy_75, '#1c6f68', `p75 $${n(e.proy_75)}`, 3);
     /* El tope de la evaluacion: hasta donde tiene que caer para que la ganancia
@@ -233,6 +233,12 @@
      El cierre SI tiene resultado: otro color, y su PnL. Verde o rojo es una
      afirmacion sobre plata, y solo el cierre puede hacerla. */
   const M_GRIS = '#8f9bb3', M_VERDE = '#26a69a', M_ROJO = '#ef5350';
+
+  /* COMO SE LLAMA EL NIVEL DEL 45%. Mientras cerraba la posicion era el stop.
+     Ahora solo la DIMENSIONA —`acciones = riesgo / (precio x 45%)`— y la
+     posicion se sostiene al cierre. Seguir escribiendo "stop" en la pantalla
+     seria afirmar que ahi se sale, que es exactamente lo que ya no pasa. */
+  const rotStop = (e) => (e && e.usar_stop === false ? 'nivel 45%' : 'stop');
 
   function marcas(p, off) {
     const base = ((p.sesion && p.sesion.apertura) || 0) + off;
@@ -407,7 +413,7 @@
         cifra(n(e.vivas, 0), 'acciones'),
         cifra(n(e.pico, 0), 'pico a localizar'),
         cifra('$' + n(e.precio_prom), 'promedio'),
-        cifra('$' + n(e.stop_prom), 'stop'),
+        cifra('$' + n(e.stop_prom), rotStop(e)),
         cifra(signo(e.pnl_cerrado ?? 0) + '$' + n(Math.abs(e.pnl_cerrado ?? 0)),
               'cerrado', (e.pnl_cerrado ?? 0) >= 0 ? 'pos' : 'neg'),
         cifra(signo(e.pnl_abierto ?? 0) + '$' + n(Math.abs(e.pnl_abierto ?? 0)),
@@ -434,7 +440,7 @@
     return fila1 + fila2;
   }
 
-  function tabla(trades) {
+  function tabla(trades, e) {
     if (!trades.length) return '';
     const filas = trades.map(function (t, i) {
       const ab = t.motivo === 'abierta';
@@ -448,7 +454,7 @@
         + `<td class="${t.pnl >= 0 ? 'pos' : 'neg'}">${signo(t.pnl)}$${n(t.pnl)}</td></tr>`;
     }).join('');
     return '<details><summary>tramos</summary><table><thead><tr>'
-      + '<th>tramo</th><th>entra</th><th>stop</th><th>acc</th>'
+      + `<th>tramo</th><th>entra</th><th>${rotStop(e)}</th><th>acc</th>`
       + '<th>estado</th><th>pnl</th></tr></thead><tbody>'
       + filas + '</tbody></table></details>';
   }
@@ -482,7 +488,7 @@
        cerraria sola cada 20 segundos mientras uno la mira. */
     const cont = caja.querySelector('.tabla-wrap');
     const abiertoDet = cont.querySelector('details')?.open;
-    cont.innerHTML = tabla(p.trades_estrategia || []);
+    cont.innerHTML = tabla(p.trades_estrategia || [], e);
     const det = cont.querySelector('details');
     if (det && abiertoDet) det.open = true;
 
@@ -690,7 +696,7 @@
             + `<span class="num ${(e.pnl_abierto || 0) >= 0 ? 'pos' : 'neg'}">`
             + `${signo(e.pnl_abierto || 0)}$${n(Math.abs(e.pnl_abierto || 0))}</span>`
             + `<span class="det">${n(e.vivas, 0)} acc · prom $${n(e.precio_prom)}`
-            + ` · stop $${n(e.stop_prom)}</span></div>`;
+            + ` · ${rotStop(e)} $${n(e.stop_prom)}</span></div>`;
         }).join('')
         : '<div class="nada">nada abierto</div>'),
 
@@ -743,7 +749,7 @@
     $('mtk').textContent = p.ticker;
     $('mmeta').textContent =
       `$${n(e.precio)} · ${hhmm(e.hora)} · prom $${n(e.precio_prom)} · `
-      + `stop $${n(e.stop_prom)} · p50 $${n(e.proy_50)} · `
+      + `${rotStop(e)} $${n(e.stop_prom)} · p50 $${n(e.proy_50)} · `
       + `cerrado ${signo(e.pnl_cerrado ?? 0)}$${n(e.pnl_cerrado ?? 0)} · `
       + `abierto ${signo(e.pnl_abierto ?? 0)}$${n(e.pnl_abierto ?? 0)}`;
     pintarChart(modal, p);

@@ -170,6 +170,24 @@ def drawdown(curva):
     return dd
 
 
+# El stop lo decide la operativa, no este archivo: `vivo.USAR_STOP` es
+# la unica fuente de verdad. Con una copia local, el dia que cambie
+# alla esto seguiria simulando otra cosa — y es justo el simulador que
+# se usa para decidir cuanta plata poner.
+
+
+def _usar_stop() -> bool:
+    """Si la operativa cierra por stop. Import tardio: `vivo` importa
+    de este arbol y al reves seria circular."""
+    import sys
+    from pathlib import Path as _P
+    sys.path.insert(0, str(_P(__file__).resolve().parent / 'puente'))
+    try:
+        import vivo as _v
+        return bool(_v.USAR_STOP)
+    except Exception:
+        return True
+
 def pnl_de(dia):
     """Lo que dejó ese papel ese día, con el detalle que la página necesita.
 
@@ -180,7 +198,7 @@ def pnl_de(dia):
     """
     j = jornada(dia, sig, lado="short", stop_pct=STOP, riesgo=RIESGO_PAPEL,
                 max_trades=MAXT, corte_h=CORTE_H, corte_umbral=CORTE_UMBRAL,
-                corte_reentra=CORTE_REENTRA)
+                corte_reentra=CORTE_REENTRA, usar_stop=_usar_stop())
     if not j:
         return None
     b = j["pnl"]

@@ -555,6 +555,7 @@ def _papel_vivo(tk: str, f: str, dia, r: dict, _vivo) -> dict:
                    "pnl_abierto": r.get("pnl_abierto"),
                    "precio_prom": r.get("precio_prom"),
                    "stop_prom": r.get("stop_prom"),
+                   "usar_stop": bool(r.get("usar_stop")),
                    "proy_50": r.get("proy_50"),
                    "proy_75": r.get("proy_75"),
                    "composicion": r.get("composicion") or []},

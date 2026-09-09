@@ -89,9 +89,16 @@ def main() -> int:
             return [i for i in señales_swing(x, desde=vivo.DESDE)
                     if (x.bars[i][4] or 0) >= PISO]
 
+        # TODAS las constantes salen de `vivo`, ninguna se repite aca. Cuando
+        # se saco la salida por stop (2026-09-09) este test se puso en rojo al
+        # instante en BYAH: comparaba el camino vivo SIN stop contra el motor
+        # CON stop. Fue el test haciendo su trabajo, y la leccion es que una
+        # constante de la operativa copiada a mano en el comparador convierte
+        # cualquier cambio en una falsa divergencia.
         j = jornada(d, sig, lado="short", stop_pct=vivo.STOP_PCT,
                     riesgo=RIESGO, max_trades=vivo.MAX_TRAMOS,
-                    corte_h=vivo.CORTE_H, corte_umbral=vivo.CORTE_UMBRAL)
+                    corte_h=vivo.CORTE_H, corte_umbral=vivo.CORTE_UMBRAL,
+                    usar_stop=vivo.USAR_STOP)
 
         como_lo_escribe_la_plataforma(d, tk, ruta)
         feed = vivo.leer_feed(ruta)

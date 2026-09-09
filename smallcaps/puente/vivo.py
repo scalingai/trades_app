@@ -57,6 +57,29 @@ NY = ZoneInfo("America/New_York")
 # La configuración candidata, la misma que quedó medida. Si esto se desvía del
 # backtest, lo que se opera no es lo que se midió.
 STOP_PCT = 45.0
+# EL 45% YA NO CIERRA LA POSICION: SOLO LA DIMENSIONA.
+#
+# `acciones = riesgo_tramo / (precio x 45%)` sigue igual, asi que cada tramo
+# arriesga los mismos dolares que siempre. Lo que se saco es la SALIDA
+# automatica en ese nivel.
+#
+# Medido el 2026-09-09 sobre las 365 sesiones reclaim del censo, con el
+# presupuesto del dia viendo la equity real (no la version optimista que reusa
+# las entradas del sistema con stop):
+#
+#                        con stop 45%      sin stop
+#   bruto total              +$6.504       +$7.516
+#   drawdown de cuenta         -$800         -$757
+#   peor tramo                   -$26          -$66
+#   dias en verde                 65%           66%
+#
+#   fuera de muestra (corte 2025-08-17): +$495 antes, +$516 despues.
+#
+# Replica en los dos periodos con casi el mismo delta, que es lo que separa un
+# hallazgo de una casualidad. LO QUE SE PAGA es la cola: -$26 era un tope
+# CONOCIDO —lo ponia el stop— y -$66 es solamente el peor que hubo en dos años.
+# Sin stop no hay tope, hay historia. Ese es el riesgo que se acepta acá.
+USAR_STOP = False
 DESDE = 10.0
 EXPANSION_MIN = 0.0            # la variante de 7,5 sesiones/mes
 APERTURA = "reclaim"
@@ -416,7 +439,8 @@ def evaluar(dia, riesgo, piso, modo=None):
     m = MODOS[modo] if modo else {"corte_h": CORTE_H, "tope_usd": None}
     j = jornada(dia, señal, lado="short", stop_pct=STOP_PCT, riesgo=riesgo,
                 max_trades=MAX_TRAMOS, corte_h=m["corte_h"],
-                corte_umbral=CORTE_UMBRAL, tope_usd=m["tope_usd"])
+                corte_umbral=CORTE_UMBRAL, tope_usd=m["tope_usd"],
+                usar_stop=USAR_STOP)
     if not j:
         out["tramos"] = []
         return out
@@ -540,7 +564,11 @@ def evaluar(dia, riesgo, piso, modo=None):
                 "nominal": pico * px, "equity": equity, "comision": com,
                 "pnl_cerrado": pnl_cerrado, "pnl_abierto": pnl_abierto,
                 "precio_prom": prom,
+                # El nivel del 45%: ya no cierra nada, pero sigue siendo
+                # donde la posicion va -$25 por tramo. Se muestra como
+                # referencia, y por eso el front lo rotula "nivel", no "stop".
                 "stop_prom": prom * (1 + STOP_PCT / 100.0) if prom else None,
+                "usar_stop": USAR_STOP,
                 "proy_50": prom * (1 - MFE_P50 / 100.0) if prom else None,
                 "proy_75": prom * (1 - MFE_P75 / 100.0) if prom else None,
                 "composicion": comp,

@@ -142,7 +142,8 @@ def poblacion(dias, *, min_ratio_vol=3.0, min_expansion=100.0, max_expansion=Non
 # --------------------------------------------------------------------------
 
 def _trade(dia, i, *, lado, stop_pct, riesgo, objetivo_pct=None, salida_h=None,
-           trail_ancho=None, trail_devuelve=None, trail_arma=0.0):
+           trail_ancho=None, trail_devuelve=None, trail_arma=0.0,
+           usar_stop=True):
     """Un trade con tamaño por riesgo. Devuelve el registro completo o None.
 
     Convención conservadora de siempre: si en el mismo minuto se tocan stop y
@@ -197,8 +198,17 @@ def _trade(dia, i, *, lado, stop_pct, riesgo, objetivo_pct=None, salida_h=None,
             adv = (b[2] - p) if lado == "short" else (p - b[3])
             mfe = max(mfe, 100 * fav / p)
             mae = min(mae, -100 * adv / p)
-        toca_stop = (b[2] and b[2] >= p_stop) if lado == "short" else (
-            b[3] and b[3] <= p_stop)
+        # `usar_stop=False` apaga la SALIDA, no el tamaño: `acciones` se sigue
+        # calculando con `stop_pct`, asi que cada tramo arriesga los mismos
+        # dolares y lo unico que cambia es que no hay puerta de emergencia.
+        # Medido sobre las 365 sesiones reclaim del censo, con el presupuesto
+        # del dia viendo la equity real: +$7.516 contra +$6.504, drawdown de
+        # cuenta -$757 contra -$800, y replica fuera de muestra (+$495 antes
+        # del corte 2025-08-17, +$516 despues). Lo que empeora es la cola: el
+        # peor tramo pasa de -$26 a -$66, porque -$26 era el stop y ahora no
+        # hay tope conocido, solo el que la muestra mostro.
+        toca_stop = usar_stop and ((b[2] and b[2] >= p_stop) if lado == "short"
+                                   else (b[3] and b[3] <= p_stop))
         if toca_stop:
             return cerrar(-riesgo - acciones * COSTO_ACCION, "stop", h, p_stop,
                           mae, mfe)
@@ -251,7 +261,7 @@ def jornada(dia, señal, *, lado, stop_pct, riesgo, max_trades=10,
             objetivo_pct=None, salida_h=None, trail_ancho=None,
             trail_devuelve=None, trail_arma=0.0,
             corte_h=None, corte_umbral=5.0, corte_reentra=False,
-            tope_usd=None):
+            tope_usd=None, usar_stop=True):
     """Una sesión: varios trades hasta agotar el presupuesto de riesgo.
 
     **La regla de presupuesto miraba el futuro, y era el error más caro de los
@@ -316,7 +326,7 @@ def jornada(dia, señal, *, lado, stop_pct, riesgo, max_trades=10,
             r = _trade(dia, i, lado=lado, stop_pct=stop_pct, riesgo=r_trade,
                        objetivo_pct=objetivo_pct, salida_h=salida_h,
                        trail_ancho=trail_ancho, trail_devuelve=trail_devuelve,
-                       trail_arma=trail_arma)
+                       trail_arma=trail_arma, usar_stop=usar_stop)
             if not r:
                 continue
             pnl += r["pnl"]

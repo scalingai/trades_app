@@ -165,12 +165,30 @@ def locates_anotados():
     return out
 
 
+# El stop lo decide la operativa, no este archivo: `vivo.USAR_STOP` es
+# la unica fuente de verdad. Con una copia local, el dia que cambie
+# alla esto seguiria simulando otra cosa — y es justo el simulador que
+# se usa para decidir cuanta plata poner.
+
+
+def _usar_stop() -> bool:
+    """Si la operativa cierra por stop. Import tardio: `vivo` importa
+    de este arbol y al reves seria circular."""
+    import sys
+    from pathlib import Path as _P
+    sys.path.insert(0, str(_P(__file__).resolve().parent / 'puente'))
+    try:
+        import vivo as _v
+        return bool(_v.USAR_STOP)
+    except Exception:
+        return True
+
 def papel(dia, riesgo, locate_acc, real):
     """Un papel un día: lo que dejó y lo que costó, con el detalle que la
     página necesita. `locate_acc` es el precio del locate por acción y
     `real` si salió de una anotación o del supuesto."""
     j = jornada(dia, sig, lado="short", stop_pct=STOP, riesgo=riesgo,
-                max_trades=MAXT, corte_h=None)
+                max_trades=MAXT, corte_h=None, usar_stop=_usar_stop())
     if not j:
         return None
     det = j["detalle"]
