@@ -410,12 +410,21 @@ def payload_vivo(riesgo: float, piso: float, modo: str | None = None) -> dict:
     salida = {"riesgo": riesgo, "piso": piso, "feed": str(_vivo.FEED),
               "existe": _vivo.FEED.exists(), "papeles": [],
               "config": _config_vivo(_vivo, modo=modo)}
-    if not salida["existe"]:
-        return salida
-
     hoy = date.today().isoformat()
     refs = _vivo.referencias()
+    # EL FEED, COMO DATO. Hace cuanto se escribio el archivo y si tiene alguna
+    # barra de hoy. Es lo que le falta a la pantalla para distinguir "hoy no
+    # califico nada" de "nadie levanto el feed": la semana del 2026-09-07 se
+    # vieron iguales —vacias— y pasaron tres ruedas sin que se notara.
+    salida["feed_edad_min"] = _edad_min(_vivo.FEED)
+    salida["feed_hoy"] = False
+    if not salida["existe"]:
+        salida["papeles"] = [_papel_sin_feed(tk, hoy, px, _vivo)
+                             for tk, px in sorted(refs.items())]
+        return salida
+
     _rs = []
+    vistos = set()
     for (tk, f), datos in sorted(_vivo.leer_feed().items()):
         if f != hoy:
             continue
@@ -441,9 +450,48 @@ def payload_vivo(riesgo: float, piso: float, modo: str | None = None) -> dict:
 
         salida["papeles"].append(_papel_vivo(tk, f, dia, r, _vivo))
         _rs.append(r)
+        vistos.add(tk)
+        salida["feed_hoy"] = True
+    # LA WATCHLIST ENTERA, TENGA BARRAS O NO. Un papel de la lista que todavia
+    # no llego al feed —porque el feed no arranco, o porque Yahoo no lo
+    # devolvio— antes directamente no existia en pantalla. Se lo ve igual, sin
+    # grafico y con el motivo: la lista que uno armo es la lista que uno ve.
+    for tk, px in sorted(refs.items()):
+        if tk in vistos or not _RE_TICKER.match(tk):
+            continue
+        salida["papeles"].append(_papel_sin_feed(tk, hoy, px, _vivo))
     salida["dd_dia"] = _drawdown_dia(_rs)
     salida["papeles"].sort(key=lambda x: -len(x["trades_estrategia"]))
     return salida
+
+
+def _edad_min(ruta: Path) -> float | None:
+    """Minutos desde la ultima escritura del archivo. None si no existe."""
+    try:
+        import time
+        return max(0.0, (time.time() - ruta.stat().st_mtime) / 60.0)
+    except OSError:
+        return None
+
+
+def _papel_sin_feed(tk: str, f: str, ref: float | None, _vivo) -> dict:
+    """Una fila de la watchlist para la que el feed no tiene barras.
+
+    Misma forma que `_papel_vivo` para que el front no tenga un segundo
+    camino: velas vacias, sin niveles, y un unico descarte que dice por que.
+    `sin_feed` es lo que el front usa para no dibujar un grafico vacio y para
+    pintarla como problema del DATO (ambar), no como "no califica"."""
+    return {
+        "ticker": tk, "d": f, "velas": [], "volumen": [], "vwap": [],
+        "trades_estrategia": [], "sin_feed": True,
+        "niveles": {"prev_close": None, "pm_high": None, "rth_open": None},
+        "sesion": {"apertura": None, "cierre": None},
+        "estado": {"locate": _locates().get((f, tk)),
+                   "hora": None, "precio": ref, "barras": 0,
+                   "expansion": None, "apertura": None,
+                   "descartes": ["sin barras del feed todavía"],
+                   "sin_feed": True, "atraso": None, "composicion": []},
+    }
 
 
 def _papel_vivo(tk: str, f: str, dia, r: dict, _vivo) -> dict:
@@ -492,6 +540,9 @@ def _papel_vivo(tk: str, f: str, dia, r: dict, _vivo) -> dict:
                    "barras": r.get("bars"), "expansion": r.get("expansion"),
                    "apertura": r.get("apertura"),
                    "descartes": r.get("descartes") or [],
+                   # El front lo usa para pintar "revisar el dato" en ambar.
+                   # `evaluar` lo setea desde siempre; nunca habia viajado.
+                   "sin_premarket": bool(r.get("sin_premarket")),
                    "pico": r.get("pico"), "vivas": r.get("vivas"),
                    "equity": r.get("equity"), "comision": r.get("comision"),
                    "limite": r.get("limite"),

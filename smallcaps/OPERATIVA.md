@@ -128,6 +128,17 @@ después de un retiro. Acá se asume que se vuelve a medir desde el nuevo balanc
 
 ## 1. Antes de la apertura — la watchlist
 
+**Primero, la app.** Un comando, antes de las 09:30 NY, y Trade The Pool cerrado
+(ya no se usa para nada):
+
+```
+python smallcaps/arrancar.py     # visor + feed de Yahoo, juntos
+```
+
+Si el feed no está escribiendo con el mercado abierto, `/vivo` lo dice en rojo
+arriba de todo. Antes no lo decía, y la semana del 2026-09-07 pasó por "no hubo
+trades" cuando lo que no hubo fue feed (ver `puente/README.md`).
+
 **El botón `buscar` del scanner, en `/vivo`.** Tarda entre veinte segundos y un
 minuto y deja `watchlist.txt` escrito. Desde la terminal es lo mismo:
 

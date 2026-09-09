@@ -21,12 +21,32 @@ dónde correr. `yahoo_feed.py` escribe **el mismo archivo, con el mismo
 formato**: barras de 1 minuto con sesión extendida, al minuto, de los papeles
 de la watchlist. Nada de lo que lee el archivo cambió.
 
-La rutina de la mañana, en dos terminales:
+La rutina de la mañana, **un solo comando**, antes de las 09:30 NY:
+
+```bash
+python smallcaps/arrancar.py                # visor (:8765/vivo) + feed de Yahoo, juntos
+```
+
+Levanta los dos procesos, mezcla sus salidas con prefijo `[visor]` / `[feed]`,
+y con Ctrl+C —o si lo matan de prepo— apaga a los dos. Sueltos siguen
+existiendo, para rellenar un día o reindexar:
 
 ```bash
 python smallcaps/visor/server.py            # el visor → http://127.0.0.1:8765/vivo
 python smallcaps/puente/yahoo_feed.py       # el feed, hasta las 20:00 NY o Ctrl+C
 ```
+
+**Por qué un solo comando.** El visor abre igual sin feed, y sin feed la
+pantalla se ve **exactamente como un día en el que nada califica**: vacía. La
+semana del 2026-09-07 se levantó el visor solo tres ruedas seguidas y se leyó
+como "no hubo trades" —IRD calificó el 9 con tres tramos y nadie lo vio—. Desde
+entonces `/vivo` avisa en rojo si el mercado está abierto y el feed no tiene
+ninguna barra de hoy, y **la watchlist se muestra entera** aunque un papel
+todavía no tenga barras (fila ámbar "sin barras del feed").
+
+**Trade The Pool ya no hace falta abierto.** El indicador `TTPFeedMulti` quedó
+obsoleto; lo único que se necesita abierto es TradeZero, para el locate y las
+órdenes.
 
 La watchlist la arma el botón **buscar** de `/vivo` (o `python smallcaps/escaner.py`)
 **con el mercado abierto**: en pre-market Yahoo no tiene el gap de los papeles

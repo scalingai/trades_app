@@ -463,9 +463,22 @@
     const det = cont.querySelector('details');
     if (det && abiertoDet) det.open = true;
 
+    /* SIN BARRAS NO HAY GRAFICO. Un chart vacio parece un chart roto; en su
+       lugar va el motivo, en el mismo lugar donde irian las velas. Si el papel
+       tenia chart y dejo de tener barras (el feed se archivo a mitad de dia),
+       se saca el chart viejo para no dejar velas congeladas que parezcan vivas. */
+    if (p.sin_feed) {
+      const c0 = charts.get(p.ticker);
+      if (c0) { try { c0.chart.remove(); } catch (err) {} charts.delete(p.ticker); }
+      document.getElementById('g-' + p.ticker).innerHTML =
+        '<div class="sin-feed">esperando barras…</div>';
+      return;
+    }
     let c = charts.get(p.ticker);
     if (!c) {
-      c = crearChart(document.getElementById('g-' + p.ticker));
+      const g = document.getElementById('g-' + p.ticker);
+      g.innerHTML = '';
+      c = crearChart(g);
       charts.set(p.ticker, c);
     }
     pintarChart(c, p);
@@ -749,11 +762,27 @@
       tick();
       return;
     }
+    /* EL FEED QUE NO ESCRIBE. Hay dos fallas distintas y hasta ahora solo se
+       avisaba una. "Frenado": hubo barras hoy y dejaron de llegar. "Vacio":
+       no hay NINGUNA barra de hoy con el mercado abierto — nadie levanto
+       `yahoo_feed.py`. La segunda se veia exactamente igual que un dia en el
+       que ningun papel califica, y asi pasaron tres ruedas (2026-09-07 al 09)
+       mirando una pantalla vacia creyendo que el sistema no daba señales. */
+    const enRueda = !d.pasado && c.ahora != null && c.ahora >= 9.5 && c.ahora <= 16;
+    const ORDEN = '<code>python smallcaps/arrancar.py</code>';
     if (!d.existe) {
       charts.clear();
+      $('alarma').innerHTML = enRueda
+        ? '<div class="alarma grave"><span class="luz"></span>'
+          + '<b>El feed no existe y el mercado está abierto</b>'
+          + `<span class="que">— levantá ${ORDEN} (visor + feed juntos).</span></div>`
+        : '';
       $('cuerpo').innerHTML = `<div class="vacio"><p>No hay feed todavía.</p>`
-        + `<p>Poné el indicador <code>TTPFeedMulti</code> en un gráfico y escribí`
-        + ` la watchlist.</p><p style="margin-top:1em"><code>${d.feed}</code></p></div>`;
+        + `<p>Levantá <code>python smallcaps/puente/yahoo_feed.py</code> —o`
+        + ` <code>python smallcaps/arrancar.py</code>, que levanta feed y visor`
+        + ` juntos— y armá la watchlist con <b>buscar</b>.</p>`
+        + `<p style="margin-top:1em"><code>${d.feed}</code></p></div>`;
+      pintarScanner(d);
       return;
     }
     /* El aviso global usa el papel MENOS atrasado: si hasta el más fresco está
@@ -761,22 +790,34 @@
        aviso sólo global uno que sigue llegando tapa a los demás. */
     const atrasos = d.papeles.map((p) => p.estado?.atraso).filter((x) => x != null);
     const min = atrasos.length ? Math.min(...atrasos) : null;
-    $('alarma').innerHTML = (min != null && min > (c.rancio ?? 3))
-      /* El feed cortado NO es plata perdida: es "lo de abajo esta viejo". Iba
-         en un muro rojo a todo el ancho con cuatro renglones de instrucciones
-         que uno ya se sabe. Ambar, un renglon, y el dato que importa —hace
-         cuanto— adelante. */
-      ? '<div class="alarma"><span class="luz"></span>'
-        + `<b>Feed frenado hace ${n(min, 0)} min</b>`
-        + '<span class="que">— revisá que Trade The Pool diga “Connected”.'
-        + ' Lo de abajo está viejo.</span></div>'
-      : '';
+    const edad = d.feed_edad_min;
+    if (enRueda && !d.feed_hoy) {
+      /* Este SI es grave: no es "lo de abajo esta viejo", es "no hay abajo".
+         Y hay que decir que hacer, porque el sintoma no lo sugiere. */
+      $('alarma').innerHTML = '<div class="alarma grave"><span class="luz"></span>'
+        + '<b>El feed no está escribiendo: ninguna barra de hoy</b>'
+        + `<span class="que">— el archivo se tocó hace ${edad == null ? '—' : n(edad, 0)} min.`
+        + ` Levantá ${ORDEN}. Sin eso, un día sin señales y un feed apagado`
+        + ' se ven iguales.</span></div>';
+    } else {
+      $('alarma').innerHTML = (min != null && min > (c.rancio ?? 3))
+        /* El feed cortado NO es plata perdida: es "lo de abajo esta viejo". Iba
+           en un muro rojo a todo el ancho con cuatro renglones de instrucciones
+           que uno ya se sabe. Ambar, un renglon, y el dato que importa —hace
+           cuanto— adelante. */
+        ? '<div class="alarma"><span class="luz"></span>'
+          + `<b>Feed frenado hace ${n(min, 0)} min</b>`
+          + '<span class="que">— revisá que <code>yahoo_feed.py</code> siga corriendo'
+          + ' y que Yahoo responda. Lo de abajo está viejo.</span></div>'
+        : '';
+    }
 
     if (!$('cuerpo').querySelector('.grilla')) {
       $('cuerpo').innerHTML = '<div class="grilla"></div>';
     }
     if (!d.papeles.length) {
-      $('cuerpo').innerHTML = '<div class="vacio">Hay feed, pero ninguna barra de hoy.</div>';
+      $('cuerpo').innerHTML = '<div class="vacio">Ninguna barra de hoy y la watchlist'
+        + ' está vacía. Armala con <b>buscar</b>.</div>';
     } else {
       /* Sacar los papeles que dejaron de venir, para no dejar un gráfico
          congelado que parezca vivo. */
@@ -931,6 +972,12 @@
        mira es el MISMO problema que "falta el pre-market" —el dato no se puede
        creer y hay que ir a arreglar algo afuera de la app—, y siete formas ya
        son las que se pueden aprender. Cuál de los dos es, lo dice el título. */
+    /* Sin barras del feed: no es del mercado ni del filtro, es que el dato
+       no llego. Va en ambar como "revisar", con su propia forma porque la
+       accion es otra: no hay que tocar nada en la plataforma, hay que
+       levantar el feed. */
+    sinfeed:    { nombre: 'sin barras del feed',
+                  d: '<circle cx="8" cy="8" r="6.2" stroke-dasharray="2.2 2.2"/>' },
     revisar:    { nombre: 'revisar el dato',
                   d: '<path d="M8 2.2 14.6 13.4H1.4z"/><path d="M8 6.6v3M8 11.4v.1"/>' },
   };
@@ -951,6 +998,7 @@
        premarket, asi que un `includes('premarket')` suelto lo clasificaria
        como "todavia no abrio" — el error de configuracion desaparecido
        adentro de un estado normal, que es la peor forma de perderlo. */
+    if (e.sin_feed) return 'sinfeed';
     if (e.sin_premarket) return 'revisar';
     if (d.some((x) => x.includes('no se parece'))) return 'revisar';
     if (d.some((x) => x.includes('todavia en pre-market'))) return 'premarket';
@@ -966,7 +1014,7 @@
   /* EL ORDEN DE LA LISTA ES EL ORDEN EN QUE IMPORTAN. Alfabético es el orden
      de nadie: pone a un papel descartado arriba de uno que está short. Los que
      piden algo van primero, y los que hoy no juegan al fondo. */
-  const PRIORIDAD = ['operando', 'espera', 'revisar', 'abriendo',
+  const PRIORIDAD = ['operando', 'espera', 'revisar', 'sinfeed', 'abriendo',
                      'cerrado', 'premarket', 'nocalifica'];
 
   /* EL RESUMEN, QUE ES EL EMBUDO EN UN RENGLON. Había un embudo de siete filas
@@ -977,7 +1025,7 @@
     ['opera',   ['operando', 'cerrado']],
     ['esperan', ['espera']],
     ['fuera',   ['nocalifica', 'premarket', 'abriendo']],
-    ['revisar', ['revisar']],
+    ['revisar', ['revisar', 'sinfeed']],
   ];
 
   /* EL SCANNER. Cuatro columnas con encabezado, como cualquier terminal: qué

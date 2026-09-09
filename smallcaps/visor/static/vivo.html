@@ -76,6 +76,16 @@
                background:var(--ambar);animation:latir 1.8s ease-in-out infinite}
   @keyframes latir{50%{opacity:.28}}
   .alarma b{font-weight:600}
+  /* La grave es la unica en rojo: no es "esta viejo", es "no hay nada y el
+     mercado esta abierto". Y dice la orden a correr, porque el sintoma no. */
+  .alarma.grave{background:var(--rojo-fondo,rgba(239,83,80,.12));
+                border-color:var(--rojo-borde,rgba(239,83,80,.45))}
+  .alarma.grave .luz{background:var(--rojo,#ef5350)}
+  .alarma code{color:var(--texto);font-size:var(--t1)}
+  .sin-feed{display:flex;align-items:center;justify-content:center;
+            height:100%;min-height:160px;color:var(--texto-3);
+            font-size:var(--t2);border:1px dashed var(--ambar-borde);
+            border-radius:var(--radio-2)}
   .alarma .que{color:var(--texto-2)}
   @media (prefers-reduced-motion:reduce){.alarma .luz{animation:none}}
 
@@ -313,6 +323,7 @@
   .e-operando .ico{color:var(--pos)}
   .e-espera   .ico{color:var(--acento)}
   .e-revisar  .ico{color:var(--ambar)}
+  .e-sinfeed  .ico{color:var(--ambar)}
   .e-cerrado  .ico,.e-abriendo .ico{color:var(--texto-2)}
   /* Un filo de color a la izquierda, del ancho de un pelo. Con la lista
      ordenada por estado, ese filo agrupa de un vistazo dónde termina lo que
@@ -321,6 +332,7 @@
   .e-operando{box-shadow:inset 2px 0 0 var(--pos)}
   .e-espera{box-shadow:inset 2px 0 0 var(--acento)}
   .e-revisar{box-shadow:inset 2px 0 0 var(--ambar)}
+  .e-sinfeed{box-shadow:inset 2px 0 0 var(--ambar)}
   /* Los que hoy no juegan se apagan enteros, y vuelven al pasar el mouse. */
   .e-nocalifica,.e-premarket{opacity:.55}
   .wl-fila:hover{opacity:1}
