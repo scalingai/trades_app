@@ -164,9 +164,16 @@ def reconstruir(y: Yahoo, dia: str, *, gap_min: float, verboso: bool = False):
         liq = liquidez_de(q)
         if liq is None or liq < LIQ_MIN:
             fuera("liquidez previa < $150k"); continue
-        salida.append({"ticker": m["ticker"], "precio": m["apertura"],
+        # EL PRECIO DE REFERENCIA ES EL ULTIMO, NO EL DE LA APERTURA.
+        #
+        # `vivo.papel_sospechoso` compara ese numero contra la ULTIMA vela del
+        # feed para detectar que el simbolo no sea otro instrumento. Con la
+        # apertura adentro, un papel que corrio 30% en el dia —o sea, todos los
+        # nuestros— dispara la alarma solo. Paso con SUNE: abrio 3,00 y quedo en
+        # 3,90, y la pantalla lo marco como "puede ser otro papel".
+        salida.append({"ticker": m["ticker"], "precio": m["cierre"] or m["apertura"],
                        "gap": m["gap"], "origen": "velas 09:30",
-                       "prev": m["prev"], "liq": liq,
+                       "prev": m["prev"], "liq": liq, "apertura": m["apertura"],
                        "float": q.get("sharesOutstanding"),
                        "maximo": m["maximo"], "cierre": m["cierre"]})
     if verboso and descartes:
@@ -203,11 +210,11 @@ def main(argv=None) -> int:
     arriba = [p for p in papeles if p["precio"] >= a.piso]
     print(f"{len(papeles)} pasan el censo con el gap MEDIDO"
           + (f", {len(arriba)} además el piso de ${a.piso:.2f}" if len(arriba) != len(papeles) else "") + "\n")
-    print(f"  {'papel':<7} {'prev':>8} {'abre':>8} {'GAP':>8} {'máx':>8} "
-          f"{'cierra':>8} {'liquidez':>11}")
+    print(f"  {'papel':<7} {'prev':>8} {'abre 9:30':>10} {'GAP':>8} {'máx':>8} "
+          f"{'último':>8} {'liquidez':>11}")
     for p in papeles:
         marca = " " if p["precio"] >= a.piso else "·"
-        print(f"{marca} {p['ticker']:<7} ${p['prev']:>7.2f} ${p['precio']:>7.2f} "
+        print(f"{marca} {p['ticker']:<7} ${p['prev']:>7.2f} ${p['apertura']:>9.2f} "
               f"{p['gap']:>+7.0f}% ${p['maximo']:>7.2f} ${p['cierre']:>7.2f} "
               f"${p['liq']/1e6:>9.1f}M")
 
