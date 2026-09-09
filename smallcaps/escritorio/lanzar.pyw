@@ -1,35 +1,35 @@
-"""Abre small caps como una aplicación de escritorio, con todo lo que hace falta.
+"""Small caps como aplicación de escritorio de verdad: ventana propia, sin Chrome.
 
-QUE ABRE. `smallcaps/arrancar.py --auto`, que es el supervisor: levanta el
-visor (En vivo, Gráficos, Historial, Papeles, Reproducción, Cartera, Bitácora),
-el feed de Yahoo que escribe las barras, y arma la watchlist según la hora de
-Nueva York. No confundir con `trades_app.py`, que es una planilla de scoring
-vieja y aparte.
+QUE ABRE. `smallcaps/arrancar.py --auto`, el supervisor: levanta el visor (En
+vivo, Gráficos, Historial, Papeles, Reproducción, Cartera, Bitácora), el feed de
+Yahoo que escribe las barras, y arma la watchlist según la hora de Nueva York.
+No confundir con `trades_app.py`, que es una planilla de scoring vieja y aparte.
 
-QUE CAMBIO EL 2026-09-09. Antes esto levantaba SOLO `visor/server.py`. El visor
-dibuja pero no baja datos, así que la pantalla se veía exactamente igual que un
-día sin señales: vacía. Tres ruedas seguidas se leyeron como "no hubo trades"
-cuando lo que no hubo fue feed. Ahora arranca el supervisor, que además se
-reinicia solo cuando cambia el código — sin eso hay que matar el proceso a mano
-y la terminal está minimizada.
+POR QUE YA NO ES CHROME (2026-09-09). Antes esto abría Chrome con `--app=`, que
+da una ventana sin barra de direcciones pero SIGUE SIENDO CHROME: en la barra de
+tareas aparece con el logo de Chrome y anclarla ancla a Chrome. Ahora la ventana
+la hace **WebView2**, el motor que ya viene con Windows 11, a través de
+`pywebview`. Es una ventana nativa, con su propio ícono y su propia identidad en
+la barra de tareas.
 
-QUE HACE. Levanta todo en segundo plano —sin ventana de consola— y abre Chrome
-en modo aplicación (`--app=`), que da una ventana sin barra de direcciones ni
-pestañas y con su propio botón en la barra de tareas, anclable como cualquier
-app.
+EL ICONO EN LA BARRA DE TAREAS son dos cosas distintas y hacen falta las dos:
+
+  1. El ícono de la VENTANA — lo pone `webview.start(icon=...)`.
+  2. La IDENTIDAD de la app — el `AppUserModelID`. Sin eso Windows agrupa la
+     ventana con "Python" y al anclarla ancla python.exe. Se fija acá con
+     `SetCurrentProcessExplicitAppUserModelID` y tiene que coincidir con el que
+     lleva el acceso directo (lo pone `fijar_identidad.py`).
+
+QUE HACE SI YA ESTA CORRIENDO. Se chequea el puerto antes de arrancar; si
+contesta, la ventana se abre contra el servidor que ya está. Cerrar la ventana
+NO apaga el servidor: sigue juntando barras, que es lo que uno quiere.
 
 POR QUE `.pyw` Y NO `.py`. La extensión decide el ejecutable: `python.exe` abre
-una consola negra detrás de la ventana y `pythonw.exe` no. El acceso directo
-apunta igual a `pythonw.exe` explícito, para no depender de cómo estén las
-asociaciones de archivos de la máquina.
-
-SI YA ESTA CORRIENDO, NO LEVANTA OTRO. Se chequea el puerto antes de arrancar;
-si contesta, se abre la ventana contra el que ya está.
+una consola negra detrás de la ventana y `pythonw.exe` no.
 """
 
 from __future__ import annotations
 
-import os
 import socket
 import subprocess
 import sys
@@ -39,27 +39,33 @@ from pathlib import Path
 PUERTO = 8765          # el default de visor/server.py
 AQUI = Path(__file__).resolve().parent
 LOG = AQUI / "app.log"
+ICONO = AQUI / "trades.ico"
+APP_ID = "Agus.SmallCaps.Visor"     # el mismo que fija el acceso directo
 
 # EL SUPERVISOR NO SE PUEDE COPIAR A UNA CARPETA SUELTA: importa `motor`,
-# `dias`, `chavineta` y la mitad de `smallcaps/`. Así que el acceso directo
-# apunta al repo, y hay que decir cuál.
-#
-# Hoy el worktree es el UNICO lugar donde vive esta app: el checkout principal
-# está cientos de commits atrás y no tiene ni el visor ni el puente. Cuando esto
-# se mergee a main, la segunda opción pasa a ser la buena y esto sigue andando
-# sin tocar nada.
+# `dias`, `chavineta` y la mitad de `smallcaps/`. Así que esto apunta al repo,
+# y hay que decir cuál. Cuando se mergee a main, la segunda pasa a ser la buena
+# y esto sigue andando sin tocar nada.
 CANDIDATAS = [
     Path(r"C:\Users\agust\Apps\agendai\algotrade\gracious-wing-b7a8fc\smallcaps\arrancar.py"),
     Path(r"C:\Users\agust\Apps\algotrade\smallcaps\arrancar.py"),
     AQUI.parent / "smallcaps" / "arrancar.py",
 ]
 
-CHROMES = [
-    Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
-    Path(r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"),
-    Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
-    Path(r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"),
-]
+
+def aviso(texto: str) -> None:
+    """Sin consola no se ve un print: el error va por ventana o no existe."""
+    import ctypes
+    ctypes.windll.user32.MessageBoxW(0, texto, "Small Caps", 0x10)
+
+
+def identidad() -> None:
+    """Que Windows trate esto como una app y no como 'Python'."""
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_ID)
+    except Exception:
+        pass    # sin esto la ventana igual abre; solo se agrupa peor
 
 
 def contesta(puerto: int) -> bool:
@@ -70,13 +76,6 @@ def contesta(puerto: int) -> bool:
 
 def supervisor() -> Path | None:
     for p in CANDIDATAS:
-        if p.exists():
-            return p
-    return None
-
-
-def navegador() -> Path | None:
-    for p in CHROMES:
         if p.exists():
             return p
     return None
@@ -96,14 +95,14 @@ def arrancar(script: Path) -> None:
     if hasattr(subprocess, "CREATE_NO_WINDOW"):
         banderas |= subprocess.CREATE_NO_WINDOW
     if hasattr(subprocess, "DETACHED_PROCESS"):
-        # Que sobreviva a este lanzador: si muriera con él, cerrar la ventana
-        # del navegador se llevaría el servidor puesto.
+        # Que sobreviva a esta ventana: cerrar la app no tiene por qué apagar el
+        # feed, que es justamente lo que uno quiere que siga juntando barras.
         banderas |= subprocess.DETACHED_PROCESS
 
     # LA SALIDA VA A UN ARCHIVO, NO AL VACIO. Sin consola, un error de arranque
-    # —Yahoo caído, el puerto ocupado, un import roto— desaparecía sin dejar
-    # rastro y el síntoma era una ventana en blanco. El log se pisa en cada
-    # arranque a propósito: interesa el de ahora, no el historial.
+    # —Yahoo caído, el puerto ocupado, un import roto— desaparecía sin rastro y
+    # el síntoma era una ventana en blanco. Se pisa en cada arranque a
+    # propósito: interesa el de ahora, no el historial.
     fh = open(LOG, "w", encoding="utf-8", errors="replace")
     subprocess.Popen(
         [str(py), "-u", str(script), "--auto",
@@ -112,30 +111,43 @@ def arrancar(script: Path) -> None:
         stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT)
 
 
-def abrir_ventana(url: str) -> None:
-    nav = navegador()
-    if nav is None:
-        import webbrowser
-        webbrowser.open(url)
-        return
-    perfil = Path(os.environ.get("LOCALAPPDATA", str(AQUI))) / "SmallCaps" / "perfil"
-    perfil.mkdir(parents=True, exist_ok=True)
-    # Perfil propio: sin esto la ventana se abre dentro del Chrome que ya esté
-    # abierto y hereda su sesión y sus extensiones. Con perfil aparte queda un
-    # botón separado en la barra de tareas, que es justo lo que se busca.
-    subprocess.Popen([str(nav), f"--app={url}",
-                      f"--user-data-dir={perfil}",
-                      "--no-first-run", "--no-default-browser-check"])
+def ventana(url: str) -> bool:
+    """La ventana nativa. Devuelve False si no se pudo (falta pywebview)."""
+    try:
+        import webview
+    except ImportError:
+        return False
+    webview.create_window("Small Caps", url, width=1500, height=950,
+                          min_size=(900, 600), confirm_close=False)
+    # `gui="edgechromium"` explícito: es el motor que ya viene con Windows 11 y
+    # el que da una ventana sin nada de Chrome. Dejarlo en automático puede
+    # caer a otro backend según lo que haya instalado.
+    webview.start(gui="edgechromium", icon=str(ICONO) if ICONO.exists() else None)
+    return True
+
+
+def chrome(url: str) -> None:
+    """Plan B, si no hay pywebview: Chrome en modo app. Se ve con su logo."""
+    import os
+    for c in (r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+              r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+              r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"):
+        if Path(c).exists():
+            perfil = Path(os.environ.get("LOCALAPPDATA", str(AQUI))) / "SmallCaps" / "perfil"
+            perfil.mkdir(parents=True, exist_ok=True)
+            subprocess.Popen([c, f"--app={url}", f"--user-data-dir={perfil}",
+                              "--no-first-run", "--no-default-browser-check"])
+            return
+    import webbrowser
+    webbrowser.open(url)
 
 
 def main() -> int:
+    identidad()
     script = supervisor()
     if script is None:
-        # Sin consola no se ve un print, así que el aviso va por ventana.
-        import ctypes
-        ctypes.windll.user32.MessageBoxW(
-            0, "No encontré la app (smallcaps/arrancar.py).\n\nBuscado en:\n" +
-            "\n".join(str(p) for p in CANDIDATAS), "Small Caps", 0x10)
+        aviso("No encontré la app (smallcaps/arrancar.py).\n\nBuscado en:\n"
+              + "\n".join(str(p) for p in CANDIDATAS))
         return 1
 
     if not contesta(PUERTO):
@@ -147,13 +159,12 @@ def main() -> int:
         while time.monotonic() < limite and not contesta(PUERTO):
             time.sleep(0.4)
         if not contesta(PUERTO):
-            import ctypes
-            ctypes.windll.user32.MessageBoxW(
-                0, "La app no levantó en 90 segundos.\n\nEl detalle está en:\n"
-                   f"{LOG}", "Small Caps", 0x10)
+            aviso(f"La app no levantó en 90 segundos.\n\nEl detalle está en:\n{LOG}")
             return 1
 
-    abrir_ventana(f"http://127.0.0.1:{PUERTO}/vivo")
+    url = f"http://127.0.0.1:{PUERTO}/vivo"
+    if not ventana(url):
+        chrome(url)
     return 0
 
 

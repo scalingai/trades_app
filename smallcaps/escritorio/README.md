@@ -29,12 +29,35 @@ Yahoo + la watchlist según la hora. Hasta el 2026-09-09 levantaba sólo el viso
 y por eso la pantalla se veía vacía tres ruedas seguidas — el visor dibuja pero
 no baja datos.
 
-## El acceso directo
+## La ventana NO es Chrome (desde 2026-09-09)
 
-Apunta a `pythonw.exe` con `lanzar.pyw` como argumento, y usa `trades.ico`.
-Vive en el Escritorio como **Small Caps.lnk**. Para anclarlo a la barra de
-tareas: abrir la app, botón derecho en su ícono de la barra, *Anclar a la barra
-de tareas*.
+Antes se abría Chrome con `--app=`. Eso da una ventana sin barra de direcciones,
+pero sigue siendo Chrome: en la barra de tareas aparece con el logo de Chrome y
+anclarla ancla a Chrome. Ahora la ventana la hace **WebView2**, el motor que ya
+viene con Windows 11, vía `pywebview` (`pip install pywebview`). Si `pywebview`
+no está, cae a Chrome como antes y avisa nada — funciona igual, se ve peor.
+
+## El acceso directo y el ícono anclado
+
+Son DOS cosas y hacen falta las dos:
+
+| | quién lo pone |
+|---|---|
+| ícono de la VENTANA | `webview.start(icon=...)` en `lanzar.pyw` |
+| identidad de la APP (`AppUserModelID`) | el proceso en `lanzar.pyw` **y** el `.lnk` |
+
+Sin el `AppUserModelID`, Windows agrupa la ventana con "Python" y al anclarla
+ancla `python.exe`. Los dos lados tienen que declarar el mismo:
+`Agus.SmallCaps.Visor`.
+
+El del `.lnk` no lo escribe `WScript.Shell` —esa propiedad va por
+`IPropertyStore`, o sea COM—, por eso hay un script aparte:
+
+    python fijar_identidad.py
+
+Rehace el acceso directo del Escritorio con el ícono y la identidad. Después:
+desanclar lo que hubiera, abrir el acceso directo, y botón derecho en su ícono
+de la barra > *Anclar a la barra de tareas*.
 
 ## Si algo no arranca
 
