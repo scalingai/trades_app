@@ -105,6 +105,42 @@ def gap_real(ticker: str, dia: str) -> dict | None:
             "barras": len(barras)}
 
 
+def del_censo_local(dia: str) -> list[str] | None:
+    """Los papeles del censo de ESE dia, de la base local. None si no la cubre.
+
+    ESTA ES LA FUENTE BUENA Y HAY QUE PREFERIRLA SIEMPRE. La tabla `events`
+    sale de las barras diarias de TODO el mercado (`backfill_daily.py` +
+    `detect_events.py`), asi que ve los ~15.000 tickers y no depende de que un
+    papel siga moviendose hoy.
+
+    El pool de Yahoo, en cambio, se ordena por el movimiento ACTUAL: un papel
+    que gapeo 30% el martes y para el miercoles esta quieto no aparece. Medido
+    el 2026-09-09: reconstruir el 8 por el pool devolvio CERO papeles, y el
+    censo local devolvio cinco (ARBE, BNC, MOBX, PDSB, WYHG). No es que el
+    martes no hubiera nada; es que el pool no lo veia.
+
+    Devuelve None —no lista vacia— cuando la base no llega a ese dia, para que
+    el que llama sepa la diferencia entre "no hubo" y "no se".
+    """
+    import sqlite3
+    from escaner import GAP_MIN, LIQ_MIN, PRECIO_MAX, PRECIO_MIN
+    db = sqlite3.connect(config.bars_db_path())
+    try:
+        tope = db.execute("SELECT max(d) FROM events").fetchone()[0]
+        if not tope or dia > tope:
+            return None
+        return [t for (t,) in db.execute(
+            """SELECT ticker FROM events
+               WHERE d = ? AND gap_pct >= ? AND med_dollar_volume >= ?
+                 AND prev_close BETWEEN ? AND ?
+               ORDER BY gap_pct DESC""",
+            (dia, GAP_MIN, LIQ_MIN, PRECIO_MIN, PRECIO_MAX))]
+    except sqlite3.OperationalError:
+        return None
+    finally:
+        db.close()
+
+
 def candidatos(y: Yahoo, verboso: bool = False) -> dict[str, dict]:
     """Pool amplio de tickers con sus cotizaciones, para podar antes de medir."""
     pool: dict[str, dict] = {}
@@ -128,6 +164,28 @@ def candidatos(y: Yahoo, verboso: bool = False) -> dict[str, dict]:
 
 
 def reconstruir(y: Yahoo, dia: str, *, gap_min: float, verboso: bool = False):
+    # PRIMERO LA BASE LOCAL. Ve el mercado entero y no depende de que el papel
+    # siga moviendose hoy; el pool de Yahoo es el plan B.
+    locales = del_censo_local(dia)
+    if locales is not None:
+        if verboso:
+            print(f"  censo local: {len(locales)} papeles el {dia} "
+                  "(barras diarias de todo el mercado)")
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
+            medidos = [m for m in ex.map(lambda t: gap_real(t, dia), locales) if m]
+        salida = []
+        for m in medidos:
+            salida.append({"ticker": m["ticker"], "precio": m["cierre"] or m["apertura"],
+                           "gap": m["gap"], "origen": "censo local",
+                           "prev": m["prev"], "liq": None, "float": None,
+                           "apertura": m["apertura"], "maximo": m["maximo"],
+                           "cierre": m["cierre"]})
+        salida.sort(key=lambda x: -x["gap"])
+        return salida
+
+    if verboso:
+        print("  el censo local no llega a ese día: voy por el pool de Yahoo "
+              "(puede faltar algún papel, ver el encabezado del archivo)")
     qs = candidatos(y, verboso)
     if not qs:
         return []
@@ -189,7 +247,10 @@ def main(argv=None) -> int:
     ap.add_argument("--gap", type=float, default=GAP_MIN)
     ap.add_argument("--piso", type=float, default=PISO_OPERATIVO)
     ap.add_argument("--escribir", action="store_true",
-                    help="deja watchlist.txt con lo reconstruido")
+                    help="deja watchlist.txt con lo reconstruido (sólo para HOY)")
+    ap.add_argument("--velas", action="store_true",
+                    help="además baja las barras de ese día al feed, para poder "
+                         "navegarlo en /vivo")
     a = ap.parse_args(argv)
 
     ahora = datetime.now(NY)
@@ -203,8 +264,22 @@ def main(argv=None) -> int:
     print(f"  {y.llamadas} llamadas a Yahoo\n")
 
     if not papeles:
-        print("Ningún papel del censo ese día (o el pool no lo alcanzó — ver el "
-              "límite en el encabezado del archivo).")
+        # DOS CAUSAS QUE NO SE PARECEN Y ANTES DECIAN LO MISMO. Si el censo
+        # local SI tenia papeles ese dia y aun asi no salio ninguno, no es que
+        # no hubo: es que Yahoo no da velas de minuto tan atras (guarda ~7
+        # dias). Decir "ningun papel" ahi es afirmar algo falso sobre el
+        # mercado cuando el problema es del proveedor.
+        locales = del_censo_local(dia)
+        if locales:
+            print(f"El censo local dice que ese día hubo {len(locales)} papeles "
+                  f"({', '.join(locales)}), pero Yahoo no devolvió velas de "
+                  "minuto para ninguno.")
+            print("  Yahoo guarda ~7 días de barras de 1 minuto. Para un día más "
+                  "viejo hay que traerlas de Polygon:")
+            print("    python poblacion_observable.py      (baja los minutos del censo)")
+        else:
+            print("Ningún papel del censo ese día (o el pool no lo alcanzó — ver "
+                  "el límite en el encabezado del archivo).")
         return 0
 
     arriba = [p for p in papeles if p["precio"] >= a.piso]
@@ -216,11 +291,56 @@ def main(argv=None) -> int:
         marca = " " if p["precio"] >= a.piso else "·"
         print(f"{marca} {p['ticker']:<7} ${p['prev']:>7.2f} ${p['apertura']:>9.2f} "
               f"{p['gap']:>+7.0f}% ${p['maximo']:>7.2f} ${p['cierre']:>7.2f} "
-              f"${p['liq']/1e6:>9.1f}M")
+              + (f"${p['liq']/1e6:>9.1f}M" if p.get("liq") else f"{'—':>11}"))
+
+    if a.velas:
+        # UN DIA QUE NO TIENE BARRAS NO SE PUEDE NAVEGAR, Y NO AVISA: la flecha
+        # de "día anterior" simplemente lo saltea. El 2026-09-08 quedó así
+        # porque el feed no estaba corriendo, y desde /vivo se veía como si el
+        # 9 viniera después del 4.
+        #
+        # Las barras se piden por ticker con `--dia`, que ya sabe sacar el
+        # cierre previo correcto de la sesión anterior. No se toca
+        # `watchlist.txt`: la watchlist es de HOY, y pisarla con la de un día
+        # viejo dejaría el feed en vivo siguiendo papeles de otra fecha.
+        tks = [x["ticker"] for x in papeles]
+        print(f"\nBajando las velas del {dia} de {len(tks)} papeles...", flush=True)
+        yf = _yf()
+        total = 0
+        for tk in tks:
+            r = yf.pedir(tk, rango="5d")
+            if not r:
+                print(f"  {tk}: Yahoo no respondió")
+                continue
+            barras, _ = yf.barras_de(r, solo_dia=dia)
+            pc = yf.cierre_oficial_previo(tk, dia)
+            if not pc:
+                print(f"  {tk}: sin cierre previo confiable, no lo escribo")
+                continue
+            ya = yf.ya_escritas()
+            import json as _json
+            lineas = []
+            for b in barras:
+                ts = b.pop("_ts")
+                if ts <= ya.get(tk, 0):
+                    continue
+                lineas.append(_json.dumps(
+                    {"t": b["t"], "s": tk, "o": b["o"], "h": b["h"], "l": b["l"],
+                     "c": b["c"], "v": b["v"], "pc": pc}, separators=(",", ":")))
+            yf.escribir(lineas)
+            total += len(lineas)
+            print(f"  {tk} {dia}: {len(barras)} barras, {len(lineas)} nuevas, pc {pc:.2f}")
+        print(f"\n{total} barras nuevas. Ya se puede navegar el {dia} en /vivo.")
 
     if not a.escribir:
         print("\nNo se escribió nada. Para dejar la watchlist:")
         print(f"  python reconstruir.py{' --dia ' + a.dia if a.dia else ''} --escribir")
+        return 0
+    hoy = ahora.date().isoformat()
+    if dia != hoy:
+        print(f"\nNO escribo watchlist.txt: la lista es del {dia} y la watchlist "
+              f"es la de HOY ({hoy}). Pisarla dejaría al feed en vivo siguiendo "
+              "papeles de otra fecha.")
         return 0
     ruta = Path(config.data_dir()) / "watchlist.txt"
     escribir(arriba, ruta, piso=a.piso,
