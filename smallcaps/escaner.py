@@ -297,10 +297,16 @@ def escanear(y: Yahoo, *, gap: float, verboso: bool = False) -> list[dict]:
 
     qs = y.cotizaciones(sorted(pool))
     salida, descartes = [], {}
+    # El estado que reporta Yahoo, no el reloj de esta maquina: decide si el
+    # numero de gap que estamos leyendo es el del censo (ver `momento`).
+    estados: dict[str, int] = {}
     for q in qs:
         tk = q.get("symbol")
         if not tk:
             continue
+        e = q.get("marketState")
+        if e:
+            estados[e] = estados.get(e, 0) + 1
         g, origen = gap_de(q)
         prev = q.get("regularMarketPreviousClose")
         px = q.get("preMarketPrice") or q.get("regularMarketPrice") or prev
@@ -321,6 +327,7 @@ def escanear(y: Yahoo, *, gap: float, verboso: bool = False) -> list[dict]:
             fuera("liquidez previa < $150k"); continue
         salida.append({
             "ticker": tk, "precio": float(px or 0), "gap": g, "origen": origen,
+            "estado": e,
             "prev": float(prev), "liq": liq,
             "float": q.get("sharesOutstanding"),
             "vol": q.get("regularMarketVolume"),
@@ -330,13 +337,20 @@ def escanear(y: Yahoo, *, gap: float, verboso: bool = False) -> list[dict]:
             f"{v} por {k}" for k, v in sorted(descartes.items(),
                                               key=lambda x: -x[1])))
     salida.sort(key=lambda x: -x["gap"])
+    # El estado viaja aunque no pase ningun papel: el aviso de "esta lista no
+    # es la del censo" tiene que salir tambien cuando la lista da vacia.
+    escanear.estado = (max(estados, key=estados.get) if estados else None)
     return salida
 
 
-def escribir(papeles: list[dict], ruta: Path, *, piso: float) -> None:
-    hoy = datetime.now(NY).strftime("%Y-%m-%d")
+escanear.estado = None
+
+
+def escribir(papeles: list[dict], ruta: Path, *, piso: float,
+             momento: str | None = None) -> None:
+    hoy = datetime.now(NY).strftime("%Y-%m-%d %H:%M")
     lineas = [
-        f"# Watchlist {hoy} · armada por escaner.py (Yahoo)",
+        f"# Watchlist {hoy} NY · armada por escaner.py (Yahoo)",
         f"# censo: gap >= {GAP_MIN:.0f}% · liquidez previa >= ${LIQ_MIN:,.0f}"
         f" · precio previo ${PRECIO_MIN:.2f}-${PRECIO_MAX:.0f}"
         + (f" · piso operativo ${piso:.2f}" if piso else ""),
@@ -345,8 +359,55 @@ def escribir(papeles: list[dict], ruta: Path, *, piso: float) -> None:
         "# El precio NO es decoracion: un mismo simbolo existe en varios",
         "# mercados y `GetInstruments` puede devolver el que no es.",
     ]
+    if momento:
+        lineas += ["#", "# !! LISTA FUERA DE HORA — NO ES LA POBLACION DEL CENSO:",
+                   f"#    {momento}"]
     lineas += [f"{p['ticker']} {p['precio']:.2f}" for p in papeles]
     ruta.write_text("\n".join(lineas) + "\n", encoding="utf-8")
+
+
+# EL GAP DEL CENSO SE MIDE A LAS 09:30, Y `regularMarketChangePercent` NO.
+#
+# Ese campo es "contra el cierre de ayer, AHORA". A las 09:31 es el gap de
+# apertura; a las 15:00 es el movimiento del dia entero; con el mercado ya
+# cerrado es el movimiento del dia entero, definitivo. La poblacion sobre la
+# que se midio TODO el proyecto es la primera. Las otras dos son otra cosa, y
+# elegir papeles con ellas es mirar la pelicula sabiendo como termina.
+#
+# Paso el 2026-09-09: el escaner corrio 16:24 NY, con el mercado cerrado, y
+# devolvio cinco papeles. Sus gaps REALES a las 09:30 eran -3%, +7%, +23%,
+# +27% y +34%: tres de los cinco no eran del censo. Los dos que si lo eran
+# abrieron `fade`, o sea que el dia correcto era NO OPERAR. Sin este chequeo
+# la lista se veia igual de valida que cualquier otra.
+APERTURA_H = 9.5
+LIMITE_H = 10.5
+
+
+def momento(ahora, estado: str | None) -> tuple[bool, str]:
+    """¿La lista que sale ahora es la del censo? (sirve, por que).
+
+    Si Yahoo no dijo el estado se decide por el reloj de Nueva York, que es
+    peor dato pero nunca falta. Ante la duda NO se bloquea nada que el reloj
+    diga que esta en hora: la regla existe para evitar una lista invalida, no
+    para impedir trabajar.
+    """
+    h = ahora.hour + ahora.minute / 60.0
+    if estado in ("PRE", "PREPRE"):
+        return True, "pre-market: el gap es el de pre-market, que es el que mide el censo"
+    if estado is None:
+        if h < APERTURA_H:
+            return True, f"pre-market por reloj ({ahora:%H:%M} NY), Yahoo no dijo el estado"
+        if h <= LIMITE_H:
+            return True, f"sesion recien abierta ({ahora:%H:%M} NY), Yahoo no dijo el estado"
+        return False, (f"son las {ahora:%H:%M} NY (Yahoo no dijo el estado): a esta hora "
+                       "el cambio de Yahoo ya no es el gap de las 09:30")
+    if estado == "REGULAR" and h <= LIMITE_H:
+        return True, f"sesion recien abierta ({ahora:%H:%M} NY): el cambio de hoy todavia ES el gap"
+    if estado == "REGULAR":
+        return False, (f"son las {ahora:%H:%M} NY y el dia lleva horas corriendo: "
+                       "Yahoo devuelve el movimiento acumulado, no el gap de las 09:30")
+    return False, (f"el mercado esta cerrado ({estado}): Yahoo devuelve el movimiento "
+                   "del DIA ENTERO, que es justo lo que el censo no mide")
 
 
 def main() -> int:
@@ -358,6 +419,8 @@ def main() -> int:
                     help=f"precio mínimo operativo (OPERATIVA §1: {PISO_OPERATIVO})")
     ap.add_argument("--escribir", action="store_true",
                     help="reemplaza watchlist.txt (sin esto sólo muestra)")
+    ap.add_argument("--igual", action="store_true",
+                    help="escribir aunque el gap de Yahoo ya no sea el de las 09:30")
     a = ap.parse_args()
 
     ahora = datetime.now(NY)
@@ -370,9 +433,14 @@ def main() -> int:
     papeles = escanear(y, gap=a.gap, verboso=True)
     print(f"  {y.llamadas} llamadas a Yahoo")
 
+    sirve0, por_que0 = momento(ahora, escanear.estado)
     if not papeles:
+        print(f"\nmomento: {por_que0}")
         print("\nNingún papel pasa los criterios. Eso es un resultado válido: "
               "el censo tiene 38 días con un solo papel y varios con ninguno.")
+        if not sirve0:
+            print("  ! Ojo: a esta hora el gap que lee Yahoo no es el de las 09:30,"
+                  " así que este vacío tampoco es concluyente.")
         return 0
 
     arriba = [p for p in papeles if p["precio"] >= a.piso]
@@ -394,12 +462,25 @@ def main() -> int:
     if len(arriba) > 12:
         print("  ! Muy por encima de lo esperado: revisá el umbral antes de usarla.")
 
+    sirve, por_que = momento(ahora, escanear.estado)
+    print(f"\nmomento: {por_que}")
+    if not sirve:
+        print("  ! Estos gaps NO son los del censo. Los papeles de esta lista")
+        print("    pueden no haber gapeado en la apertura y sí haber corrido")
+        print("    durante el día — que es exactamente lo que el sistema no opera.")
+
     ruta = Path(config.data_dir()) / "watchlist.txt"
     if not a.escribir:
         print(f"\nNo se escribió nada. Para reemplazar {ruta}:")
-        print("  python escaner.py --escribir")
+        print("  python escaner.py --escribir"
+              + ("" if sirve else " --igual   (a esta hora hace falta --igual)"))
         return 0
-    escribir(arriba, ruta, piso=a.piso)
+    if not sirve and not a.igual:
+        print(f"\nNO se escribió {ruta}: la lista no representa al censo a esta hora.")
+        print("  Armala en pre-market o apenas abre. Si igual la querés:")
+        print("  python escaner.py --escribir --igual")
+        return 1
+    escribir(arriba, ruta, piso=a.piso, momento=None if sirve else por_que)
     print(f"\nEscritos {len(arriba)} papeles en {ruta}")
     return 0
 

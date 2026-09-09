@@ -85,6 +85,87 @@ def pedir(ticker: str, rango: str = "1d") -> dict | None:
         return None
 
 
+def _cierre_previo(res: dict, solo_dia: str | None) -> float:
+    """El cierre de la sesion ANTERIOR al dia que se esta pidiendo.
+
+    NO es `chartPreviousClose`. Ese campo es "el cierre anterior al COMIENZO DE
+    LA VENTANA del grafico": con `range=1d` coincide con el de ayer, pero con
+    `range=5d` —el que usa `--dia`— es el cierre de hace SEIS ruedas. Medido el
+    2026-09-09: FTFT devolvia 1.82 cuando el cierre previo real era 1.31, un
+    39% de error.
+
+    No es cosmetico. `pc` es `Dia.prev_close`, que es el denominador de
+    `expansion_pct`, que es UNO DE LOS DOS FILTROS de la operativa. Con el pc
+    equivocado el filtro decide sobre un numero inventado, y ese dia queda
+    mal medido sin que nada avise.
+
+    `previousClose` si es siempre el de ayer, pero "ayer" es ayer de HOY: para
+    rellenar un dia pasado tampoco sirve. Por eso, cuando se pide un dia
+    concreto, el cierre previo se saca de las barras que ya vinieron en la
+    misma respuesta —el ultimo cierre de sesion regular anterior a ese dia—,
+    que no depende de como Yahoo llame a sus campos.
+    """
+    meta = res.get("meta", {})
+    ts = res.get("timestamp") or []
+    q = (res.get("indicators", {}).get("quote") or [{}])[0]
+    if solo_dia:
+        previo = None
+        for i, t in enumerate(ts):
+            c = (q.get("close") or [None])[i]
+            if c is None:
+                continue
+            t_ny = datetime.fromtimestamp(t, NY)
+            if t_ny.date().isoformat() >= solo_dia:
+                continue
+            # Solo sesion regular: el ultimo print del post-market no es el
+            # cierre, y el censo compara contra el cierre.
+            if not (9.5 <= t_ny.hour + t_ny.minute / 60.0 <= 16.0):
+                continue
+            previo = float(c)
+        if previo:
+            return previo
+        # El dia pedido es el primero de la ventana y no hay sesion anterior
+        # adentro. Si es HOY, `previousClose` es exactamente lo que hace falta.
+        if solo_dia == datetime.now(NY).date().isoformat():
+            return float(meta.get("previousClose") or 0.0)
+        return 0.0
+    return float(meta.get("previousClose")
+                 or meta.get("chartPreviousClose") or 0.0)
+
+
+def cierre_oficial_previo(ticker: str, dia: str) -> float:
+    """El cierre OFICIAL de la sesion anterior a `dia`, del grafico diario.
+
+    `_cierre_previo` lo deriva de las barras de un minuto y eso es una
+    aproximacion: la ultima vela del minuto no es el cierre oficial, que sale
+    de la subasta. Medido el 2026-09-09 sobre los cinco papeles del dia, cuatro
+    coincidian al centavo y SUNE daba 2.40 contra 2.37 — 1,3% de diferencia en
+    el denominador del filtro de pre-market.
+
+    Una llamada mas por papel, solo en el camino `--dia`, que no corre contra
+    el reloj del mercado. Devuelve 0.0 si no se pudo: el que llama decide.
+    """
+    url = (f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+           f"?interval=1d&range=1mo")
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            d = json.load(r)
+        res = (d.get("chart", {}).get("result") or [None])[0]
+        ts = res.get("timestamp") or []
+        cierres = (res.get("indicators", {}).get("quote") or [{}])[0].get("close") or []
+        previo = 0.0
+        for i, t in enumerate(ts):
+            if i >= len(cierres) or cierres[i] is None:
+                continue
+            if datetime.fromtimestamp(t, NY).date().isoformat() >= dia:
+                continue
+            previo = float(cierres[i])
+        return previo
+    except Exception:
+        return 0.0
+
+
 def barras_de(res: dict, *, hasta_ts: int | None = None,
               solo_dia: str | None = None) -> tuple[list[dict], float]:
     """Las barras terminadas (ts < hasta_ts) y el cierre previo.
@@ -94,8 +175,7 @@ def barras_de(res: dict, *, hasta_ts: int | None = None,
     """
     ts = res.get("timestamp") or []
     q = (res.get("indicators", {}).get("quote") or [{}])[0]
-    meta = res.get("meta", {})
-    pc = float(meta.get("chartPreviousClose") or meta.get("previousClose") or 0.0)
+    pc = _cierre_previo(res, solo_dia)
     out = []
     for i, t in enumerate(ts):
         if hasta_ts is not None and t >= hasta_ts:
@@ -196,6 +276,13 @@ def rellenar(dia: str, tickers: list[str]) -> int:
             print(f"  {tk}: Yahoo no respondio")
             continue
         barras, pc = barras_de(r, solo_dia=dia)
+        # El oficial gana sobre el derivado de las velas; el derivado queda de
+        # red por si el grafico diario no responde.
+        pc = cierre_oficial_previo(tk, dia) or pc
+        if not pc:
+            print(f"  {tk}: sin cierre previo confiable para {dia} — NO se escribe. "
+                  "Sin `pc` el filtro de pre-market decide sobre un numero vacio.")
+            continue
         lineas = []
         for b in barras:
             if b["_ts"] <= ultimo.get(tk, 0):

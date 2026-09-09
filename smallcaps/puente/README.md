@@ -53,6 +53,15 @@ La watchlist la arma el botón **buscar** de `/vivo` (o `python smallcaps/escane
 que todavía no operaron y la lista sale vacía. El feed relee la watchlist en
 cada ciclo, así que se puede armar después de arrancarlo.
 
+**El `pc` de `--dia` estaba mal, y era el denominador de un filtro (2026-09-09).**
+`barras_de` leía `chartPreviousClose`, que es "el cierre anterior al COMIENZO DE
+LA VENTANA": con `range=1d` es el de ayer, pero `--dia` pide `range=5d` y ahí es
+el cierre de hace **seis ruedas**. FTFT escribía 1,82 cuando el cierre previo era
+1,31 — 39% de error. Como `pc` es `Dia.prev_close`, y `prev_close` es el
+denominador de `expansion_pct`, el filtro de pre-market decidía sobre un número
+inventado sin que nada avisara. Ahora `--dia` toma el **cierre oficial** de la
+sesión anterior del gráfico diario, con las velas de un minuto como red.
+
 **Lo que no escribe:** la barra en curso. `leer_feed` se queda con la primera
 línea de cada minuto, y una barra escrita a medias quedaría congelada. La
 pantalla va un minuto atrás del mercado, a propósito.

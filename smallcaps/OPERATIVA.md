@@ -128,6 +128,32 @@ después de un retiro. Acá se asume que se vuelve a medir desde el nuevo balanc
 
 ## 1. Antes de la apertura — la watchlist
 
+### La watchlist se arma TEMPRANO o no vale (2026-09-09)
+
+**El escáner sólo representa al censo en pre-market o apenas abre.** El censo
+mide el gap **a las 09:30** —apertura contra cierre previo—. Yahoo devuelve
+"contra el cierre de ayer, AHORA": a las 09:31 eso ES el gap, a las 15:00 es el
+movimiento acumulado del día, y con el mercado cerrado es el día entero.
+
+El 2026-09-09 el escáner corrió **16:24 NY, con el mercado ya cerrado**, y
+escribió cinco papeles. Los gaps reales de esos cinco a las 09:30 fueron:
+
+| papel | gap 9:30 | día entero | apertura | ¿del censo? |
+|---|---|---|---|---|
+| FTFT | **−3%** | +70% | reclaim | no |
+| IRD | **+23%** | +35% | reclaim | no |
+| ODD | **+34%** | +29% | fade | sí |
+| RIBB | **+7%** | +17% | — | no |
+| SUNE | **+27%** | +84% | fade | sí |
+
+Tres de los cinco no eran del censo: subieron **durante** el día, que es justo
+lo que la estrategia no opera. Y los dos que sí lo eran **abrieron `fade`**, así
+que el día correcto era **no operar**. Operar esa lista habría dado **−$4,72**
+netos; aflojar además el filtro de apertura, **−$84,61**.
+
+Desde entonces `escaner.py` **se niega a escribir** fuera de hora y pide
+`--igual` para forzarlo; la watchlist forzada lleva un encabezado que lo dice.
+
 **Primero, la app.** Un comando, antes de las 09:30 NY, y Trade The Pool cerrado
 (ya no se usa para nada):
 
