@@ -24,6 +24,7 @@ día (`yahoo_feed.py --dia`) o reindexar el visor (`server.py --reindexar`).
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 import threading
@@ -37,6 +38,8 @@ VISOR = AQUI / "visor" / "server.py"
 FEED = AQUI / "puente" / "yahoo_feed.py"
 ESCANER = AQUI / "escaner.py"
 RECONSTRUIR = AQUI / "reconstruir.py"
+DIARIAS = AQUI / "backfill_daily.py"
+EVENTOS = AQUI / "detect_events.py"
 
 NY = ZoneInfo("America/New_York")
 APERTURA_H = 9.5
@@ -168,12 +171,19 @@ def _atar_a_este_proceso() -> object | None:
         k32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
 
         JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
+        # BREAKAWAY_OK es lo que permite que UN hijo se escape del job, y solo
+        # si lo pide explicitamente con CREATE_BREAKAWAY_FROM_JOB. Sin esto el
+        # reinicio del propio supervisor se suicida: el proceso nuevo hereda el
+        # job, el viejo sale, se cierra el ultimo handle y KILL_ON_JOB_CLOSE
+        # mata a los dos. Medido el 2026-09-09 — quedaba todo apagado.
+        JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0x800
         JobObjectExtendedLimitInformation = 9
         job = k32.CreateJobObjectW(None, None)
         if not job:
             return None
         info = _Extended()
-        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        info.BasicLimitInformation.LimitFlags = (
+            JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE | JOB_OBJECT_LIMIT_BREAKAWAY_OK)
         if not k32.SetInformationJobObject(job, JobObjectExtendedLimitInformation,
                                            ctypes.byref(info), ctypes.sizeof(info)):
             return None
@@ -262,6 +272,160 @@ def _plan(t: datetime) -> tuple[str, float | None, str]:
             "el día para ver qué habría hecho el sistema.")
 
 
+# CUANTO PARA ATRAS SE MIRA. Yahoo guarda ~7 dias de barras de 1 minuto: mas
+# atras que eso no se puede recuperar por este camino y hay que ir a Polygon,
+# que ademas espera 10 dias a que los agregados diarios dejen de corregirse.
+DIAS_ATRAS = 6
+
+
+def _navegables(puerto: int, espera_s: float = 180.0) -> set[str] | None:
+    """Las fechas que la pantalla OFRECE hoy, preguntandole a ella.
+
+    POR QUE NO SE DEDUCE DE LAS TABLAS. Un dia es navegable por dos caminos
+    —el feed en vivo y los minutos del censo— pero ademas el del censo exige
+    que el dia este en `poblacion_obs`, que va diez dias atrasado a proposito.
+    El 2026-09-01 tiene minutos bajados y NO se navega, justamente por eso.
+    Deducirlo de las tablas es reimplementar `fechas_disponibles()` y quedar
+    desincronizado el dia que esa funcion cambie; preguntarle al visor no.
+
+    Devuelve None si el visor no contesto: ahi no se sabe, y no saber no es lo
+    mismo que "falta todo".
+    """
+    import json
+    import urllib.request
+    limite = time.monotonic() + espera_s
+    while time.monotonic() < limite:
+        try:
+            with urllib.request.urlopen(
+                    f"http://127.0.0.1:{puerto}/api/vivo/fechas", timeout=5) as r:
+                fechas = json.load(r).get("fechas") or []
+            # Vacio = el indice todavia se esta armando. Se espera: decidir con
+            # la lista a medio hacer bajaria dias que ya estan.
+            if fechas:
+                return set(fechas)
+        except Exception:
+            pass
+        time.sleep(3)
+    return None
+
+
+def _dias_sin_barras(puerto: int) -> list[str]:
+    """Dias habiles recientes que el censo tiene y la pantalla no puede mostrar.
+
+    NO es "dias sin señales": es "dias sin UN SOLO DATO", que en `/vivo` se ve
+    como que la flecha de dia anterior los saltea. El 2026-09-08 quedo asi
+    porque el feed no corrio, y desde la pantalla el 9 parecia venir despues
+    del 4.
+    """
+    import datetime
+    import sqlite3
+    sys.path.insert(0, str(AQUI))
+    sys.path.insert(0, str(AQUI / "puente"))
+    try:
+        import config
+        from escaner import GAP_MIN, LIQ_MIN, PRECIO_MAX, PRECIO_MIN
+    except Exception:
+        return []
+
+    hay = _navegables(puerto)
+    if hay is None:
+        print("[dias] el visor no contesto que fechas tiene; no toco nada.",
+              flush=True)
+        return []
+
+    hoy = ahora_ny().date()
+    ventana = [(hoy - datetime.timedelta(days=k)).isoformat()
+               for k in range(1, DIAS_ATRAS + 1)]
+
+    db = sqlite3.connect(config.bars_db_path())
+    try:
+        faltan = []
+        for d in sorted(ventana):
+            if d in hay:
+                continue
+            n = db.execute(
+                """SELECT count(*) FROM events
+                   WHERE d = ? AND gap_pct >= ? AND med_dollar_volume >= ?
+                     AND prev_close BETWEEN ? AND ?""",
+                (d, GAP_MIN, LIQ_MIN, PRECIO_MIN, PRECIO_MAX)).fetchone()[0]
+            # n == 0 puede ser "no hubo papeles" (feriado, o ninguno gapeo) o
+            # "el censo no llega hasta ahi". Las dos veces no hay nada que
+            # bajar, asi que da igual cual sea.
+            if n:
+                faltan.append(d)
+        return faltan
+    except sqlite3.OperationalError:
+        return []
+    finally:
+        db.close()
+
+
+def _censo_al_dia() -> bool:
+    """Pone las barras diarias y la tabla de eventos al dia. True si cambio algo.
+
+    Sin esto el censo se queda donde quedo la ultima corrida —el 2026-09-09
+    estaba clavado en el 31 de agosto, o sea septiembre entero invisible— y
+    entonces `_dias_sin_barras` no ve nada que recuperar porque no sabe que
+    hubo papeles.
+
+    Son pocas llamadas: `grouped_daily` trae TODO el mercado en una por dia.
+    """
+    import sqlite3
+    sys.path.insert(0, str(AQUI))
+    try:
+        import config
+    except Exception:
+        return False
+    db = sqlite3.connect(config.bars_db_path())
+    try:
+        antes_d = db.execute("SELECT max(d) FROM bars_daily").fetchone()[0]
+        antes_e = db.execute("SELECT max(d) FROM events").fetchone()[0]
+    except sqlite3.OperationalError:
+        return False
+    finally:
+        db.close()
+
+    ayer = (ahora_ny().date() - __import__("datetime").timedelta(days=1)).isoformat()
+    if antes_d and antes_d >= ayer:
+        return False       # nada que traer
+
+    print(f"[dias] las barras diarias llegan al {antes_d}: las pongo al dia.",
+          flush=True)
+    _correr("dias", [str(DIARIAS), "--days", "14"], timeout=900)
+
+    db = sqlite3.connect(config.bars_db_path())
+    try:
+        despues_d = db.execute("SELECT max(d) FROM bars_daily").fetchone()[0]
+    finally:
+        db.close()
+    if despues_d == antes_d:
+        return False
+
+    print(f"[dias] barras diarias hasta {despues_d}; recalculo los eventos.",
+          flush=True)
+    _correr("dias", [str(EVENTOS)], timeout=900)
+    return True
+
+
+def _ponerse_al_dia(puerto: int) -> None:
+    """Recupera los dias recientes que quedaron sin una sola barra."""
+    try:
+        _censo_al_dia()
+        faltan = _dias_sin_barras(puerto)
+    except Exception as e:
+        print(f"[dias] no pude revisar los dias pendientes ({type(e).__name__}: {e})",
+              flush=True)
+        return
+    if not faltan:
+        print("[dias] no hay dias recientes sin barras.", flush=True)
+        return
+    print(f"[dias] {len(faltan)} dia(s) sin barras: {', '.join(faltan)}. "
+          "Los recupero.", flush=True)
+    for d in faltan:
+        _correr("dias", [str(RECONSTRUIR), "--dia", d, "--velas"], timeout=900)
+    print("[dias] listo. Ya se pueden navegar en /vivo.", flush=True)
+
+
 def _lista_del_dia(puerto: int) -> None:
     """Deja `watchlist.txt` con la población del censo, sea la hora que sea.
 
@@ -337,6 +501,11 @@ def main(argv=None) -> int:
     if a.auto:
         threading.Thread(target=_lista_del_dia, args=(a.puerto,),
                          daemon=True).start()
+        # LA PUESTA AL DIA VA EN SU PROPIO HILO Y DESPUES. Puede tardar minutos
+        # -baja barras diarias y recalcula eventos- y no tiene por que demorar
+        # ni la pantalla ni la watchlist de hoy, que es lo urgente.
+        threading.Thread(target=_ponerse_al_dia, args=(a.puerto,),
+                         daemon=True).start()
 
     # EL CODIGO CAMBIA Y LA PANTALLA NO SE ENTERA: paso dos veces el mismo dia.
     #
@@ -378,6 +547,24 @@ def main(argv=None) -> int:
                 if actual == previo:
                     cambiados = sorted({Path(k).name for k in actual
                                         if ultimo.get(k) != actual[k]})
+                    # SI LO QUE CAMBIO ES ESTE ARCHIVO, no alcanza con reiniciar
+                    # a los hijos: el supervisor seguiria corriendo el codigo
+                    # viejo, que es exactamente el problema que vino a resolver.
+                    # Se apagan los hijos y el proceso se reemplaza por si mismo.
+                    if Path(__file__).name in cambiados:
+                        print("\n~ cambio el supervisor: me reinicio entero.",
+                              flush=True)
+                        _apagar([x for x in procs if x is not None])
+                        # NO `os.execv`: en Windows no reemplaza el proceso,
+                        # crea uno nuevo que hereda el job y muere con este.
+                        # Con CREATE_BREAKAWAY_FROM_JOB el nuevo nace afuera y
+                        # arma el suyo. Hereda stdout, asi que el log sigue.
+                        BREAKAWAY = 0x01000000
+                        subprocess.Popen(
+                            [sys.executable, "-u", os.path.abspath(__file__)]
+                            + sys.argv[1:],
+                            creationflags=BREAKAWAY, cwd=str(AQUI.parent))
+                        return 0
                     print("\n  ~ cambio el codigo (%s%s): reinicio visor y feed."
                           % (", ".join(cambiados[:4]),
                              " y mas" if len(cambiados) > 4 else ""), flush=True)
