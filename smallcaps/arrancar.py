@@ -82,6 +82,34 @@ def hay_rueda(t: datetime) -> tuple[bool, str]:
         return True, f"no se pudo verificar ({type(e).__name__}), sigo igual"
 
 
+# QUE ARCHIVOS HACEN QUE LA PANTALLA DIGA OTRA COSA.
+#
+# El .py del visor y del puente calculan los numeros; el .js y el .html los
+# dibujan. Si cambia cualquiera de esos, lo que esta corriendo dejo de ser lo
+# que dice el repo. Los datos NO se vigilan: el feed escribe el .jsonl cada
+# quince segundos y reiniciar por eso seria un loop infinito.
+VIGILADOS = ("*.py", "visor/static/*.js", "visor/static/*.html")
+CADA_S = 4.0
+
+
+def huella() -> dict:
+    """Ruta -> fecha de modificacion de todo lo que puede cambiar un numero."""
+    out = {}
+    for patron in VIGILADOS:
+        for f in AQUI.glob(patron):
+            try:
+                out[str(f)] = f.stat().st_mtime
+            except OSError:
+                pass
+    for sub in ("puente", "visor", "massive", "edgar"):
+        for f in (AQUI / sub).rglob("*.py"):
+            try:
+                out[str(f)] = f.stat().st_mtime
+            except OSError:
+                pass
+    return out
+
+
 def _atar_a_este_proceso() -> object | None:
     """En Windows, un Job Object que mata a los hijos cuando muere el padre.
 
@@ -302,35 +330,76 @@ def main(argv=None) -> int:
             print("  Hoy no hay rueda. No levanto nada.")
             return 0
 
-    _job = _atar_a_este_proceso()  # vive hasta que salgamos, a propósito
+    _job = _atar_a_este_proceso()  # vive hasta que salgamos, a proposito
     visor, _ = _lanzar("visor", visor_args)
     feed, _ = _lanzar("feed", [str(FEED)])
     procs = [visor, feed]
     if a.auto:
         threading.Thread(target=_lista_del_dia, args=(a.puerto,),
                          daemon=True).start()
+
+    # EL CODIGO CAMBIA Y LA PANTALLA NO SE ENTERA: paso dos veces el mismo dia.
+    #
+    # El 2026-09-09 se arreglo el filtro del censo y la pantalla siguio
+    # mostrando nueve tramos y una perdida en un papel que ya no se operaba,
+    # porque el proceso de Python arrancado tres horas antes seguia vivo.
+    # Cerrar la ventana del navegador no lo apaga, y la terminal esta
+    # minimizada. El sintoma es el peor de todos: numeros plausibles, viejos, y
+    # sin un solo aviso.
+    #
+    # Se vigila la fecha de los fuentes y se reinicia solo. Reiniciar es barato
+    # -visor y feed no guardan estado, todo sale del disco- y el feed deduplica
+    # por (simbolo, minuto), asi que no se pierde ni se repite una barra.
+    ultimo = huella()
+    previo = None
     try:
         while True:
             # El visor es el que manda: si se cae, no hay nada que mirar y se
             # apaga todo. El feed puede terminar solo al cierre del post-market
             # y eso no es un error.
             if visor.poll() is not None:
-                print(f"\n  el visor terminó (código {visor.returncode}); apago el feed.")
+                print("\n  el visor termino (codigo %s); apago el feed."
+                      % visor.returncode)
                 break
             if feed is not None and feed.poll() is not None and feed.returncode != 0:
-                print(f"\n  ! el feed terminó con código {feed.returncode}. "
-                      "El visor sigue, pero SIN barras nuevas: relanzá "
-                      "`python smallcaps/puente/yahoo_feed.py` aparte.", flush=True)
-                feed = None  # no volver a avisar
+                print("\n  ! el feed termino con codigo %s. El visor sigue, pero "
+                      "SIN barras nuevas: relanza "
+                      "`python smallcaps/puente/yahoo_feed.py` aparte."
+                      % feed.returncode, flush=True)
+                feed = None   # no volver a avisar
                 procs = [visor]
+
+            actual = huella()
+            if actual != ultimo:
+                # DOS LECTURAS IGUALES ANTES DE REINICIAR. Un `git merge` o un
+                # guardado toca varios archivos en el mismo segundo; reiniciar
+                # con el primero deja la mitad del cambio afuera y hay que
+                # reiniciar otra vez.
+                if actual == previo:
+                    cambiados = sorted({Path(k).name for k in actual
+                                        if ultimo.get(k) != actual[k]})
+                    print("\n  ~ cambio el codigo (%s%s): reinicio visor y feed."
+                          % (", ".join(cambiados[:4]),
+                             " y mas" if len(cambiados) > 4 else ""), flush=True)
+                    _apagar([x for x in procs if x is not None])
+                    visor, _ = _lanzar("visor", visor_args)
+                    feed, _ = _lanzar("feed", [str(FEED)])
+                    procs = [visor, feed]
+                    ultimo = actual
+                    previo = None
+                    print("  ~ listo. Recarga la pantalla.\n", flush=True)
+                else:
+                    previo = actual
+            else:
+                previo = None
             try:
-                visor.wait(timeout=1.0)
+                visor.wait(timeout=CADA_S)
             except subprocess.TimeoutExpired:
                 pass
     except KeyboardInterrupt:
         print("\n  Ctrl+C: apago visor y feed.")
     finally:
-        _apagar([p for p in procs if p is not None])
+        _apagar([x for x in procs if x is not None])
     return 0
 
 
