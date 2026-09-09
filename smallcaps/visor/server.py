@@ -444,7 +444,7 @@ def payload_vivo(riesgo: float, piso: float, modo: str | None = None) -> dict:
             r = {"ticker": tk, "bars": len(dia.bars),
                  "hora": hora(dia.bars[-1]), "precio": dia.bars[-1][4],
                  "expansion": None, "apertura": None, "descartes": [malo],
-                 "tramos": []}
+                 "gap": None, "tramos": []}
         else:
             r = _vivo.evaluar(dia, riesgo, piso, modo)
 
@@ -543,6 +543,9 @@ def _papel_vivo(tk: str, f: str, dia, r: dict, _vivo) -> dict:
                    # El front lo usa para pintar "revisar el dato" en ambar.
                    # `evaluar` lo setea desde siempre; nunca habia viajado.
                    "sin_premarket": bool(r.get("sin_premarket")),
+                   "gap": r.get("gap"),
+                   "fuera_censo": bool(r.get("fuera_censo")),
+                   "sin_gap": bool(r.get("sin_gap")),
                    "pico": r.get("pico"), "vivas": r.get("vivas"),
                    "equity": r.get("equity"), "comision": r.get("comision"),
                    "limite": r.get("limite"),
@@ -810,6 +813,13 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", tipo)
         self.send_header("Content-Length", str(len(cuerpo)))
+        # SIN CACHE, A PROPOSITO. No habia ninguna cabecera, asi que el
+        # navegador cacheaba por heuristica: se actualizaba la app, se recargaba
+        # la pagina, y seguia corriendo el JS viejo. En una pantalla con la que
+        # se opera eso es el mismo problema que el feed frenado — muestra algo
+        # que ya no es cierto y no avisa. Es un servidor local de un solo
+        # usuario: no hay nada que ahorrar cacheando.
+        self.send_header("Cache-Control", "no-store, must-revalidate")
         self.end_headers()
         self.wfile.write(cuerpo)
 

@@ -225,19 +225,40 @@
 
   /* Entradas y cierres con su $. Se separan de `grafico.js` a propósito: acá un
      tramo puede estar ABIERTO, que es un estado que el histórico no tiene. */
+  /* ENTRADA Y CIERRE DICEN COSAS DISTINTAS Y POR ESO SE VEN DISTINTAS.
+     La entrada es un hecho todavia sin resultado: cuantas acciones entraron, y
+     nada mas. Llevaba el numero de tramo y el precio — los dos ya estan en la
+     tabla y en el eje, y con nueve tramos seguidos tapaban las velas justo
+     donde hay que mirar. Va en GRIS porque una entrada no es buena ni mala.
+     El cierre SI tiene resultado: otro color, y su PnL. Verde o rojo es una
+     afirmacion sobre plata, y solo el cierre puede hacerla. */
+  const M_GRIS = '#8f9bb3', M_VERDE = '#26a69a', M_ROJO = '#ef5350';
+
   function marcas(p, off) {
     const base = ((p.sesion && p.sesion.apertura) || 0) + off;
     const hAts = (h) => alBucket(base + Math.round((h - 9.5) * 3600));
     const m = [];
-    (p.trades_estrategia || []).forEach(function (t, i) {
+    const plata = (v) => `${v >= 0 ? '+' : '−'}$${n(Math.abs(v), 2)}`;
+    /* Los cierres de las 16:00 caen todos en el mismo minuto: dibujados uno
+       por uno se tapan entre si y no se lee ninguno. Se juntan en una marca
+       con el total; el PnL tramo por tramo esta en la tabla de abajo. */
+    const cierres = new Map();
+    (p.trades_estrategia || []).forEach(function (t) {
       m.push({ time: hAts(t.hora_entrada), position: 'aboveBar',
-               color: '#ef5350', shape: 'arrowDown',
-               text: `${i + 1} $${n(t.precio_entrada)}` });
-      if (t.motivo !== 'abierta' && t.hora_salida != null) {
-        m.push({ time: hAts(t.hora_salida), position: 'belowBar',
-                 color: t.pnl >= 0 ? '#26a69a' : '#ef5350', shape: 'arrowUp',
-                 text: `${t.motivo} ${signo(t.pnl)}$${n(t.pnl, 1)}` });
-      }
+               color: M_GRIS, shape: 'arrowDown',
+               text: `${n(t.acciones, 0)}` });
+      if (t.motivo === 'abierta' || t.hora_salida == null) return;
+      const k = hAts(t.hora_salida) + '|' + t.motivo;
+      const y = cierres.get(k) || { time: hAts(t.hora_salida), motivo: t.motivo,
+                                    pnl: 0, n: 0 };
+      y.pnl += t.pnl || 0; y.n += 1;
+      cierres.set(k, y);
+    });
+    cierres.forEach(function (c) {
+      m.push({ time: c.time, position: 'belowBar',
+               color: c.pnl >= 0 ? M_VERDE : M_ROJO, shape: 'arrowUp',
+               text: c.n === 1 ? `${c.motivo} ${plata(c.pnl)}`
+                 : `${c.motivo} ×${c.n} ${plata(c.pnl)}` });
     });
     m.sort((a, b) => a.time - b.time);
     return m;
@@ -398,6 +419,8 @@
            pre-market vs cierre previo" — o sea, cuánto corrió ANTES de abrir.
            El nombre viejo es el del motor y ahí se queda; el rótulo de la
            pantalla tiene que decir qué mide. */
+        cifra(e.gap != null ? signo(e.gap) + n(e.gap, 0) + '%' : null, 'gap 9:30',
+              e.fuera_censo ? 'neg' : ''),
         cifra(e.expansion != null ? signo(e.expansion) + n(e.expansion, 0) + '%' : null,
               'pre-market'),
         cifra(e.barras, 'barras'),
@@ -976,6 +999,11 @@
        no llego. Va en ambar como "revisar", con su propia forma porque la
        accion es otra: no hay que tocar nada en la plataforma, hay que
        levantar el feed. */
+    /* No gapeó: no es un descarte de la estrategia sino de la POBLACION. El
+       papel no tendría que haber estado en la lista, y eso se arregla armando
+       la watchlist temprano (o con `reconstruir.py`), no mirando el gráfico. */
+    fueracenso: { nombre: 'no gapeó — fuera del censo',
+                  d: '<circle cx="8" cy="8" r="6.2"/><path d="M4.4 11.6l7.2-7.2"/>' },
     sinfeed:    { nombre: 'sin barras del feed',
                   d: '<circle cx="8" cy="8" r="6.2" stroke-dasharray="2.2 2.2"/>' },
     revisar:    { nombre: 'revisar el dato',
@@ -999,6 +1027,7 @@
        como "todavia no abrio" — el error de configuracion desaparecido
        adentro de un estado normal, que es la peor forma de perderlo. */
     if (e.sin_feed) return 'sinfeed';
+    if (e.fuera_censo || e.sin_gap) return 'fueracenso';
     if (e.sin_premarket) return 'revisar';
     if (d.some((x) => x.includes('no se parece'))) return 'revisar';
     if (d.some((x) => x.includes('todavia en pre-market'))) return 'premarket';
@@ -1015,7 +1044,7 @@
      de nadie: pone a un papel descartado arriba de uno que está short. Los que
      piden algo van primero, y los que hoy no juegan al fondo. */
   const PRIORIDAD = ['operando', 'espera', 'revisar', 'sinfeed', 'abriendo',
-                     'cerrado', 'premarket', 'nocalifica'];
+                     'cerrado', 'premarket', 'nocalifica', 'fueracenso'];
 
   /* EL RESUMEN, QUE ES EL EMBUDO EN UN RENGLON. Había un embudo de siete filas
      en el bloque de sesión y duró una tarde: con seis papeles entrando, cada
@@ -1024,7 +1053,7 @@
   const GRUPOS = [
     ['opera',   ['operando', 'cerrado']],
     ['esperan', ['espera']],
-    ['fuera',   ['nocalifica', 'premarket', 'abriendo']],
+    ['fuera',   ['nocalifica', 'premarket', 'abriendo', 'fueracenso']],
     ['revisar', ['revisar', 'sinfeed']],
   ];
 

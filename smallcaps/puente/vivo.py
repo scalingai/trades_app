@@ -60,6 +60,19 @@ STOP_PCT = 45.0
 DESDE = 10.0
 EXPANSION_MIN = 0.0            # la variante de 7,5 sesiones/mes
 APERTURA = "reclaim"
+# EL GAP DEL CENSO, VERIFICADO ACA Y NO DADO POR SUPUESTO.
+#
+# `evaluar` daba por hecho que la watchlist YA era la poblacion del censo y
+# sólo aplicaba los filtros de la estrategia (apertura + pre-market). El
+# 2026-09-09 la watchlist se armó con el mercado cerrado y trajo papeles que
+# habían corrido DURANTE el día en vez de gapear: FTFT gapeó -3% y la pantalla
+# igual le dibujó nueve tramos y una pérdida. La estrategia nunca se midió
+# sobre papeles así.
+#
+# El gap se mide acá con lo que ya hay en pantalla —primera vela de las 09:30
+# contra el cierre previo—, que es la definición de `poblacion_observable.py`.
+# Verificar cuesta una división; confiar costó un día entero de tramos falsos.
+GAP_CENSO = 25.0
 # $2,05 y no $2,00: TradeZero International opera "stocks below $2" solo en
 # cash, o sea sin short. Con el piso exactamente en $2 un papel a $2,00 pasaba
 # el filtro y no se podia operar. Cinco centavos de aire.
@@ -347,6 +360,24 @@ def evaluar(dia, riesgo, piso, modo=None):
 
     if ahora < APERTURA_RTH:
         out["descartes"].append("todavia en pre-market")
+        return out
+
+    # EL PAPEL, ¿ES DE LA POBLACION? Antes que cualquier filtro de estrategia:
+    # si no gapeó, no importa cómo abrió, porque nada de lo medido aplica.
+    gap = None
+    if dia.prev_close and dia.rth_open:
+        gap = (dia.rth_open / dia.prev_close - 1.0) * 100.0
+    out["gap"] = gap
+    if gap is None:
+        out["sin_gap"] = True
+        out["descartes"].append(
+            "sin gap medible: falta el cierre previo o la vela de las 09:30")
+        return out
+    if gap < GAP_CENSO:
+        out["fuera_censo"] = True
+        out["descartes"].append(
+            f"gap {gap:+.0f}% < {GAP_CENSO:.0f}% — no es del censo, "
+            "la estrategia no se midió sobre papeles asi")
         return out
 
     # SIN PREMARKET NO HAY EXPANSION, Y EL FILTRO NO SE DA CUENTA.

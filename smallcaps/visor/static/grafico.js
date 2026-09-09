@@ -79,28 +79,39 @@ window.VisorGrafico = (function () {
     const base = (p.sesion?.apertura || 0) + off;
     const hAts = (h) => base + Math.round((h - 9.5) * 3600);
     const marcas = [];
-    ts.forEach((t, i) => {
+    /* ENTRADA Y SALIDA DICEN COSAS DISTINTAS Y POR ESO SE VEN DISTINTAS.
+       La entrada es un hecho sin resultado todavia: cuantas acciones entraron,
+       y nada mas. Llevaba el numero de tramo y el precio, que ya estan en la
+       tabla y en el eje — cinco entradas seguidas tapaban las velas justo donde
+       hay que mirar. Va en gris: una entrada no es buena ni mala.
+       La salida SI tiene resultado, y es lo unico que se pinta verde o rojo. */
+    const GRIS = '#8f9bb3', VERDE = '#26a69a', ROJO = '#ef5350';
+    const plata = (v) => `${v >= 0 ? '+' : '−'}$${n(Math.abs(v), 2)}`;
+    ts.forEach((t) => {
       marcas.push({
-        time: hAts(t.hora_entrada), position: 'aboveBar', color: '#ef5350',
-        shape: 'arrowDown', text: `S${i + 1} $${n(t.precio_entrada, 2)}`,
+        time: hAts(t.hora_entrada), position: 'aboveBar', color: GRIS,
+        shape: 'arrowDown', text: `${n(t.acciones, 0)}`,
       });
       /* Las salidas al cierre se apilan todas en el mismo minuto y tapan las
-         velas. Se agrupan en una sola marca; las individuales viven en la tabla. */
+         velas. Se agrupan mas abajo; las individuales viven en la tabla. */
       if (t.hora_salida != null && t.motivo !== 'cierre') {
         marcas.push({
           time: hAts(t.hora_salida), position: 'belowBar',
-          color: t.pnl >= 0 ? '#26a69a' : '#ef5350', shape: 'arrowUp',
-          text: `C${i + 1} ${t.pnl >= 0 ? '+' : ''}$${n(t.pnl, 1)}`,
+          color: t.pnl >= 0 ? VERDE : ROJO, shape: 'arrowUp',
+          text: `${t.motivo} ${plata(t.pnl)}`,
         });
       }
     });
     const alCierre = ts.filter((t) => t.motivo === 'cierre');
     if (alCierre.length) {
       const suma = alCierre.reduce((a, t) => a + (t.pnl || 0), 0);
+      /* Uno solo: se dice su PnL. Varios: no se pueden separar en el mismo
+         minuto sin taparse, asi que va el total y cuantos son. */
       marcas.push({
         time: hAts(alCierre[0].hora_salida), position: 'belowBar',
-        color: suma >= 0 ? '#26a69a' : '#ef5350', shape: 'arrowUp',
-        text: `cierra ${alCierre.length} ${suma >= 0 ? '+' : ''}$${n(suma, 0)}`,
+        color: suma >= 0 ? VERDE : ROJO, shape: 'arrowUp',
+        text: alCierre.length === 1 ? `cierre ${plata(suma)}`
+          : `cierre ×${alCierre.length} ${plata(suma)}`,
       });
     }
     marcas.sort((a, b) => a.time - b.time);
