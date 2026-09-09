@@ -159,7 +159,34 @@ def _armar(store, db, ticker: str, d: str):
     return dia
 
 
-def dias_de_poblacion() -> set[tuple[str, str]]:
+# EL UMBRAL DE GAP DEL CENSO, APLICADO AL LEER Y NO AL ESCRIBIR.
+#
+# `poblacion_obs` guarda el `gap_pct` de cada evento, asi que la tabla puede
+# tener papeles de gap mas bajo sin que eso cambie lo que mide el proyecto: el
+# censo es "los que pasan ESTE umbral", no "lo que haya en la tabla".
+#
+# La distincion no es teorica. El 2026-09-09 se bajo la banda 20-25% para
+# contestar una pregunta puntual (IRD gapeo +23% y quedo afuera por dos
+# puntos). Insertando esas 759 filas sin este filtro, TODAS las mediciones
+# historicas del proyecto habrian cambiado en silencio: 2.046 sesiones pasan a
+# 2.805 y ningun numero publicado vuelve a dar lo mismo, sin un solo aviso.
+#
+# Se puede ampliar por variable de entorno, para un experimento explicito:
+#   SMALLCAPS_MIN_GAP=20 python <lo que sea>
+GAP_CENSO = 25.0
+
+
+def _min_gap() -> float:
+    raw = os.environ.get("SMALLCAPS_MIN_GAP")
+    if not raw:
+        return GAP_CENSO
+    try:
+        return float(raw)
+    except ValueError:
+        return GAP_CENSO
+
+
+def dias_de_poblacion(min_gap: float | None = None) -> set[tuple[str, str]]:
     """El censo observable de `poblacion_observable.py`.
 
     **Por qué hace falta separarlo.** Cuando termine la descarga del censo, la
@@ -170,9 +197,11 @@ def dias_de_poblacion() -> set[tuple[str, str]]:
 
     Devuelve vacío si la tabla no existe todavía.
     """
+    umbral = _min_gap() if min_gap is None else min_gap
     db = sqlite3.connect(config.bars_db_path())
     try:
-        return {(t, d) for t, d in db.execute("SELECT ticker,d FROM poblacion_obs")}
+        return {(t, d) for t, d in db.execute(
+            "SELECT ticker,d FROM poblacion_obs WHERE gap_pct >= ?", (umbral,))}
     except sqlite3.OperationalError:
         return set()
     finally:

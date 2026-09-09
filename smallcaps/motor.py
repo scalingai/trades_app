@@ -60,6 +60,17 @@ R_BASE = 50.0
 COSTO_ACCION = 0.04
 LOCATE_REF = 0.20                 # el pesimista de Espes, para la columna neta
 RESULTADOS = Path(config.data_dir()) / "estrategias.json"
+def _cache_universo() -> Path:
+    """Un pickle por umbral de censo. Compartir uno solo entre umbrales hace
+    que un experimento con `SMALLCAPS_MIN_GAP=20` lea el universo armado con
+    25% y devuelva el resultado viejo con cara de nuevo."""
+    from dias import GAP_CENSO, _min_gap
+    g = _min_gap()
+    if abs(g - GAP_CENSO) < 1e-9:
+        return Path(config.data_dir()) / "universo.pkl"
+    return Path(config.data_dir()) / f"universo_gap{g:g}.pkl"
+
+
 CACHE = Path(config.data_dir()) / "universo.pkl"
 
 
@@ -78,8 +89,9 @@ def universo(refrescar: bool = False):
     procedencia. Si algún día el caché viniera de afuera, esto tiene que
     cambiar a un formato sin ejecución (JSON/columnas).
     """
-    if CACHE.exists() and not refrescar:
-        with open(CACHE, "rb") as fh:
+    cache = _cache_universo()
+    if cache.exists() and not refrescar:
+        with open(cache, "rb") as fh:
             return pickle.load(fh)
 
     db = sqlite3.connect(config.bars_db_path())
@@ -95,7 +107,7 @@ def universo(refrescar: bool = False):
         dia.dolar_dia = sum((b[5] or 0) * (b[4] or 0) for b in dia.bars)
         dia.float_acciones = flo.get((dia.ticker, dia.d))
         out.append(dia)
-    with open(CACHE, "wb") as fh:
+    with open(cache, "wb") as fh:
         pickle.dump(out, fh, protocol=pickle.HIGHEST_PROTOCOL)
     return out
 
